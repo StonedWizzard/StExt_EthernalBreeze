@@ -42,6 +42,7 @@ namespace Gothic_II_Addon
     {
         struct 
         {
+            int Flags;
             int Damage[8];
             int DamageTotal;
             int DamageType;
@@ -51,6 +52,8 @@ namespace Gothic_II_Addon
         }ScriptInstance;
 
         oCNpc* Attacker;
+        oCNpc* Target;
+        oCItem* Weapon;
         oCNpc::oSDamageDescriptor* Desc;
     };
 
@@ -61,5 +64,21 @@ namespace Gothic_II_Addon
         int throwInstance;
         int damage;
         int damageType;
+    };
+
+    struct CDamageMeta
+    {
+        unsigned long DescriptorFlags;
+        bool IsInitial;
+        bool IsExtraDamage;
+        bool IsDot;
+        bool IsAbility;
+        bool IsDamageInfo;
+        bool IsConditionValid;
+        int FightMode;
+        int AbilityId;
+        int SpellId;
+        int DamageType;
+        int DamageFlags;
     };
 }

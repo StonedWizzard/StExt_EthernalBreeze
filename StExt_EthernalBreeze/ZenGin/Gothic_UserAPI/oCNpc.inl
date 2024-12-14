@@ -6,11 +6,11 @@
 // HOOKS
 void oCNpc::OnDamage_StExt(oSDamageDescriptor& desc);
 
-void oCNpc::OnDamage_Hit_StExt(oSDamageDescriptor& desc);
+//void oCNpc::OnDamage_Hit_StExt(oSDamageDescriptor& desc);
 
 //void oCNpc::OnDamage_Events_StExt(oSDamageDescriptor& desc);
 
-void oCNpc::OnDamage_Anim_StExt(oSDamageDescriptor& desc);
+//void oCNpc::OnDamage_Anim_StExt(oSDamageDescriptor& desc);
 
 void oCNpc::ChangeAttribute_StExt(int attribute, int value);
 

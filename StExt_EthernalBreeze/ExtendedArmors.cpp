@@ -13,7 +13,7 @@ namespace Gothic_II_Addon
     const int StExt_ExtraItemsDisplayMode_UnderArmor = 0;		// Overlay extra items by armor
     const int StExt_ExtraItemsDisplayMode_None = 1;				// Never display such items
     const int StExt_ExtraItemsDisplayMode_OverlayArmor = 2;		// Hide original armor and display only such items
-    const int StExt_ExtraItemsDisplayMode_Always = 3;			// Displa this items anyway
+    const int StExt_ExtraItemsDisplayMode_Always = 3;			// Display this items anyway
 
     zSTRING GetAdditionalItemSlotName(int wear) { return string::Combine("%s%i", SlotPrefix, wear); }
     bool IsAdditionalItemSlot(const zSTRING& name) { return name.StartWith(SlotPrefix); }
@@ -75,10 +75,7 @@ namespace Gothic_II_Addon
 
         if ((displayMode == StExt_ExtraItemsDisplayMode_None) ||
             ((displayMode == StExt_ExtraItemsDisplayMode_UnderArmor) && hasArmor)) doNotApplySkin = true;
-        if ((displayMode == StExt_ExtraItemsDisplayMode_None) && hasArmor)
-        {
-            // do nothing. Not implemented
-        }
+        //if ((displayMode == StExt_ExtraItemsDisplayMode_OverlayArmor) && hasArmor) RemoveSoftSkinItem(player->GetEquippedArmor());
 
         if (doNotApplySkin) return;        
 
@@ -180,7 +177,6 @@ namespace Gothic_II_Addon
             DisplayCannotUse();
             return;
         }
-
         if (!CanEquipAdditionalArmor(item)) return;        
         
         if (this->IsSelfPlayer())
@@ -194,6 +190,12 @@ namespace Gothic_II_Addon
 
         if (this->IsSelfPlayer())
         {
+            if ((item->wear == wear_head) && (bool)parser->GetSymbol("StExt_Config_HideHelm")->single_intdata)
+            {
+                zCModel* pModel = this->GetModel();
+                zCModelNodeInst* pNode = pModel->SearchNode("ZS_HELMET");
+                pModel->SetNodeVisual(pNode, Null, false);
+            }
             if (IsAdditionalArmorItem(item) && !item->HasFlag(ITM_FLAG_ACTIVE))
                 EquipAdditionalArmorItem(item);
         }

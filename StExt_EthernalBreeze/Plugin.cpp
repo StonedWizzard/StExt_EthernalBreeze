@@ -4,161 +4,206 @@
 
 namespace Gothic_II_Addon
 {
-    
+    void Game_Entry() { }
+    void Game_Exit() { }
 
-  void Game_Entry() { }
-  
-  void Game_Init() 
-  {
-      CreateDebugFile();
-      DEBUG_MSG("StExt - Initialize mod...");
-      StonedExtension_InitModData();
-      StonedExtension_InitUi();      
-      DEBUG_MSG("StExt - Mod initialized!");
-      DEBUG_MSG("");
-  }
+    // Initialize Game (mod) (kind of entry point)
+    void Game_Init()
+    {
+        CreateDebugFile();
+        DEBUG_MSG("StExt - Initialize mod...");
+        StonedExtension_InitModData();
+        StonedExtension_InitUi();
+        DEBUG_MSG("StExt - Mod initialized!");
+        DEBUG_MSG("");
+    }
 
-  void Game_Exit() { }
+    // Game Loop
+    void Game_PreLoop() { StatsUncaperLoop(); }
 
-  void Game_PreLoop() 
-  { 
-     /*if (ogame && player && OnPreLoopFunc != Invalid)
-          parser->CallFunc(OnPreLoopFunc);*/
-      StatsUncaperLoop();
-  }
+    void Game_Loop()
+    {
+        if (ogame && player)
+        {
+            UpdateUiStatus();
+            StonedExtension_Loop();
+            TimedEffectsLoop();
+        }
+    }
 
-  void Game_Loop() 
-  { 
-      StonedExtension_Loop(); 
-      TimedEffectsLoop();
-  }
+    void Game_PostLoop()
+    {
+        ClearDamageMeta();
+        StatsUncaperLoop();
+    }
 
-  void Game_PostLoop() 
-  {
-      /*if (ogame && player && OnPostLoopFunc != Invalid)
-          parser->CallFunc(OnPostLoopFunc);*/
-      StatsUncaperLoop();
-  }
+    void Game_MenuLoop() 
+    { 
+        UpdateUiStatus();
+        DrawModInfo(); 
+    }
 
-  void Game_MenuLoop() 
-  {
-      DrawModInfo();
-  }
+    // Information about current saving or loading world
+    TSaveLoadGameInfo& SaveLoadGameInfo = UnionCore::SaveLoadGameInfo;
 
-  // Information about current saving or loading world
-  TSaveLoadGameInfo& SaveLoadGameInfo = UnionCore::SaveLoadGameInfo;
+    // Save game
+    void Game_SaveBegin() 
+    {
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> START SAVE GAME");
+        DEBUG_MSG("");
+    }
+    void Game_SaveEnd()
+    {
+        if (!IsLoading && !IsLevelChanging)
+        {
+            DEBUG_MSG("");
+            SaveModState();
+            SaveTimedEffects();
+            SaveGeneratedItems();
+        }
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> END SAVE GAME");
+        DEBUG_MSG("");
+    }
 
-  void Game_SaveBegin() { }
+    // Load New Game
+    void Game_LoadBegin_NewGame()
+    {
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> LoadBegin: NEW GAME");
+        DEBUG_MSG("");
+        IsLoading = true;
+        parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
+        parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
 
-  void Game_SaveEnd() 
-  {
-      DEBUG_MSG("End save game...");
-      DEBUG_MSG("");
-      SaveModState();
-      SaveTimedEffects();
-      SaveGeneratedItems();
-  }
+        MsgTray_Clear();
+        StopUncaper();
+        ClearDamageMeta();
+        ClearRegisteredNpcs();
+        ClearGeneratedItemsData();
+        ResetModState();
+        TimedEffectsOnNewGame();
+    }
+    void Game_LoadEnd_NewGame() 
+    {
+        IsLoading = false;
+        IsLevelChanging = false;
+        parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
+        parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
+        parser->CallFunc(OnLoadEndFunc);
+        DrawModInfo();
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> LoadEnd: NEW GAME");
+        DEBUG_MSG("");
+    }
 
-  void LoadBegin() 
-  { 
-      DEBUG_MSG("Begin load game...");
-      DEBUG_MSG("");
-      StopUncaper();
-      ClearRegisteredNpcs();
-      LoadGeneratedItems();
-  }
+    // Load Save Game
+    void Game_LoadBegin_SaveGame() 
+    {
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> LoadBegin: SAVE GAME");
+        DEBUG_MSG("");
+        IsLoading = true;
+        parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
+        parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
 
-  void LoadEnd() 
-  {
-      DEBUG_MSG("End load game...");
-      DEBUG_MSG("");
-      LoadModState();
-      LoadTimedEffects();
-      parser->CallFunc(OnLoadEndFunc);
-      DrawModInfo();
-      DEBUG_MSG("Game loaded!");
-  }
+        MsgTray_Clear();
+        ClearDamageMeta();
+        StopUncaper();
+        ClearRegisteredNpcs();
+        LoadGeneratedItems();
+    }
+    void Game_LoadEnd_SaveGame() 
+    {
+        LoadModState();
+        LoadTimedEffects();
 
-  void Game_LoadBegin_NewGame()
-  {
-      DEBUG_MSG("Start new game...");
-      DEBUG_MSG("");
-      LoadBegin();
-      ResetModState();
-      ClearRegisteredNpcs();
-      TimedEffectsOnNewGame();
-      ClearGeneratedItemsData();
-  }
+        IsLoading = false;
+        IsLevelChanging = false;
+        parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
+        parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
+        parser->CallFunc(OnLoadEndFunc);
+        DrawModInfo();
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> LoadEnd: SAVE GAME");
+        DEBUG_MSG("");
+    }
 
-  void Game_LoadEnd_NewGame() { LoadEnd(); }
+    // Load Next Level
+    void Game_LoadBegin_Trigger()
+    {
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> LoadBegin: CHANGE LEVEL");
+        DEBUG_MSG("");
 
-  void Game_LoadBegin_SaveGame() { LoadBegin(); }
+        IsLevelChanging = true;
+        IsLoading = true;
+        parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
+        parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
+        parser->CallFunc(OnLevelChangeFunc);
+        MsgTray_Clear();        
+        ClearDamageMeta();
+    }
+    void Game_LoadEnd_Trigger() { }
+    void Game_LoadBegin_ChangeLevel()
+    {
+        TimedEffectsFinalizeLoop();
+        StopUncaper();
+        ClearRegisteredNpcs();
+    }
+    void Game_LoadEnd_ChangeLevel()
+    {
+        IsLevelChanging = false;
+        IsLoading = false;
+        parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
+        parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
+        parser->CallFunc(OnLoadEndFunc);
+        DEBUG_MSG("");
+        DEBUG_MSG("-------> LoadEnd: CHANGE LEVEL");
+        DEBUG_MSG("");
+    }    
 
-  void Game_LoadEnd_SaveGame() { LoadEnd(); }
+    void Game_Pause() { UpdateUiStatus(); }
 
-  void Game_LoadBegin_ChangeLevel() { LoadBegin(); }
+    void Game_Unpause() { UpdateUiStatus(); }
 
-  void Game_LoadEnd_ChangeLevel()
-  {
-      LoadEnd();
-      parser->GetSymbol("StExt_LevelChanging")->SetValue(false, 0);
-      DEBUG_MSG("Level changed!");
-      DEBUG_MSG("");
-  }
+    void Game_DefineExternals()
+    {
+        ArraysOperations_DefineExternals();
+        StonedExtension_DefineExternals();
+    }
 
-  void Game_LoadBegin_Trigger() 
-  {
-      DEBUG_MSG("");
-      DEBUG_MSG("Start change level...");
-      parser->GetSymbol("StExt_LevelChanging")->SetValue(true, 0);
-      parser->CallFunc(OnLevelChangeFunc);
-      TimedEffectsFinalizeLoop();
-      DEBUG_MSG("Level change processed by script!");
-      DEBUG_MSG("");
-  }
-  
-  void Game_LoadEnd_Trigger() { }
-  
-  void Game_Pause() { }
-  
-  void Game_Unpause() { }
-  
-  void Game_DefineExternals() 
-  {
-      ArraysOperations_DefineExternals();
-      StonedExtension_DefineExternals();
-  }
+    void Game_ApplyOptions() { }
 
-  void Game_ApplyOptions() { }
+    /*
+    Functions call order on Game initialization:
+      - Game_Entry           * Gothic entry point
+      - Game_DefineExternals * Define external script functions
+      - Game_Init            * After DAT files init
 
-  /*
-  Functions call order on Game initialization:
-    - Game_Entry           * Gothic entry point
-    - Game_DefineExternals * Define external script functions
-    - Game_Init            * After DAT files init
-  
-  Functions call order on Change level:
-    - Game_LoadBegin_Trigger     * Entry in trigger
-    - Game_LoadEnd_Trigger       *
-    - Game_Loop                  * Frame call window
-    - Game_LoadBegin_ChangeLevel * Load begin
-    - Game_SaveBegin             * Save previous level information
-    - Game_SaveEnd               *
-    - Game_LoadEnd_ChangeLevel   *
-  
-  Functions call order on Save game:
-    - Game_Pause     * Open menu
-    - Game_Unpause   * Click on save
-    - Game_Loop      * Frame call window
-    - Game_SaveBegin * Save begin
-    - Game_SaveEnd   *
-  
-  Functions call order on Load game:
-    - Game_Pause              * Open menu
-    - Game_Unpause            * Click on load
-    - Game_LoadBegin_SaveGame * Load begin
-    - Game_LoadEnd_SaveGame   *
-  */
+    Functions call order on Change level:
+      - Game_LoadBegin_Trigger     * Entry in trigger
+      - Game_LoadEnd_Trigger       *
+      - Game_Loop                  * Frame call window
+      - Game_LoadBegin_ChangeLevel * Load begin
+      - Game_SaveBegin             * Save previous level information
+      - Game_SaveEnd               *
+      - Game_LoadEnd_ChangeLevel   *
+
+    Functions call order on Save game:
+      - Game_Pause     * Open menu
+      - Game_Unpause   * Click on save
+      - Game_Loop      * Frame call window
+      - Game_SaveBegin * Save begin
+      - Game_SaveEnd   *
+
+    Functions call order on Load game:
+      - Game_Pause              * Open menu
+      - Game_Unpause            * Click on load
+      - Game_LoadBegin_SaveGame * Load begin
+      - Game_LoadEnd_SaveGame   *
+    */
 
 #define AppDefault True
   CApplication* lpApplication = !CHECK_THIS_ENGINE ? Null : CApplication::CreateRefApplication(

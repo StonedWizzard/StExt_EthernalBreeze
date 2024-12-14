@@ -3,4 +3,4 @@
 // User API for zCViewDialogChoice
 // Add your methods here
 
-zBOOL zCViewDialogChoice::HandleEvent_StExt(int key);
+int zCViewDialogChoice::HandleEvent_StExt(int key);

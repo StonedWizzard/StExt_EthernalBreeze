@@ -25,7 +25,7 @@ namespace Gothic_II_Addon
     }
     inline ItemCondition* GetConditionData(int id)
     {
-        for (int i = 0; i < GeneratorConfigs.ConditionsList.GetNum(); i++)
+        for (uint i = 0U; i < GeneratorConfigs.ConditionsList.GetNum(); i++)
         {
             if (GeneratorConfigs.ConditionsList[i].Id == id)
                 return &GeneratorConfigs.ConditionsList[i];
@@ -35,7 +35,7 @@ namespace Gothic_II_Addon
     inline ItemCondition* GetRandomConditionData(int itemType, int used1, int used2, int used3)
     {
         Array<ItemCondition*> allowedConditions = Array<ItemCondition*>();
-        for (int i = 0; i < GeneratorConfigs.ConditionsList.GetNum(); i++)
+        for (uint i = 0U; i < GeneratorConfigs.ConditionsList.GetNum(); i++)
         {
             ItemCondition* cond = &GeneratorConfigs.ConditionsList[i];
             if ((cond->AllowedItemTypes != 0) && !HasFlag(cond->AllowedItemTypes, itemType))
@@ -219,7 +219,7 @@ namespace Gothic_II_Addon
                 {
                     if (i == 0) continue;
                     enchantment->Damage[i] = GetRandomRange(secondaryDamageMin, secondaryDamageMax);
-                    extraDamageChance *= 0.5;
+                    extraDamageChance *= 0.5f;
                     extraDamagesCount += 1;
                     damageTypes |= damageType;
                 }
@@ -416,8 +416,12 @@ namespace Gothic_II_Addon
             if ((option->Rarity > rnd) && (totalOptions > 0)) continue;
 
             int optionValue = GetRandomRange(option->StatValueMin * statValueMult, option->StatValueMax * statValueMult) * GeneratorConfigs.StatGlobalPowerMult;
-            if (optionValue > option->StatMaxCap) optionValue = option->StatMaxCap;
-            if (optionValue <= 0) optionValue = 1;
+            float capBonusMult = (itemLevel * GeneratorConfigs.StatMaxCapBonusFromLevel) + (itemRank * GeneratorConfigs.StatMaxCapBonusFromRank);
+            int optionMaxCap = option->StatMaxCap >= 10 ? option->StatMaxCap + (option->StatMaxCap * capBonusMult) : 
+                capBonusMult > 0.5f ? option->StatMaxCap + (option->StatMaxCap * 0.5f) : option->StatMaxCap + (option->StatMaxCap * capBonusMult);
+
+            if (optionValue > optionMaxCap) optionValue = optionMaxCap <= 0 ? 1 : optionMaxCap;
+            if (optionValue < option->StatMinCap) optionValue = option->StatMinCap > 0 ? option->StatMinCap : 1;
 
             //DEBUG_MSG("option max (1): " + Z option->StatMaxCap);
             //DEBUG_MSG("optionValue (2): " + Z optionValue);
@@ -712,7 +716,7 @@ namespace Gothic_II_Addon
     {
         if (item)
         {
-            if ((item->spell > 0) && !HasFlag(item->mainflag, item_kat_nf))
+            if ((item->spell > 0) && !HasFlag(item->mainflag, item_kat_rune))
             {
                 C_EnchantmentData* enchantment = GetEnchantmentData(item->spell);
                 if (enchantment)
@@ -829,8 +833,8 @@ namespace Gothic_II_Addon
         {
             DEBUG_MSG("Select existing item...");
             Array<C_ItemData*> reservoir = Array<C_ItemData*>();
-            int powerMin = power * 0.75;
-            int powerMax = power * 1.25;
+            int powerMin = power * 0.75f;
+            int powerMax = power * 1.25f;
             for (const auto& pair : ItemsData)
             {
                 if (HasFlag(pair.second->Type, itemTypes) && !HasFlag(pair.second->Flags, ItemFlag_Crafted) && 
@@ -912,7 +916,7 @@ namespace Gothic_II_Addon
             oCItem* pItem = contents->Get(i);
             if (!pItem) { i++; continue; }
             instName = pItem->GetInstanceName();
-            if (!instName.StartWith("STEXT_GENERATED_")) { i++; continue; }
+            if (!instName.StartWith(GenerateItemPrefix)) { i++; continue; }
             if (pItem->HasFlag(ITM_FLAG_ACTIVE)) { i++; continue; }
             if (flags != 0)
             {
@@ -946,7 +950,7 @@ namespace Gothic_II_Addon
             oCItem* pItem = contents->Get(i);
             if (!pItem) { i++; continue; }
             instName = pItem->GetInstanceName();
-            if (!instName.StartWith("STEXT_GENERATED_")) { i++; continue; }
+            if (!instName.StartWith(GenerateItemPrefix)) { i++; continue; }
 
             C_ItemData* data = GetItemData(instName);
             if (!data) { i++; continue; }
@@ -1098,6 +1102,7 @@ namespace Gothic_II_Addon
 
         if (!item || !IsSelfPlayer()) return;
         if (Gothic_II_Addon::HasFlag(item->mainflag, item_kat_rune)) return;
+        if (!item->GetInstanceName().StartWith(GenerateItemPrefix)) return;
 
         C_EnchantmentData* enchantment = GetEnchantmentData(item);
         if (!enchantment)
@@ -1134,6 +1139,7 @@ namespace Gothic_II_Addon
 
         if (!item || !IsSelfPlayer()) return;
         if (Gothic_II_Addon::HasFlag(item->mainflag, item_kat_rune)) return;
+        if (!item->GetInstanceName().StartWith(GenerateItemPrefix)) return;
 
         C_EnchantmentData* enchantment = GetEnchantmentData(item);
         if (!enchantment)
@@ -1167,8 +1173,14 @@ namespace Gothic_II_Addon
     HOOK Hook_oCNpc_CanUse PATCH(&oCNpc::CanUse, &oCNpc::CanUse_StExt);
     int oCNpc::CanUse_StExt(oCItem* item)
     {
-        if (this->GetInstanceName().Upper() == "STEXT_HEROSHADOW")
-            return true;
-        return THISCALL(Hook_oCNpc_CanUse)(item);
+        int result = THISCALL(Hook_oCNpc_CanUse)(item);
+        if (!result && item)
+        {
+            if (this->GetInstanceName().Upper() == "STEXT_HEROSHADOW")
+                return true;
+            if (!this->IsAPlayer() && item->GetInstanceName().Upper().StartWith(GenerateItemPrefix))
+                return true;
+        }
+        return result;
     }
 }

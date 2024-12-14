@@ -13,8 +13,10 @@ namespace Gothic_II_Addon
 
 	struct ItemStatOption
 	{
+		zSTRING StatName;
 		int StatId;
 		int StatMaxCap;
+		int StatMinCap;
 		float StatValueMin;
 		float StatValueMax;
 		int IncopatibleItemTypes;
@@ -105,6 +107,8 @@ namespace Gothic_II_Addon
 		float StatGlobalGetChanceMult;
 		float StatGetChanceFromLevelMult;
 		float StatGetChanceFromRankMult;
+		float StatMaxCapBonusFromLevel;
+		float StatMaxCapBonusFromRank;
 
 		// Item magic abilities
 		int AbilitiesMaxCap;

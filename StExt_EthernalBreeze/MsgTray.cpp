@@ -33,10 +33,8 @@ namespace Gothic_II_Addon
 
 	void StonedExtension_MsgTray_Loop()
 	{
-		if (ogame && ogame->IsOnPause()) return;
-
 		UpdateCounter += 1;
-		if (ogame && UpdateCounter < UpdateInterval) return;
+		if (IsLoading || IsLevelChanging || (UpdateCounter < UpdateInterval) || (ogame && ogame->IsOnPause())) return;
 
 		if (!MsgTrayView)
 		{
@@ -81,4 +79,6 @@ namespace Gothic_II_Addon
 		MsgTrayBuffer.InsertFront(entry);
 		UpdateCounter += UpdateInterval;
 	}
+
+	void MsgTray_Clear() { MsgTrayBuffer.Clear(); }
 }

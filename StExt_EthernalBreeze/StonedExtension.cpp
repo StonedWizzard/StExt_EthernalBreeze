@@ -28,8 +28,8 @@ namespace Gothic_II_Addon
 
     void ClearRegisteredNpcs() 
     { 
-        RegisteredNpcs.clear();
-        //RegisteredNpcs = std::map<int, oCNpc*>();        
+        DEBUG_MSG("ClearRegisteredNpcs");
+        RegisteredNpcs.clear();     
     }
 
     int ValidateIntValue(int value, int min, int max)
@@ -114,17 +114,18 @@ namespace Gothic_II_Addon
 
     void StonedExtension_Loop()
     {
-        if (!ogame || !player) return;
+        if (IsLoading || IsLevelChanging) return;
+
         StonedExtension_Loop_StatMenu();
         StonedExtension_MsgTray_Loop();
-
         FpsCounter += 1;
         if (FpsTimer.AwaitExact(1000))
         {
             //DEBUG_MSG("Curernt fps: " + Z FpsCounter);
             parser->GetSymbol("StExt_Fps")->SetValue(FpsCounter, 0);
             FpsCounter = 0;
-        }        
+        }
+        PrintHeroEsBar();
     }
 
     int GetNextNpcUid()
@@ -145,11 +146,7 @@ namespace Gothic_II_Addon
             DEBUG_MSG("RegisterNpc - Try to register null Npc!");
             return;
         }
-        if (npcUid <= 0)
-        {
-            DEBUG_MSG("StExt_RegisterNpc - Try to register incorrect index to Npc!");
-            npcUid = GetNextNpcUid();
-        }
+        if (npcUid <= 0) { npcUid = GetNextNpcUid(); }
 
         if (RegisteredNpcs.find(npcUid) == RegisteredNpcs.end())
         {
@@ -288,6 +285,40 @@ namespace Gothic_II_Addon
         return true;
     }
 
+    int __cdecl StExt_FloatPow()
+    {
+        zCParser* par = zCParser::GetParser();
+        float m1, m2, result;
+        par->GetParameter(m2);
+        par->GetParameter(m1);
+        result = pow(m1, m2);
+        par->SetReturn(result);
+        return true;
+    }
+
+    int __cdecl StExt_IntPow()
+    {
+        zCParser* par = zCParser::GetParser();
+        int m1, m2, result;
+        par->GetParameter(m2);
+        par->GetParameter(m1);
+        result = pow(m1, m2);
+        par->SetReturn(result);
+        return true;
+    }
+
+    int __cdecl StExt_FloatPowAsInt()
+    {
+        zCParser* par = zCParser::GetParser();
+        float m2;
+        int m1, result;
+        par->GetParameter(m2);
+        par->GetParameter(m1);
+        result = static_cast<int>(pow(m1, m2));
+        par->SetReturn(result);
+        return true;
+    }
+
     int __cdecl StExt_GetPercentBasedOnValue()
     {
         zCParser* par = zCParser::GetParser();
@@ -414,6 +445,8 @@ namespace Gothic_II_Addon
         par->GetParameter(initFunc);
         par->GetParameter(radius);
         oCNpc* center = (oCNpc*)par->GetInstance();
+        oCNpc* oldSelfNpc = Null;
+        oCNpc* oldOtherNpc = Null;
 
         initFuncIndx = par->GetIndex(initFunc);
         condFuncIndx = par->GetIndex(condFunc);
@@ -431,6 +464,12 @@ namespace Gothic_II_Addon
             DEBUG_MSG("StExt_ForEachNpcInRadius -> npc's not found...");
             return false;
         }
+
+        zCPar_Symbol* sym = parser->GetSymbol("StExt_Self");
+        if (sym) oldSelfNpc = dynamic_cast<oCNpc*>((zCVob*)sym->GetInstanceAdr());
+        sym = parser->GetSymbol("StExt_Other");
+        if (sym) oldOtherNpc = dynamic_cast<oCNpc*>((zCVob*)sym->GetInstanceAdr());
+
         parser->SetInstance("StExt_Other", center);
         if (initFuncIndx != Invalid)
             par->CallFunc(initFuncIndx, center->GetInstance());
@@ -451,6 +490,9 @@ namespace Gothic_II_Addon
             else 
                 par->CallFunc(execFuncIndx);
         }
+
+        parser->SetInstance("StExt_Other", oldOtherNpc);
+        parser->SetInstance("StExt_Self", oldSelfNpc);
     }
 
     // (center, radius, condFunc)
@@ -584,24 +626,33 @@ namespace Gothic_II_Addon
         oCNpc* target = (oCNpc*)par->GetInstance();
         oCNpc* atk = (oCNpc*)par->GetInstance();
         
-        if ((!atk) || (!target)) return false;
-        if (damage <= 0) return false;
-        if (damType == 0) return false;
+        if ((!atk) || (!target))
+        {
+            DEBUG_MSG("StExt_ApplyDamage - one of actors is null!");
+            return false;
+        }
+        if (damage <= 5) damage = 5;
+        if (damType == 0) damType = dam_barrier;
 
         oCNpc::oSDamageDescriptor desc = oCNpc::oSDamageDescriptor();
         memset(&desc, 0, sizeof oCNpc::oSDamageDescriptor);
 
         ApplyDamages(damType, desc.aryDamage, damage);
-        desc.enuModeDamage = damType;
-        desc.fDamageMultiplier = 1.0;
+        desc.fDamageTotal = static_cast<float>(damage);
+        desc.enuModeDamage = static_cast<unsigned long>(damType);
+        desc.fDamageMultiplier = 1.0f;
         desc.vecLocationHit = target->GetPositionWorld();
         desc.pNpcAttacker = atk;
         desc.pVobAttacker = atk;
         desc.bOnce = true;
-        desc.dwFieldsValid |= DamageDescFlag_ExtraDamage;
+        desc.dwFieldsValid |= oCNpc::oEDamageDescFlag_Attacker | oCNpc::oEDamageDescFlag_Npc |
+            oCNpc::oEDamageDescFlag_DamageType | oCNpc::oEDamageDescFlag_Damage | DamageDescFlag_ExtraDamage;
         desc.pVobHit = target;
 
-        DEBUG_MSG("StExt_ApplyDamage call");
+        DEBUG_MSG("StExt_ApplyDamage call. Damage = " + Z desc.fDamageTotal);
+        for (int i = 0; i < oEDamageIndex_MAX; i++)
+            DEBUG_MSG("StExt_ApplyDamage[" + Z i + "] = " + Z desc.aryDamage[i]);
+        
         target->OnDamage(desc);
         return true;
     }
@@ -688,7 +739,7 @@ namespace Gothic_II_Addon
     int __cdecl StExt_GetRegularItem()
     {
         zCParser* par = zCParser::GetParser();
-        int type, power, itemInstnce, instanceId;
+        int type, power, instanceId;
         par->GetParameter(power);
         par->GetParameter(type);
 
@@ -975,7 +1026,7 @@ namespace Gothic_II_Addon
             return false;
         }
 
-        for (int i = 0; i < ProhibitedWaypoints.GetNum(); i++)
+        for (uint i = 0U; i < ProhibitedWaypoints.GetNum(); i++)
         {
             zCWaypoint* pWp = ogame->GetWorld()->wayNet->GetWaypoint(ProhibitedWaypoints[i].Wp);
             int dist;
@@ -1134,10 +1185,15 @@ namespace Gothic_II_Addon
         return true;
     }
 
+
     void StonedExtension_DefineExternals()
     {
         parser->DefineExternal("StExt_Cmd", StExt_Cmd, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_FloatMult", StExt_FloatMult, zPAR_TYPE_FLOAT, zPAR_TYPE_FLOAT, zPAR_TYPE_FLOAT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_FloatPow", StExt_FloatPow, zPAR_TYPE_FLOAT, zPAR_TYPE_FLOAT, zPAR_TYPE_FLOAT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_IntPow", StExt_IntPow, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_FloatPowAsInt", StExt_FloatPowAsInt, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_FLOAT, zPAR_TYPE_VOID);        
+
         parser->DefineExternal("StExt_GetPercentBasedOnValue", StExt_GetPercentBasedOnValue, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);        
         parser->DefineExternal("StExt_GetInstanceIdByName", StExt_GetInstanceIdByName, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetAuraData", StExt_GetAuraData, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);
@@ -1196,7 +1252,7 @@ namespace Gothic_II_Addon
     void oCNpc::Archive_StExt(zCArchiver& ar)
     {
         THISCALL(Hook_oCNpc_Archive)(ar);
-        RegisterNpc(this);
+        if (!IsLevelChanging) RegisterNpc(this);
     }
 
     HOOK Hook_oCNpc_Unarchive PATCH(&oCNpc::Unarchive, &oCNpc::Unarchive_StExt);

@@ -2,6 +2,7 @@
 
 namespace Gothic_II_Addon
 {
+    const int DefaultDelay = 180;
     static Timer triggerTimer;
     static const int NoNpc = 0;
     static int AfterLoadDelay;
@@ -18,18 +19,15 @@ namespace Gothic_II_Addon
 
     zSTRING GetDebugLine(C_TimedEffect* effect)
     {
-        zSTRING result = "";
         if (effect)
         {
             zSTRING slfName = effect->Self ? effect->Self->name : Z "???";
             zSTRING slfIndx = effect->Parser.SelfNpcUid == NoNpc ? "NoUid" : Z effect->Parser.SelfNpcUid;
             zSTRING funcName = effect->FunctionName;
             zSTRING funcIndx = Z effect->Function;
-            result = "TimedEffect for npc " + slfName + " [" + slfIndx +
-                "] | Func: " + funcName + " (" + funcIndx + ")";
-            return result;
-        }
-        
+            return Z ("TimedEffect for npc " + slfName + " [" + slfIndx +
+                "] | Func: " + funcName + " (" + funcIndx + ")");
+        }        
         return "GetDebugLine -> TimedEffect is null!";
     }
 
@@ -119,9 +117,12 @@ namespace Gothic_II_Addon
 
     void UpdateTimedEffectsNpcUids(int oldUid, int newUid)
     {
+        DEBUG_MSG("UpdateTimedEffectsNpcUids - call");
         for (uint i = 0; i < C_TimedEffect::TimedEffectScripts.GetNum(); i++)
         {
             auto& trigger = C_TimedEffect::TimedEffectScripts[i];
+            if (!trigger) continue;
+
             if (trigger->Parser.SelfNpcUid == oldUid)
             {
                 trigger->Parser.SelfNpcUid = newUid;
@@ -133,6 +134,7 @@ namespace Gothic_II_Addon
                 trigger->Other = GetNpcByUid(newUid);
             }
         }
+        DEBUG_MSG("UpdateTimedEffectsNpcUids - call end");
     }
 
     C_TimedEffect* C_TimedEffect::CreateTimedEffect(zSTRING funcName, int delay)
@@ -146,18 +148,33 @@ namespace Gothic_II_Addon
 
     void C_TimedEffect::DoTimedEffectsLoop()
     {
-        triggerTimer.ClearUnused();
-        bool gamePause = ogame->IsOnPause() ? True : False;
+        bool gamePause = ogame->IsOnPause();
+        if (IsLoading || IsLevelChanging || gamePause) return;
+        if (IsLevelChanging) 
+        { 
+            gamePause = false;
+            AfterLoadDelay = Invalid; 
+        }
         if (AfterLoadDelay > 0)
         {
-            AfterLoadDelay -= 1;
+            --AfterLoadDelay;
             return;
+        }
+        
+        triggerTimer.ClearUnused();
+        oCNpc* self = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol("SELF")->GetInstanceAdr());
+        oCNpc* other = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol("OTHER")->GetInstanceAdr());
+        if (IsLevelChanging)
+        {
+            self = Null;
+            other = Null;
         }
 
         bool deleteFlag = false;
+        const uint loopLimit = 64U + (TimedEffectScripts.GetNum() * 2U);
         for (uint i = 0; i < TimedEffectScripts.GetNum(); i++)
         {
-            auto trigger = TimedEffectScripts[i];
+            auto& trigger = TimedEffectScripts[i];
             if (!trigger)
             {
                 DEBUG_MSG("TimedEffect loop " + Z (int)i + " is Null!");
@@ -168,8 +185,13 @@ namespace Gothic_II_Addon
 
             // Stop timer processing on the game pause
             triggerTimer[trigger].Suspend(gamePause);
-            if (gamePause) continue;
+            if (i > loopLimit)
+            {
+                DEBUG_MSG("TimedEffect loop - delete empty trigges is looped?!");
+                break;
+            }
 
+            if (gamePause) continue;
             if (triggerTimer[trigger].AwaitExact(delay))            
                 if (trigger->CallTrigger()) {
                     delete trigger; 
@@ -177,24 +199,33 @@ namespace Gothic_II_Addon
                 }
         }
 
+        if (!IsLoading && !IsLevelChanging) 
+        {
+            if (self) parser->SetInstance("SELF", self);
+            if (other) parser->SetInstance("OTHER", other);
+        }
+
         if (deleteFlag)
         {
             DEBUG_MSG("TimedEffect loop - delete empty trigges");
-            int outer_i = 0;
-            uint max = TimedEffectScripts.GetNum();
-            for (uint i = 0; i < max; )
+            uint outer_i = 0U;
+            for (int i = TimedEffectScripts.GetNum() - 1; i >= 0; --i)
             {
-                if (!TimedEffectScripts[i]) TimedEffectScripts.RemoveAt(i);
-                else i++;
-
-                outer_i += 1;
-                if (outer_i > max * 2)
+                ++outer_i;
+                if (outer_i >= loopLimit)
                 {
-                    DEBUG_MSG("TimedEffect loop - delete empty trigges is looped?!");
+                    DEBUG_MSG("TimedEffect loop - delete empty triggers is looped?!");
                     break;
+                }
+
+                if (!TimedEffectScripts[i])
+                {
+                    TimedEffectScripts.RemoveAt(i);
+                    continue;
                 }
             }
         }
+        parser->SetInstance("CurrentTimedEffect", Null);
     }
 
     void RegisterNearestNpcs()
@@ -236,26 +267,29 @@ namespace Gothic_II_Addon
         }
         DEBUG_MSG("Loaded " + Z triggersNum + " TimedEffects");
         RegisterNearestNpcs();
-        AfterLoadDelay = 120;
+        AfterLoadDelay = DefaultDelay;
     }
 
     void C_TimedEffect::SaveTimedEffects(zCArchiver& arc)
     {
-        uint triggersNum = TimedEffectScripts.GetNum();
+        uint triggersNum = 0U;
+        for (uint i = 0U; i < TimedEffectScripts.GetNum(); i++)
+            if (TimedEffectScripts[i]) ++triggersNum;
         arc.WriteInt("TriggersNum", triggersNum);
-        for (uint i = 0; i < triggersNum; i++)
+        for (uint i = 0U; i < triggersNum; i++)
+        {
             TimedEffectScripts[i]->Archive(arc);
+        }
         DEBUG_MSG("Saved " + Z (int)triggersNum + " TimedEffects");
     }
 
     void C_TimedEffect::ClearTimedEffects()
     {
-        if (TimedEffectScripts.GetNum() > 0)
-        {
-            for (uint i = 0; i < TimedEffectScripts.GetNum(); i++)
-                delete TimedEffectScripts[i--];
-            TimedEffectScripts.Clear();
+        if (TimedEffectScripts.GetNum() == 0) return;
+        for (int i = TimedEffectScripts.GetNum() - 1; i >= 0; --i) {
+            delete TimedEffectScripts[i];
         }
+        TimedEffectScripts.Clear();        
     }
 
     string GetTimedEffectsArchivePath() 
@@ -305,29 +339,38 @@ namespace Gothic_II_Addon
         DEBUG_MSG("Finalize TimedEffects...");
         int heroId = parser->GetSymbol("StExt_HeroUid")->single_intdata;
 
-        for (uint i = 0; i < C_TimedEffect::TimedEffectScripts.GetNum(); i++)
+        uint loopLimit = 64U + (C_TimedEffect::TimedEffectScripts.GetNum() * 2U);
+        uint outer_i = 0U;
+        for (int i = C_TimedEffect::TimedEffectScripts.GetNum() - 1; i >= 0; --i)
         {
+            ++outer_i;
+            if (outer_i >= loopLimit)
+            {
+                DEBUG_MSG("Finalizing timed effects seems is looped?!");
+                break;
+            }
+
             auto& trigger = C_TimedEffect::TimedEffectScripts[i];
             if (!trigger) continue;
 
-            DEBUG_MSG(GetDebugLine(trigger) + " Finalizing... Id: " + Z (int)i);
-            if ((trigger->Parser.SelfNpcUid == heroId) && (trigger->Parser.OtherNpcUid <= NoNpc))
+            DEBUG_MSG(GetDebugLine(trigger) + " Finalizing... Id: " + Z(int)i);
+            if (trigger->Parser.SelfNpcUid == heroId)
             {
                 DEBUG_MSG(GetDebugLine(trigger) + " Can be saved. Skip!");
                 continue;
             }
-
             trigger->CallTrigger();
             DEBUG_MSG(GetDebugLine(trigger) + " - Deleting...");
             delete trigger;
+            //C_TimedEffect::TimedEffectScripts.RemoveAt(i);
         }
-        C_TimedEffect::TimedEffectScripts.Clear();
+        AfterLoadDelay = DefaultDelay;
         DEBUG_MSG("Finalizing timed effects done!");
     }
 
     void TimedEffectsLoop() { C_TimedEffect::DoTimedEffectsLoop(); }
 
-    int GetTimedEffectByNpc()
+    int __cdecl GetTimedEffectByNpc()
     {
         zCParser* par = zCParser::GetParser();
         zSTRING funcName;
@@ -335,7 +378,7 @@ namespace Gothic_II_Addon
         par->GetParameter(funcName);
         par->GetParameter(npcUid);
 
-        for (uint i = 0; i < C_TimedEffect::TimedEffectScripts.GetNum(); i++)
+        for (uint i = 0U; i < C_TimedEffect::TimedEffectScripts.GetNum(); i++)
         {
             if (C_TimedEffect::TimedEffectScripts[i]->Parser.SelfNpcUid != npcUid) continue;
             if (C_TimedEffect::TimedEffectScripts[i]->FunctionName == funcName)
@@ -348,15 +391,18 @@ namespace Gothic_II_Addon
         return false;
     }
 
-    int GetTimedEffectByIndex()
+    int __cdecl GetTimedEffectByIndex()
     {
         zCParser* par = zCParser::GetParser();
         int index;    
         par->GetParameter(index);
 
-        if ((index >= 0) && (index < C_TimedEffect::TimedEffectScripts.GetNum()))
+        if ((index >= 0) && ((uint)index < C_TimedEffect::TimedEffectScripts.GetNum()))
+        {
             par->SetReturn(C_TimedEffect::TimedEffectScripts[index]);
-
+            return true;
+        }
+        DEBUG_MSG("GetTimedEffectByIndex - index out of range. Index: " + Z index);
         par->SetReturn(Null);
         return true;
     }
@@ -376,13 +422,13 @@ namespace Gothic_II_Addon
         trigger->Self = Self;
         trigger->Other = Other;
         trigger->Parser.SelfNpcUid = Self ? GetNpcUid(Self) : NoNpc;
-        trigger->Parser.OtherNpcUid = Self ? GetNpcUid(Other) : NoNpc;
+        trigger->Parser.OtherNpcUid = Other ? GetNpcUid(Other) : NoNpc;
 
         par->SetReturn(trigger);
         return True;
     }
 
-    int GetTimedEffectsCount()
+    int __cdecl GetTimedEffectsCount()
     {
         zCParser* par = zCParser::GetParser();
         int result = C_TimedEffect::TimedEffectScripts.GetNum();

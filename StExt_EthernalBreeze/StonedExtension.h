@@ -13,15 +13,19 @@
 namespace Gothic_II_Addon
 {
 	const string ModDataRootDir = "EthernalBreeze_Data";
+	const zSTRING GenerateItemPrefix = "STEXT_GENERATED_";
 
-	#define DebugEnabled true
-	#define DebugStackEnabled true
+	#define DebugEnabled false
+	#define DebugStackEnabled false
 
 	#if DebugEnabled
 		#define DEBUG_MSG(message) DebugMessage(message)
+		#define DEBUG_MSG_IF(condition, message) do { if (condition) { DebugMessage(message); } } while(0) 
 	#else
 		#define DEBUG_MSG(message)
+		#define DEBUG_MSG_IF(condition, message)
 	#endif
+
 	
 	struct WaypointData
 	{
@@ -31,7 +35,6 @@ namespace Gothic_II_Addon
 
 	extern ItemsGeneratorConfigs GeneratorConfigs;
 
-	extern CDamageInfo DamageInfo;
 	extern CExtraDamage ExtraDamage;
 	extern CDotDamage DotDamage;
 	extern CExtraDamage ReflectDamage;
@@ -48,15 +51,18 @@ namespace Gothic_II_Addon
 
 	extern int OnPreLoopFunc;
 	extern int OnPostLoopFunc;
-	extern int ApplyResistsFunc;
-	extern int ApplyDamageToEsFunc;
-	extern int OnModDamageExpFunc;
-	extern int OnSncDamageFunc;
+	//extern int ApplyResistsFunc;
+	//extern int ApplyDamageToEsFunc;
+	extern int ProcessHpDamageFunc;
+	//extern int OnModDamageExpFunc;
+	//extern int OnSncDamageFunc;
 	extern int PrintDamageFunc;
 	extern int OnDamageAfterFunc;
 	extern int OnDamageBeginFunc;
+	extern int OnPostDamageFunc;
 	extern int FxDamageCanBeAppliedFunc;
 	extern int IsNpcImmortalFunc;
+	extern int IsExtraDamageProhibitedFunc;
 	extern int OnArmorEquipFunc;
 	extern int GetSpellDamageFlagsFunc;
 	extern int GetSpellEffectFlagsFunc;
@@ -71,8 +77,30 @@ namespace Gothic_II_Addon
 	extern int CanCallModMenuFunc;
 	extern int SaveParserVarsFunc;
 	extern int RestoreParserVarsFunc;
+	extern int UpdateUiStatusFunc;
+
+	extern int MaxSpellId;
+	extern int StExt_AbilityPrefix;
+
+	extern int StExt_Config_NpcStats_TopOffset;
+	extern int StExt_Config_NpcStats_HideTags;
+
+	extern bool IsLevelChanging;
+	extern bool IsLoading;
+	extern int ShowModMenu;
+	extern int ShowPcEs;
+	extern int BlockMovement;
+	extern int PcEsPosX;
+	extern int PcEsPosY;
+	extern zSTRING PcEsCurStr;
+
+	extern zSTRING StExt_EsText;
+	extern zSTRING* SpellFxNames;
 
 	const zSTRING& StExt_GetFuncNameByAddress(int address);
+
+	void PrintHeroEsBar();
+	void UpdateUiStatus();
 
 	void ApplyExtraDamage(oCNpc* atk, oCNpc* target);
 	void ApplyDotDamage(oCNpc* atk, oCNpc* target);
@@ -137,6 +165,7 @@ namespace Gothic_II_Addon
 	int GetNpcUid(oCNpc* npc);
 	oCNpc* GetNpcByUid(int npcUid);
 	bool IsUidRegistered(int npcUid);
+	void MsgTray_Clear();
 
 	// Item generator
 	zCPar_Symbol* CopySymbol(const zSTRING origName, zSTRING name, int& index);
@@ -154,6 +183,7 @@ namespace Gothic_II_Addon
 	Array<oCItem*> GetEnchantedItems(int flags = 0);
 	Array<oCItem*> GetUndefinedItems();
 	void IdentifyItem(int instanceId, oCItem* item);
+	bool IsGeneratedItem(oCItem* item);
 
 	void UnArchiveAdditionalArmors(oCNpc* npc);
 	void ThrowItem(ThrowItemDescriptor& itemDescriptor);
@@ -166,6 +196,7 @@ namespace Gothic_II_Addon
 	void inline UpdateUncapedStat(int indx);
 
 	void DrawModInfo();
+	void ClearDamageMeta();
 
 	// Item generator constants
 	const int ItemType_None = 0;
@@ -345,7 +376,10 @@ namespace Gothic_II_Addon
 	const int StExt_ArtifactIndex_Dagger = 2;
 	const int StExt_ArtifactIndex_Max = 3;
 
+	const int StExt_AiVar_IsRandomized = 351;
 	const int StExt_AiVar_Uid = 354;
+	const int StExt_AiVar_EsCur = 322;
+	const int StExt_AiVar_EsMax = 323;
 
 	const int Value_Type_Default = 0;
 	const int Value_Type_Percent = 1;
@@ -356,6 +390,12 @@ namespace Gothic_II_Addon
 	const int StExt_DamageMessageType_Default = 0;
 	const int StExt_DamageMessageType_Dot = 2;
 	const int StExt_DamageMessageType_Reflect = 4;
+
+	const int StExt_IncomingDamageFlag_Index_None = 0;
+	const int StExt_IncomingDamageFlag_Index_Processed = 1;
+	const int StExt_IncomingDamageFlag_Index_HasAttacker = 2;
+	const int StExt_IncomingDamageFlag_Index_HasWeapon = 4;
+	const int StExt_IncomingDamageFlag_Index_ExtraDamage = 8;
 
 	// **************************************************************
 	//					NB Hooks

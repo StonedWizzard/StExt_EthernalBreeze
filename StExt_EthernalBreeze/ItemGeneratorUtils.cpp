@@ -103,10 +103,17 @@ namespace Gothic_II_Addon
 
     zSTRING BuildEnchantedItemInstanceName(int itemId, int enchntmentId)
     {
-        zSTRING result = "StExt_Generated_";
+        zSTRING result = zSTRING();
         int rnd = rand();
-        result += + Z rand() + Z itemId + Z rand() + Z enchntmentId + Z rand();
+        result = GenerateItemPrefix + Z rand() + Z itemId + Z rand() + Z enchntmentId + Z rand();
         return result.Upper();
+    }
+
+    bool IsGeneratedItem(oCItem* item)
+    {
+        if (!item) return false;
+        zSTRING instanceId = item->GetInstanceName();
+        return instanceId.StartWith(GenerateItemPrefix);
     }
 
     inline Array<zSTRING>* SelectPrototypeByTier(int power, Array<zSTRING>* low, Array<zSTRING>* med, Array<zSTRING>* top)

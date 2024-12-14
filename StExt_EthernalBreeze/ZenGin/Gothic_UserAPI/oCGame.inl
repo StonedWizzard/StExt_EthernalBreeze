@@ -5,4 +5,4 @@
 
 void oCGame::UpdatePlayerStatus_StExt();
 
-int oCGame::HandleEvent_StExt(int);
+int oCGame::HandleEvent_StExt(int key);

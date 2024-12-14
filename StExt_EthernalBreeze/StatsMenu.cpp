@@ -4,8 +4,6 @@ namespace Gothic_II_Addon
 {
 	StatsMenu StExtStatMenu;
 	static int StExtStatMenuInitialized = 0;
-	int canDisplay;
-	int lockMove;
 
 	void StonedExtension_InitUi_StatMenu()
 	{
@@ -39,8 +37,8 @@ namespace Gothic_II_Addon
 		if (scaleY < 35) scaleY = 35;
 		if (scaleY > 100) scaleY = 100;
 
-		ScaleX = scaleX * 0.01;
-		ScaleY = scaleY * 0.01;
+		ScaleX = scaleX * 0.01f;
+		ScaleY = scaleY * 0.01f;
 
 		SizeX = 8192 * ScaleX;
 		SizeY = 8192 * ScaleY;
@@ -146,7 +144,7 @@ namespace Gothic_II_Addon
 		}
 
 		View->SetFontColor(color);
-		for (int i = 0; i < result.size(); i++)
+		for (unsigned int i = 0U; i < result.size(); i++)
 		{
 			zSTRING printText = result[i].c_str();
 			int x = View->vposx + (View->vsizex * 0.5f) - (View->FontSize(printText) * 0.5f);
@@ -391,6 +389,9 @@ namespace Gothic_II_Addon
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[39], StExt_PcStatsArray->intdata[39], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[251], StExt_PcStatsArray->intdata[251], Value_Type_Percent);
 		y += fontY;
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[274], StExt_PcStatsArray->intdata[274], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[275], StExt_PcStatsArray->intdata[275], Value_Type_Percent);
+		y += fontY;
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[40], StExt_PcStatsArray->intdata[40], Value_Type_Percent);		
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[41], StExt_PcStatsArray->intdata[41], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[42], StExt_PcStatsArray->intdata[42], Value_Type_Percent);
@@ -422,6 +423,30 @@ namespace Gothic_II_Addon
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[66], StExt_PcStatsArray->intdata[66], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[67], StExt_PcStatsArray->intdata[67], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[68], StExt_PcStatsArray->intdata[68], Value_Type_Percent);
+		y += fontY;
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[253], StExt_PcStatsArray->intdata[253], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[254], StExt_PcStatsArray->intdata[254], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[255], StExt_PcStatsArray->intdata[255], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[256], StExt_PcStatsArray->intdata[256], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[257], StExt_PcStatsArray->intdata[257], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[258], StExt_PcStatsArray->intdata[258], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[259], StExt_PcStatsArray->intdata[259], 0);
+		y += fontY;
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[260], StExt_PcStatsArray->intdata[260], Value_Type_Percent);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[261], StExt_PcStatsArray->intdata[261], Value_Type_Percent);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[262], StExt_PcStatsArray->intdata[262], Value_Type_Percent);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[263], StExt_PcStatsArray->intdata[263], Value_Type_Percent);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[264], StExt_PcStatsArray->intdata[264], Value_Type_Percent);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[265], StExt_PcStatsArray->intdata[265], Value_Type_Percent);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[266], StExt_PcStatsArray->intdata[266], Value_Type_Percent);
+		y += fontY;
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[267], StExt_PcStatsArray->intdata[267], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[268], StExt_PcStatsArray->intdata[268], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[269], StExt_PcStatsArray->intdata[269], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[270], StExt_PcStatsArray->intdata[270], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[271], StExt_PcStatsArray->intdata[271], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[272], StExt_PcStatsArray->intdata[272], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[273], StExt_PcStatsArray->intdata[273], 0);
 
 		//Attack
 		y += fontY;
@@ -869,6 +894,9 @@ namespace Gothic_II_Addon
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[27], StExt_PcStatsArray->intdata[27], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[246], StExt_PcStatsArray->intdata[246], Value_Type_DefaultPerc);
 		y += fontY;
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[274], StExt_PcStatsArray->intdata[274], 0);
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[275], StExt_PcStatsArray->intdata[275], Value_Type_Percent);
+		y += fontY;
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[40], StExt_PcStatsArray->intdata[40], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[41], StExt_PcStatsArray->intdata[41], Value_Type_Percent);
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[42], StExt_PcStatsArray->intdata[42], Value_Type_Percent);
@@ -959,6 +987,11 @@ namespace Gothic_II_Addon
 
 		zCPar_Symbol* StExt_PcStatsDescArray = parser->GetSymbol("StExt_PcStats_Desc");
 		zCPar_Symbol* StExt_PcStatsBonusDescArray = parser->GetSymbol("StExt_BonusStats_Desc");
+
+		zCPar_Symbol* StExt_PcBuffs_Timer = parser->GetSymbol("StExt_PcBuffs_Timer");
+		int StExt_PcBuff_Index_Max = parser->GetSymbol("StExt_PcBuff_Index_Max")->single_intdata;
+		zCPar_Symbol* StExt_Str_PcBuffs_Names = parser->GetSymbol("StExt_Str_PcBuffs_Names");
+
 		zSTRING NoStr = parser->GetSymbol("StExt_Str_No")->stringdata;
 		zSTRING SecStr = parser->GetSymbol("StExt_Str_Seconds")->stringdata;
 
@@ -1038,6 +1071,16 @@ namespace Gothic_II_Addon
 		y += fontY * 2;
 		PrintSectionHeader(y, StExt_PcStatsBonusDescArray->stringdata[3]);
 		y += fontY;
+		for (int i = 0; i < StExt_PcBuff_Index_Max; i++)
+		{
+			if (StExt_PcBuffs_Timer->intdata[i] > 0)
+			{
+				zSTRING effectStr = StExt_Str_PcBuffs_Names->stringdata[i] + " (" + Z StExt_PcBuffs_Timer->intdata[i] + SecStr + ")";
+				PrintSectionHeader(y, effectStr);
+				y += fontY;
+				bonusCount_Effects += 1;
+			}
+		}
 		if (bonusCount_Effects == 0)
 			PrintSectionHeader(y, NoStr);
 		else
@@ -1360,6 +1403,13 @@ namespace Gothic_II_Addon
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_Diff_EnableRot", "StExt_Config_Diff_EnableRot", Value_Type_YesNo, true);
 		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Diff_EnableRot_NightEncounters", "StExt_Config_Diff_EnableRot_NightEncounters", Value_Type_YesNo, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Diff_EnableRot_Avengers", "StExt_Config_Diff_EnableRot_Avengers", Value_Type_YesNo, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Diff_EnableRot_Bandits", "StExt_Config_Diff_EnableRot_Bandits", Value_Type_YesNo, false);
+
+		y += fontY;
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_EnableWorldRandomization_Npc", "StExt_Config_EnableWorldRandomization_Npc", Value_Type_YesNo, true);
 		y += fontY;
@@ -1490,7 +1540,7 @@ namespace Gothic_II_Addon
 		y += fontY;
 		PrintSectionHeader(y, Z "And");
 		y += fontY;
-		PrintSectionHeader(y, Z "ToXaL1, Icefist, dergothicfreak, Shiva", zCOLOR(250, 250, 250));
+		PrintSectionHeader(y, Z "ToXaL1, Icefist, Junes, Shiva", zCOLOR(250, 250, 250));
 		y += fontY;
 		PrintSectionHeader(y, Z "Gothicmap, Dezomorphin, lev4enko and others...", zCOLOR(250, 250, 250));
 	}
@@ -1508,17 +1558,14 @@ namespace Gothic_II_Addon
 			Resize();			
 		}
 
-		canDisplay = *(int*)parser->CallFunc(CanCallModMenuFunc);
-		lockMove = *(int*)parser->CallFunc(IsHeroMovLockedFunc);
-
-		if (ogame->IsOnPause() || !canDisplay)
+		if (ogame->IsOnPause() || !ShowModMenu)
 			IsShow = false;
 
 		screen->RemoveItem(View);
 		if (IsShow)
 		{
-			parser->SetInstance("StExt_FocusNpc", player);
-			player->SetMovLock(true);
+			BlockMovement = true;
+			player->SetMovLock(BlockMovement);
 			View->ClrPrintwin();
 			DrawTabTitle();
 			if (CurrentTab == 0 ) { DrawGeneral(); }			// General statistic			
@@ -1528,56 +1575,64 @@ namespace Gothic_II_Addon
 			else if (CurrentTab == 4) { DrawModConfigs(); }		// Mod configs			
 			screen->InsertItem(View);
 		}
-		else if(lockMove)
+		else if(BlockMovement)
 			player->SetMovLock(true);
 		else
 			player->SetMovLock(false);
 	}
 	
 	HOOK ivk_oCGame_HandleEvent PATCH(&oCGame::HandleEvent, &oCGame::HandleEvent_StExt);
-	zBOOL oCGame::HandleEvent_StExt(int key) 
+	int oCGame::HandleEvent_StExt(int key) 
 	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* modDialog = par->GetSymbol("StExt_DisplayModMenu");
-		int scrollMult = 1;
-		par->CallFunc(HandleKeyEventFunc, key);
+		if (IsLoading || IsLevelChanging) return true;
 
-		if (StExtStatMenuInitialized && !modDialog->single_intdata)
+		if (ogame && player && !GetWorld()->csPlayer->GetPlayingGlobalCutscene())
 		{
-			zCPar_Symbol* keySym = par->GetSymbol("StExt_Config_ModMenuKey");			
-			if (zKeyPressed(keySym->single_intdata) && zKeyPressed(KEY_LSHIFT))
-			{
-				if (StExtStatMenu.IsShow) StExtStatMenu.IsShow = false;
-				else StExtStatMenu.IsShow = true;
-			}
-			else if (StExtStatMenu.IsShow)
-			{
-				if (zKeyPressed(KEY_LSHIFT)) scrollMult = 10;
+			int isHandled = *(int*)parser->CallFunc(HandleKeyEventFunc, key);
+			if (isHandled) return true;
 
-				if (key == KEY_A || key == KEY_LEFTARROW)
-					StExtStatMenu.PrevTab();				
-				if (key == KEY_D || key == KEY_RIGHTARROW)
-					StExtStatMenu.NextTab();				
-				if (key == KEY_W || key == KEY_UPARROW)
-					StExtStatMenu.ChangeOffset(-2048 * scrollMult);
-				if (key == KEY_S || key == KEY_DOWNARROW)
-					StExtStatMenu.ChangeOffset(2048 * scrollMult);
-				if (key == KEY_ESCAPE || key == KEY_TAB)
-					StExtStatMenu.IsShow = false;
+			int modMenuKey = parser->GetSymbol("StExt_Config_ModMenuKey")->single_intdata;
+			int isModDialog = parser->GetSymbol("StExt_DisplayModMenu")->single_intdata;
+			float scrollMult = 1.5f;
+			if (StExtStatMenuInitialized && !isModDialog && !isHandled)
+			{
+				if ((zKeyPressed(modMenuKey) || key == modMenuKey) && zKeyPressed(KEY_LSHIFT) && ShowModMenu)
+				{
+					if (StExtStatMenu.IsShow) StExtStatMenu.IsShow = false;
+					else StExtStatMenu.IsShow = true;
+					isHandled = true; 
+				}
+				else if (StExtStatMenu.IsShow)
+				{
+					if (zKeyPressed(KEY_LSHIFT)) scrollMult = 15.0f;
+
+					if (key == KEY_A || key == KEY_LEFTARROW) { StExtStatMenu.PrevTab(); isHandled = true; }
+					if (key == KEY_D || key == KEY_RIGHTARROW) { StExtStatMenu.NextTab(); isHandled = true; }
+					if (key == KEY_W || key == KEY_UPARROW) { StExtStatMenu.ChangeOffset(-2048 * scrollMult); isHandled = true; }
+					if (key == KEY_S || key == KEY_DOWNARROW) { StExtStatMenu.ChangeOffset(2048 * scrollMult); isHandled = true; }
+					if (key == KEY_ESCAPE || key == KEY_TAB) { StExtStatMenu.IsShow = false; isHandled = true; }
+				}
 			}
+			if (isHandled) return true;
 		}
 		return THISCALL(ivk_oCGame_HandleEvent) (key);
 	}
 	
 	HOOK ivk_zCViewDialogChoice_HandleEvent PATCH(&zCViewDialogChoice::HandleEvent, &zCViewDialogChoice::HandleEvent_StExt);
-	zBOOL zCViewDialogChoice::HandleEvent_StExt(int key)
+	int zCViewDialogChoice::HandleEvent_StExt(int key)
 	{
-		int uiMoving = parser->GetSymbol("StExt_UiMovingEnabled")->single_intdata;
-		int configValueEdit = parser->GetSymbol("StExt_ConfigValueEditEnabled")->single_intdata;
-		if (uiMoving || configValueEdit)
+		int isModMenu = parser->GetSymbol("StExt_DisplayModMenu")->single_intdata;
+		if (isModMenu)
 		{
-			int funcIndex = parser->GetIndex("StExt_HandleUiButtom");
-			parser->CallFunc(funcIndex, key);
+			int uiMoving = parser->GetSymbol("StExt_UiMovingEnabled")->single_intdata;
+			int configValueEdit = parser->GetSymbol("StExt_ConfigValueEditEnabled")->single_intdata;
+			bool isDirKeys = (key == KEY_LEFTARROW || key == KEY_RIGHTARROW || key == KEY_UPARROW || key == KEY_DOWNARROW);
+			if (isDirKeys && (uiMoving || configValueEdit))
+			{
+				int funcIndex = parser->GetIndex("StExt_HandleUiButtom");
+				parser->CallFunc(funcIndex, key);
+				return true;
+			}
 		}
 		return THISCALL(ivk_zCViewDialogChoice_HandleEvent) (key);
 	}

@@ -12,13 +12,15 @@ namespace Gothic_II_Addon
 
     int OnPreLoopFunc = Invalid;
     int OnPostLoopFunc = Invalid;
-    int ApplyResistsFunc = Invalid;
-    int ApplyDamageToEsFunc = Invalid;
+    //int ApplyResistsFunc = Invalid;
+    //int ApplyDamageToEsFunc = Invalid;
+    int ProcessHpDamageFunc = Invalid;
     int OnModDamageExpFunc = Invalid;
     int OnSncDamageFunc = Invalid;
     int PrintDamageFunc = Invalid;
     int OnDamageAfterFunc = Invalid;
     int OnDamageBeginFunc = Invalid;
+    int OnPostDamageFunc = Invalid;
     int FxDamageCanBeAppliedFunc = Invalid;
     int IsNpcImmortalFunc = Invalid;
     int OnArmorEquipFunc = Invalid;
@@ -35,6 +37,17 @@ namespace Gothic_II_Addon
     int CanCallModMenuFunc = Invalid;
     int SaveParserVarsFunc = Invalid;
     int RestoreParserVarsFunc = Invalid;
+    int UpdateUiStatusFunc = Invalid;
+    int IsExtraDamageProhibitedFunc = Invalid;
+
+    int StExt_Config_NpcStats_TopOffset;
+    int StExt_Config_NpcStats_HideTags;
+
+    zSTRING StExt_EsText;
+    zSTRING* SpellFxNames;
+
+    bool IsLevelChanging;
+    bool IsLoading;
 
     void CreateDebugFile()
     {
@@ -109,6 +122,19 @@ namespace Gothic_II_Addon
         return ansi;
     }
 
+    inline zSTRING ToZString(std::string input, uint codePage = 0)
+    {
+        zSTRING result = "";
+        if (codePage == 0)
+            result = new zSTRING(input.c_str());        
+        else if (input.length() > 0)
+        {
+            string ansi = UTF8_To_ANSI((byte*)input.c_str(), input.length(), codePage);
+            result = Z ansi;
+        }
+        return result;
+    }
+
     inline Array<zSTRING> ReadJsonStringArray(std::string name, uint codePage = 0)
     {
         DEBUG_MSG("Parse json string array: '" + Z name.c_str() + "'...");
@@ -159,8 +185,10 @@ namespace Gothic_II_Addon
             auto jObj = it.value();
             ItemStatOption obj = ItemStatOption();
 
+            obj.StatName = ToZString(jObj["StatName"].get<std::string>(), (uint)GeneratorConfigs.CodePage);
             obj.StatId = jObj["StatId"].get<int>();
-            obj.StatMaxCap = jObj["StatMaxCap"].get<float>();
+            obj.StatMaxCap = jObj["StatMaxCap"].get<int>();
+            obj.StatMinCap = jObj["StatMinCap"].get<int>();            
             obj.StatValueMin = jObj["StatValueMin"].get<float>();
             obj.StatValueMax = jObj["StatValueMax"].get<float>();
             obj.IncopatibleItemTypes = jObj["IncopatibleItemTypes"].get<int>();
@@ -264,6 +292,8 @@ namespace Gothic_II_Addon
             GeneratorConfigs.StatGlobalGetChanceMult = JsonFile["StatGlobalGetChanceMult"].get<float>();
             GeneratorConfigs.StatGetChanceFromLevelMult = JsonFile["StatGetChanceFromLevelMult"].get<float>();
             GeneratorConfigs.StatGetChanceFromRankMult = JsonFile["StatGetChanceFromRankMult"].get<float>();
+            GeneratorConfigs.StatMaxCapBonusFromLevel = JsonFile["StatMaxCapBonusFromLevel"].get<float>();
+            GeneratorConfigs.StatMaxCapBonusFromRank = JsonFile["StatMaxCapBonusFromRank"].get<float>();
 
             GeneratorConfigs.AbilitiesMaxCap = JsonFile["AbilitiesMaxCap"].get<int>();
             GeneratorConfigs.AbilitiesBeginsOnRank = JsonFile["AbilitiesBeginsOnRank"].get<int>();
@@ -509,6 +539,103 @@ namespace Gothic_II_Addon
     void InitNpcPreffixes() { InfusionData_Preffixes = InitInfusionData("StExt_PreffixesIndexArray"); }
     void InitNpcSuffixes() { InfusionData_Suffixes = InitInfusionData("StExt_SuffixesIndexArray"); }
 
+    void InitScriptData()
+    {
+        DEBUG_MSG("StExt - Initialize scripts data...");
+
+        IsLevelChanging = false;
+        IsLoading = false;
+        parser->SetInstance("StExt_NullNpc", Null);
+        parser->SetInstance("StExt_NullItem", Null);
+        parser->GetSymbol("StExt_Fps")->SetValue(60, 0);
+
+        OnPreLoopFunc = parser->GetIndex("StExt_OnFrameBegin");
+        DEBUG_MSG_IF(OnPreLoopFunc == Invalid, "OnPreLoopFunc is null!");
+
+        OnPostLoopFunc = parser->GetIndex("StExt_OnFrameEnd");
+        DEBUG_MSG_IF(OnPostLoopFunc == Invalid, "OnPostLoopFunc is null!");
+
+        ProcessHpDamageFunc = parser->GetIndex("StExt_ProcessHpDamage");
+        DEBUG_MSG_IF(ProcessHpDamageFunc == Invalid, "ProcessHpDamageFunc is null!");
+
+        PrintDamageFunc = parser->GetIndex("StExt_PrintExtraDamage");
+        DEBUG_MSG_IF(PrintDamageFunc == Invalid, "PrintDamageFunc is null!");
+
+        OnDamageAfterFunc = parser->GetIndex("StExt_OnDamageAfter");
+        DEBUG_MSG_IF(OnDamageAfterFunc == Invalid, "OnDamageAfterFunc is null!");
+
+        OnDamageBeginFunc = parser->GetIndex("StExt_OnDamageBegin");
+        DEBUG_MSG_IF(OnDamageBeginFunc == Invalid, "OnDamageBeginFunc is null!");
+
+        OnPostDamageFunc = parser->GetIndex("StExt_OnPostDamage");
+        DEBUG_MSG_IF(OnPostDamageFunc == Invalid, "OnPostDamageFunc is null!");
+
+        FxDamageCanBeAppliedFunc = parser->GetIndex("StExt_FxDamageCanBeApplied");
+        DEBUG_MSG_IF(FxDamageCanBeAppliedFunc == Invalid, "FxDamageCanBeAppliedFunc is null!");
+
+        IsNpcImmortalFunc = parser->GetIndex("StExt_IsNpcImmortal_Engine");
+        DEBUG_MSG_IF(IsNpcImmortalFunc == Invalid, "IsNpcImmortalFunc is null!");
+
+        OnArmorEquipFunc = parser->GetIndex("StExt_OnArmorEquip");
+        DEBUG_MSG_IF(OnArmorEquipFunc == Invalid, "OnArmorEquipFunc is null!");
+
+        GetSpellDamageFlagsFunc = parser->GetIndex("StExt_GetSpellDamageFlags");
+        DEBUG_MSG_IF(GetSpellDamageFlagsFunc == Invalid, "GetSpellDamageFlagsFunc is null!");
+
+        GetSpellEffectFlagsFunc = parser->GetIndex("StExt_GetSpellEffectFlags");
+        DEBUG_MSG_IF(GetSpellEffectFlagsFunc == Invalid, "GetSpellEffectFlagsFunc is null!");
+
+        OnLoadEndFunc = parser->GetIndex("StExt_OnLoadEnd");
+        DEBUG_MSG_IF(OnLoadEndFunc == Invalid, "OnLoadEndFunc is null!");
+
+        OnLevelChangeFunc = parser->GetIndex("StExt_OnLevelChange");
+        DEBUG_MSG_IF(OnLevelChangeFunc == Invalid, "OnLevelChangeFunc is null!");
+
+        NpcGetBarCurEsFunc = parser->GetIndex("StExt_Npc_GetBarCurEs");
+        DEBUG_MSG_IF(NpcGetBarCurEsFunc == Invalid, "NpcGetBarCurEsFunc is null!");
+
+        NpcGetBarMaxEsFunc = parser->GetIndex("StExt_Npc_GetBarMaxEs");
+        DEBUG_MSG_IF(NpcGetBarMaxEsFunc == Invalid, "NpcGetBarMaxEsFunc is null!");
+
+        UpdateFocusNpcInfoFunc = parser->GetIndex("StExt_UpdateFocusNpcInfo");
+        DEBUG_MSG_IF(UpdateFocusNpcInfoFunc == Invalid, "UpdateFocusNpcInfoFunc is null!");
+
+        CanCallModMenuFunc = parser->GetIndex("StExt_CanCallModMenu");
+        DEBUG_MSG_IF(CanCallModMenuFunc == Invalid, "CanCallModMenuFunc is null!");
+
+        IsHeroMovLockedFunc = parser->GetIndex("StExt_IsHeroMovLocked");
+        DEBUG_MSG_IF(IsHeroMovLockedFunc == Invalid, "IsHeroMovLockedFunc is null!");
+
+        HandleKeyEventFunc = parser->GetIndex("StExt_HandleKeyEvent");
+        DEBUG_MSG_IF(HandleKeyEventFunc == Invalid, "HandleKeyEventFunc is null!");
+
+        HandlePcStatChangeFunc = parser->GetIndex("StExt_HandlePcStatChange");
+        DEBUG_MSG_IF(HandlePcStatChangeFunc == Invalid, "HandlePcStatChangeFunc is null!");
+
+        SaveParserVarsFunc = parser->GetIndex("StExt_SaveParserVars");
+        DEBUG_MSG_IF(SaveParserVarsFunc == Invalid, "SaveParserVarsFunc is null!");
+
+        RestoreParserVarsFunc = parser->GetIndex("StExt_RestoreParserVars");
+        DEBUG_MSG_IF(RestoreParserVarsFunc == Invalid, "RestoreParserVarsFunc is null!");
+
+        UpdateUiStatusFunc = parser->GetIndex("StExt_UpdateUiStatus");
+        DEBUG_MSG_IF(UpdateUiStatusFunc == Invalid, "UpdateUiStatusFunc is null!");
+
+        IsExtraDamageProhibitedFunc = parser->GetIndex("StExt_UpdateUiStatus");
+        DEBUG_MSG_IF(IsExtraDamageProhibitedFunc == Invalid, "IsExtraDamageProhibitedFunc is null!");
+
+        StExt_EsText = parser->GetSymbol("StExt_EsText")->stringdata;
+        SpellFxNames = parser->GetSymbol("spellfxinstancenames")->stringdata;
+        MaxSpellId = parser->GetSymbol("max_spell")->single_intdata;
+        StExt_AbilityPrefix = parser->GetSymbol("StExt_AbilityPrefix")->single_intdata;
+        DEBUG_MSG("StExt - MaxSpellId: " + Z MaxSpellId);
+
+        StExt_Config_NpcStats_TopOffset = parser->GetSymbol("StExt_Config_NpcStatsUi_TopOffset")->single_intdata;
+        StExt_Config_NpcStats_HideTags = parser->GetSymbol("StExt_Config_NpcStatsUi_HideTags")->single_intdata;
+
+        DEBUG_MSG("StExt - Scripts data initialized!");
+    }
+
     zSTRING GetModVersion()
     {
         zCParser* par = zCParser::GetParser();
@@ -516,31 +643,6 @@ namespace Gothic_II_Addon
         return verSym->stringdata;
     }
 
-    typedef void(__thiscall* checkBonusFunc)(void* this_ptr, int damage);
-
-    void LoadNbFunctions()
-    {
-        DEBUG_MSG("Load 'Union_abi.dll' ...");
-        auto nbModule = GetModuleHandle("UNION_ABI.DLL");
-
-        if (nbModule == Null)
-        {
-            DEBUG_MSG("Load 'Union_abi.dll' - failed!");
-            return;
-        }
-
-        //?checkBonus@AB_SNC@Gothic_II_Addon@QEXH@Z
-        //checkBonus@AB_SNC@Gothic_II_Addon@@QAEXH@Z
-        //?checkBonus@AB_SNC@Gothic_II_Addon@@QAEXH@Z
-        auto testFuncAdr = GetProcAddress(nbModule, "?checkBonus@AB_SNC@Gothic_II_Addon@@QAEXH@Z");
-
-        checkBonusFunc checkBonus = (checkBonusFunc)GetProcAddress(nbModule, "?checkBonus@AB_SNC@Gothic_II_Addon@@QAEXH@Z");
-        DEBUG_MSG("Load 'Union_abi.dll' func: Gothic_II_Addon::AB_SNC::checkBonus(int) - " + Z(int)checkBonus);
-        if (!checkBonus) DEBUG_MSG("Load 'Union_abi.dll' func: Gothic_II_Addon::AB_SNC::checkBonus(int)  - FAIL!");
-
-        DEBUG_MSG("Load 'Union_abi.dll' - compleated!");
-    }
- 
     void InitWaypoints()
     {
         ProhibitedWaypoints = Array<WaypointData>();
@@ -552,46 +654,17 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = zSTRING("Ethernal Breeze mod [" + GetModVersion() + "b (Build: 5.0.1)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.0.0)]");
+        #if DebugEnabled
+            ModVersionString += Z(" | [Debug]");
+        #endif
         DEBUG_MSG(ModVersionString);
         DEBUG_MSG("");
-
-        DamageInfo.StopProcess = true;
-        parser->SetInstance("StExt_NullNpc", Null);
-        parser->GetSymbol("StExt_Fps")->SetValue(60, 0);
-        IncomingDamage = CIncomingDamage();
-
-        OnPreLoopFunc = parser->GetIndex("StExt_OnFrameBegin");
-        OnPostLoopFunc = parser->GetIndex("StExt_OnFrameEnd");
-        ApplyResistsFunc = parser->GetIndex("StExt_ApplyResists");
-        ApplyDamageToEsFunc = parser->GetIndex("StExt_ApplyDamageToEs");
-        OnModDamageExpFunc = parser->GetIndex("StExt_ProcessDamageExp_Engine");
-        OnSncDamageFunc = parser->GetIndex("StExt_AddSncDamage");
-        PrintDamageFunc = parser->GetIndex("StExt_PrintExtraDamage");
-        OnDamageAfterFunc = parser->GetIndex("StExt_OnDamageAfter");
-        OnDamageBeginFunc = parser->GetIndex("StExt_OnDamageBegin");
-        FxDamageCanBeAppliedFunc = parser->GetIndex("StExt_FxDamageCanBeApplied");
-        IsNpcImmortalFunc = parser->GetIndex("StExt_IsNpcImmortal_Engine");
-        OnArmorEquipFunc = parser->GetIndex("StExt_OnArmorEquip");
-        GetSpellDamageFlagsFunc = parser->GetIndex("StExt_GetSpellDamageFlags");
-        GetSpellEffectFlagsFunc = parser->GetIndex("StExt_GetSpellEffectFlags");
-        OnLoadEndFunc = parser->GetIndex("StExt_OnLoadEnd");
-        OnLevelChangeFunc = parser->GetIndex("StExt_OnLevelChange");
-        NpcGetBarCurEsFunc = parser->GetIndex("StExt_Npc_GetBarCurEs");
-        NpcGetBarMaxEsFunc = parser->GetIndex("StExt_Npc_GetBarMaxEs");
-        UpdateFocusNpcInfoFunc = parser->GetIndex("StExt_UpdateFocusNpcInfo");
-        CanCallModMenuFunc = parser->GetIndex("StExt_CanCallModMenu");
-        IsHeroMovLockedFunc = parser->GetIndex("StExt_IsHeroMovLocked");
-        HandleKeyEventFunc = parser->GetIndex("StExt_HandleKeyEvent");
-        HandlePcStatChangeFunc = parser->GetIndex("StExt_HandlePcStatChange");
-        SaveParserVarsFunc = parser->GetIndex("StExt_SaveParserVars");
-        RestoreParserVarsFunc = parser->GetIndex("StExt_RestoreParserVars");
 
         try { InitItemGeneratorConfigs(); }
         catch (const std::exception&) { DEBUG_MSG("Loading of item generator configs was failed!"); }  
 
-        //LoadNbFunctions();
-
+        InitScriptData();
         InitStatsUncaper();
         InitAuraData();
         InitNpcAffixes();
