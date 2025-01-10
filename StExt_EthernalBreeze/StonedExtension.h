@@ -107,7 +107,8 @@ namespace Gothic_II_Addon
 	void ApplyReflectDamage(oCNpc* atk, oCNpc* target);
 	void ApplyDamages(ULONG type, ULONG* damage, int& total);
 	int ValidateIntValue(int value, int min, int max);
-	std::vector<int> CreateUniqKeysArray(int size, int maxValue);
+	void CreateUniqKeysArray(std::vector<int>& numbers, int maxValue);
+	std::vector<int> CreateUniqKeysArray(int maxValue, int size = Invalid);
 	int GetRandomRange(int min, int max);
 	float GetRandomFloatRange(float value);
 	string GetSlotNameByID(int ID);

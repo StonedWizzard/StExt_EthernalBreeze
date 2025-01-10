@@ -374,6 +374,13 @@ namespace Gothic_II_Addon
             return;
         }
 
+        int statsCount = static_cast<int>(GeneratorConfigs.StatsOptions.GetNum());
+        if (statsCount == 0)
+        {
+            DEBUG_MSG("ProcessItemStats - stats not found in DB!");
+            return;
+        }
+
         // generate options slots
         int itemRank = enchantment->Rank <= 0 ? 1 : enchantment->Rank;
         int itemLevel = enchantment->Level;
@@ -386,8 +393,10 @@ namespace Gothic_II_Addon
         }
         if (optionsSlots > GeneratorConfigs.StatsMaxCap)
             optionsSlots = GeneratorConfigs.StatsMaxCap > EnchantStatsMax ? EnchantStatsMax : GeneratorConfigs.StatsMaxCap;
+        if (optionsSlots > EnchantStatsMax) optionsSlots = EnchantStatsMax;
 
-        std::vector<int> statsKyes = CreateUniqKeysArray(optionsSlots * 3, GeneratorConfigs.StatsOptions.GetNum());
+        std::vector<int> statsKeys;
+        CreateUniqKeysArray(statsKeys, statsCount);
         float statValueMult = (itemLevel * GeneratorConfigs.StatPowerPerLevelMult) + (itemRank * GeneratorConfigs.StatPowerPerRankMult);
 
         if (HasFlag(enchantment->Type, ItemType_Potion) || HasFlag(enchantment->Type, ItemType_Scroll))
@@ -395,20 +404,22 @@ namespace Gothic_II_Addon
         float statDurationMult = (itemLevel * GeneratorConfigs.StatDurationPerLevelMult) + (itemRank * GeneratorConfigs.StatDurationPerRankMult);
 
         statValueMult *= GetMultForItemType(enchantment->Type);
-        //statDurationMult *= GetMultForItemType(enchantment->Type);
+        statDurationMult *= GetMultForItemType(enchantment->Type);
 
         int totalOptions = 0;
-        for (int i = 0, j = 0; i < optionsSlots; i++)
+        for (int i = 0, j = 0; i < optionsSlots;)
         {
-            if (j >= statsKyes.size()) break;
+            if (j >= statsCount) break;
 
-            ItemStatOption* option = &GeneratorConfigs.StatsOptions[statsKyes[j]];
+            ItemStatOption* option = &GeneratorConfigs.StatsOptions[statsKeys[j]];
             j += 1;
             if (!option)
             {
                 DEBUG_MSG("ProcessItemStats - option is null!");
                 continue;
             }
+
+            if (HasFlag(option->IncopatibleItemTypes, enchantment->Type)) continue;
 
             int rnd = rand() % 1000;
             rnd += (itemLevel * GeneratorConfigs.StatGetChanceFromLevelMult) + (itemRank * GeneratorConfigs.StatGetChanceFromRankMult);
@@ -428,9 +439,7 @@ namespace Gothic_II_Addon
 
             enchantment->StatId[i] = option->StatId;
             enchantment->StatValue[i] = optionValue;
-            int extraPrice = option->Price * optionValue;
-            totalOptions += 1;
-            //DEBUG_MSG("New stat added: " + Z enchantment->StatId[i] + " / " + Z enchantment->StatValue[i]);
+            int extraPrice = option->Price * optionValue;            
 
             if (HasFlag(enchantment->Type, ItemType_Potion) || HasFlag(enchantment->Type, ItemType_Scroll))
             {
@@ -440,6 +449,10 @@ namespace Gothic_II_Addon
                 extraPrice *= GeneratorConfigs.StatTimedEffectPriceMult;
             }
             enchantment->Cost += extraPrice;
+
+            ++totalOptions;
+            ++i;
+            //DEBUG_MSG("New stat added: " + Z enchantment->StatId[i] + " / " + Z enchantment->StatValue[i]);
         }
     }
 
@@ -451,6 +464,13 @@ namespace Gothic_II_Addon
             return;
         }
 
+        uint abilitiesCount = GeneratorConfigs.AbilitiesOptions.GetNum();
+        if (abilitiesCount == 0)
+        {
+            DEBUG_MSG("ProcessItemAbilities - abilities not found in DB!");
+            return;
+        }
+
         int itemRank = enchantment->Rank;
         int itemLevel = enchantment->Level;
         int abilityGetChance = 10 * (GeneratorConfigs.AbilitiesGetChanceBase + (itemLevel * GeneratorConfigs.AbilitiesGetChancePerLevelMult) + (itemRank * GeneratorConfigs.AbilitiesGetChancePerRankMult));
@@ -458,7 +478,8 @@ namespace Gothic_II_Addon
         if (abilityGetChance < (rand() % 1000))
             return;
 
-        std::vector<int> abilitiesKyes = CreateUniqKeysArray(GeneratorConfigs.AbilitiesMaxCap * 3, GeneratorConfigs.StatsOptions.GetNum());
+        std::vector<int> abilitiesKyes;
+        CreateUniqKeysArray(abilitiesKyes, GeneratorConfigs.StatsOptions.GetNum());
         float abilityValueMult = (itemLevel * GeneratorConfigs.AbilitiesPowerPerLevelMult) + (itemRank * GeneratorConfigs.AbilitiesPowerPerRankMult);
         float abilityDurationMult = (itemLevel * GeneratorConfigs.AbilitiesDurationPerLevelMult) + (itemRank * GeneratorConfigs.AbilitiesDurationPerRankMult);
         float abilityChanceMult = (itemLevel * GeneratorConfigs.AbilitiesChancePerLevelMult) + (itemRank * GeneratorConfigs.AbilitiesChancePerRankMult);
@@ -676,7 +697,7 @@ namespace Gothic_II_Addon
             if (result->Rank > 0) ProcessItemStats(result);
             else if (HasFlag(result->Type, ItemType_Belt) || HasFlag(result->Type, ItemType_Amulet) || HasFlag(result->Type, ItemType_Ring)) ProcessItemStats(result);
 
-            if (result->Rank >= GeneratorConfigs.AbilitiesBeginsOnRank) ProcessItemAbilities(result);
+            //if (result->Rank >= GeneratorConfigs.AbilitiesBeginsOnRank) ProcessItemAbilities(result);
             if (GeneratorConfigs.SocketsMaxCap > 0) ProcessItemSockets(result);
             if (result->Rank >= GeneratorConfigs.VisualEffectBeginsOnRank) ProcessItemVisualEffect(result);
             if ((GeneratorConfigs.UndefinedBaseChance * 10) > (rand() % 1000)) result->Flags |= ItemFlag_Undefined;

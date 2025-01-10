@@ -134,79 +134,66 @@ namespace Gothic_II_Addon
     void StExt_GetArray(zSTRING& arrayName, zCPar_Symbol*& arrayDesc, void*& pointer, int& size)
     {
         StExt_InitFunctions();
-
         arrayDesc = nullptr;
         pointer = nullptr;
         size = 0;
 
         string name = arrayName.ToChar();
         name.Upper();
-
         zCArray<string> segments;
         StExt_ExtractSegments(name, segments);
 
-        if (!StExt_ValidateSegments(segments))
-        {
+        if (!StExt_ValidateSegments(segments)) {
             return StExt_ShowParserError((string)"Invalid array name: " + arrayName.ToChar());
         }
 
         string funcName = StExt_GetFuncNameByAddress(parser->stack.stackptr - parser->stack.stack).ToChar();
-
         zCPar_Symbol* symbol = parser->GetSymbol((funcName + "." + segments[0]).GetVector());
 
-        if (!symbol)
-        {
+        if (!symbol) {
             symbol = parser->GetSymbol(segments[0].GetVector());
         }
 
-        if (!symbol)
-        {
+        if (!symbol) {
             return StExt_ShowParserError((string)"Variable not found: " + segments[0]);
         }
 
         if (segments.GetNum() == 1)
         {
-            if (!StExt_ValidateArrayType(symbol->type))
-            {
+            if (!StExt_ValidateArrayType(symbol->type)) {
                 return StExt_ShowParserError((string)"Invalid array type: " + symbol->type);
             }
 
             arrayDesc = symbol;
             size = arrayDesc->ele;
-
             switch (arrayDesc->type)
             {
-            case zPAR_TYPE_INT:
-            case zPAR_TYPE_FUNC:
-                pointer = (size == 1) ? &arrayDesc->single_intdata : arrayDesc->intdata;
-                break;
-            case zPAR_TYPE_FLOAT:
-                pointer = (size == 1) ? &arrayDesc->single_floatdata : arrayDesc->floatdata;
-                break;
-            case zPAR_TYPE_STRING:
-                pointer = arrayDesc->stringdata;
-                break;
+                case zPAR_TYPE_INT:
+                case zPAR_TYPE_FUNC:
+                    pointer = (size == 1) ? &arrayDesc->single_intdata : arrayDesc->intdata;
+                    break;
+                case zPAR_TYPE_FLOAT:
+                    pointer = (size == 1) ? &arrayDesc->single_floatdata : arrayDesc->floatdata;
+                    break;
+                case zPAR_TYPE_STRING:
+                    pointer = arrayDesc->stringdata;
+                    break;
             }
-
             return;
         }
 
-        if (symbol->type != zPAR_TYPE_INSTANCE)
-        {
+        if (symbol->type != zPAR_TYPE_INSTANCE) {
             return StExt_ShowParserError(segments[0] + " is not instance");
         }
 
         string className = StExt_GetInstanceClassName(symbol).ToChar();
         string classVarName = className + "." + segments[1];
-
         zCPar_Symbol* classVarSymbol = parser->GetSymbol(classVarName.GetVector());
 
-        if (!classVarSymbol)
-        {
+        if (!classVarSymbol) {
             return StExt_ShowParserError((string)"Can't find class member: " + classVarName);
         }
-        if (!StExt_ValidateArrayType(classVarSymbol->type))
-        {
+        if (!StExt_ValidateArrayType(classVarSymbol->type)) {
             return StExt_ShowParserError((string)"Invalid array type: " + classVarSymbol->type);
         }
 

@@ -1302,6 +1302,18 @@ namespace Gothic_II_Addon
 		y += fontY;
 		y += fontY;
 
+		PrintOptionLine(y, "StExt_Str_Config_Npc_InfusionHpMult", "StExt_Config_Npc_InfusionHpMult", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Npc_InfusionStatMult", "StExt_Config_Npc_InfusionStatMult", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Npc_InfusionProtMult", "StExt_Config_Npc_InfusionProtMult", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Npc_InfusionDamMult", "StExt_Config_Npc_InfusionDamMult", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Npc_InfusionEsMult", "StExt_Config_Npc_InfusionEsMult", Value_Type_DefaultPerc, false);
+		y += fontY;
+		y += fontY;
+
 		PrintOptionLine(y, "StExt_Str_Config_NpcSum_CanBeDuplicated", "StExt_Config_NpcSum_CanBeDuplicated", Value_Type_YesNo, true);
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_NpcSum_CanBeInfused", "StExt_Config_NpcSum_CanBeInfused", Value_Type_YesNo, true);
@@ -1538,9 +1550,11 @@ namespace Gothic_II_Addon
 		y += fontY;
 		PrintSectionHeader(y, Z "Gratt (zParserExtender), Piranha Bytes", zCOLOR(250, 250, 250));
 		y += fontY;
+		PrintSectionHeader(y, Z "DanilaDNL for fixing some critical script bugs", zCOLOR(250, 250, 250));
+		y += fontY;
 		PrintSectionHeader(y, Z "And");
 		y += fontY;
-		PrintSectionHeader(y, Z "ToXaL1, Icefist, Junes, Shiva", zCOLOR(250, 250, 250));
+		PrintSectionHeader(y, Z "ToXaL1, Icefist, Junes, Shiva, Khellzhao", zCOLOR(250, 250, 250));
 		y += fontY;
 		PrintSectionHeader(y, Z "Gothicmap, Dezomorphin, lev4enko and others...", zCOLOR(250, 250, 250));
 	}

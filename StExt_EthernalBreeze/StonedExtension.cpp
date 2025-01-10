@@ -58,18 +58,21 @@ namespace Gothic_II_Addon
         return distribution(generator);
     }
 
-    std::vector<int> CreateUniqKeysArray(int size, int maxValue) 
+    void CreateUniqKeysArray(std::vector<int>& numbers, int maxValue) 
+    {
+        numbers.resize(maxValue);
+        for (int i = 0; i < maxValue; ++i)
+            numbers[i] = i;
+
+        static std::mt19937 g(std::random_device{}());
+        std::shuffle(numbers.begin(), numbers.end(), g);
+    }
+    std::vector<int> CreateUniqKeysArray(int maxValue, int size)
     {
         std::vector<int> numbers;
-        for (int i = 0; i < maxValue; ++i) 
-            numbers.push_back(i);
-        
-        std::random_device rd;
-        std::mt19937 g(rd());
-        std::shuffle(numbers.begin(), numbers.end(), g);
-
-        size = size > maxValue ? maxValue : size;
-        numbers.resize(size);
+        CreateUniqKeysArray(numbers, maxValue);
+        if (size > 0)
+            numbers.resize(size);
         return numbers;
     }
 

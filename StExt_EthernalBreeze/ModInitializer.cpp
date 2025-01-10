@@ -654,7 +654,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.0.0)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.1.0)]");
         #if DebugEnabled
             ModVersionString += Z(" | [Debug]");
         #endif
