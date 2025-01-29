@@ -63,12 +63,12 @@ namespace Gothic_II_Addon
     {
         if (power <= 0) return 0;
         int RankMax = parser->GetSymbol("StExt_ItemRankMax")->single_intdata - 1;
-        int maxRank = (power / GeneratorConfigs.NextRankOffset) + 1;        
-        int minRank = maxRank * 0.5f;
+        int maxRank = power / GeneratorConfigs.NextRankOffset;        
+        int minRank = static_cast<int>(maxRank * 0.5f);
 
         //normalize rank
         if (maxRank > RankMax) maxRank = RankMax;
-        if (maxRank <= 0) maxRank = 1;
+        if (maxRank < 1) maxRank = 1;
         if (minRank >= maxRank) minRank = maxRank - 1;
         if (minRank < 0) minRank = 0;
 
@@ -238,7 +238,7 @@ namespace Gothic_II_Addon
                 int prot = item->protection[i];
                 if (prot > 0)
                 {
-                    prot *= (GeneratorConfigs.OrigDamagePerLevelMult * itemLevel);
+                    prot *= (GeneratorConfigs.OrigProtectionPerLevelMult * itemLevel);
                     prot = prot <= 0 ? 1 : prot;
                     enchantment->Protection[i] = prot;
                 }
@@ -275,7 +275,7 @@ namespace Gothic_II_Addon
         }
 
         // conditions change
-        float conditionsMult = (itemLevel * GeneratorConfigs.ConditionPerLevelMult) + (itemRank * GeneratorConfigs.ConditionPerLevelMult);
+        float conditionsMult = (itemLevel * GeneratorConfigs.ConditionPerLevelMult) + (itemRank * GeneratorConfigs.ConditionPerRankMult);
         if (conditionsMult < 0.1f) conditionsMult = 0.1f;
         int extraCondChance = 10 * (GeneratorConfigs.ExtraConditionChanceBase + (itemLevel * GeneratorConfigs.ExtraConditionChancePerLevelMult) + (itemRank * GeneratorConfigs.ExtraConditionChancePerRankMult));
         bool extraCondAdded = false;
@@ -760,6 +760,7 @@ namespace Gothic_II_Addon
     void ApplyEnchntment(C_EnchantmentData* enchantment, oCItem* item)
     {
         DEBUG_MSG("Apply enchantment for '" + item->name + "'...");
+        HideItemVisualEffect = parser->GetSymbol("StExt_Config_DisableEnchantedItemsEffects")->single_intdata;
         int RankMax = parser->GetSymbol("StExt_ItemRankMax")->single_intdata - 1;
         if (enchantment->Rank > RankMax) enchantment->Rank = RankMax;
         if (enchantment->Rank < 0) enchantment->Rank = 0;
@@ -784,7 +785,7 @@ namespace Gothic_II_Addon
         item->damageTotal = enchantment->DamageTotal;
         item->damageTypes = enchantment->DamageTypes;
         item->range = enchantment->Range;
-        item->effectName = enchantment->VisualEffect && (!HideItemVisualEffect) ? enchantment->VisualEffect : zSTRING();
+        item->effectName = HideItemVisualEffect ? zSTRING() : enchantment->VisualEffect;
         item->spell = enchantment->UId;
 
         for (int i = 0; i < EnchantConditionsMax; i++)
@@ -1103,6 +1104,13 @@ namespace Gothic_II_Addon
         
         if ((instance != Invalid) && this)
         {
+            int price = this->value;
+            if ((price > 0) && (ItemBasePriceMult >= 0.1f))
+            {
+                price *= ItemBasePriceMult;
+                if (price <= 0) price = 1;
+            }
+            this->value = price;
             if (Gothic_II_Addon::HasFlag(this->mainflag, item_kat_rune)) return;
 
             C_EnchantmentData* enchantment = GetEnchantmentData(this);
@@ -1194,13 +1202,54 @@ namespace Gothic_II_Addon
     HOOK Hook_oCNpc_CanUse PATCH(&oCNpc::CanUse, &oCNpc::CanUse_StExt);
     int oCNpc::CanUse_StExt(oCItem* item)
     {
+        if (item)
+        {
+            bool hasSpecialStats = false;
+            for (int i = 0; i < 3; i++) {
+                if (item->cond_atr[i] > ItemCondSpecialSeparator)
+                {
+                    hasSpecialStats = true;
+                    break;
+                }
+            }
+
+            // handle stat check on my own
+            if (hasSpecialStats)
+            {
+                if (!this->IsAPlayer() || (this->GetInstanceName().Upper() == "PC_HEROMUL") || 
+                    (this->GetInstanceName().Upper() == "STEXT_HEROSHADOW")) return TRUE;
+
+                int skill = GetTalentSkill(7);
+                if (skill < item->mag_circle)
+                {
+                    parser->SetInstance("SELF", this);
+                    parser->SetInstance("ITEM", item);
+                    int index = parser->GetIndex("G_CANNOTCAST");
+                    parser->CallFunc(index, IsAPlayer(), item->mag_circle, skill);
+                    return FALSE;
+                }
+
+                bool isSuccess = true;
+                for (int i = 0; i < 3; i++)
+                {                    
+                    int checkResult = *(int*)parser->CallFunc(StExt_CheckConditionStatFunc, item->cond_atr[i], item->cond_value[i]);
+                    if (!checkResult)
+                    {
+                        isSuccess = false;
+                        break;
+                    }
+                }
+                return isSuccess ? TRUE : FALSE;
+            }
+        }
+
         int result = THISCALL(Hook_oCNpc_CanUse)(item);
         if (!result && item)
         {
-            if (this->GetInstanceName().Upper() == "STEXT_HEROSHADOW")
-                return true;
+            if ((this->GetInstanceName().Upper() == "STEXT_HEROSHADOW") || (this->GetInstanceName().Upper() == "PC_HEROMUL"))
+                return TRUE;
             if (!this->IsAPlayer() && item->GetInstanceName().Upper().StartWith(GenerateItemPrefix))
-                return true;
+                return TRUE;
         }
         return result;
     }

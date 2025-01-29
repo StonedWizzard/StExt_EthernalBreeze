@@ -13,5 +13,8 @@ namespace Gothic_II_Addon
 		zSTRING StExt_RandomizeWorld_Wp3;
 
 		zSTRING StExt_ArmorVisualBackup;
+
+		zSTRING StExt_CurrentItemGeneratorConfigs;
+		zSTRING StExt_CurrentUserConfigs;
 	};
 }

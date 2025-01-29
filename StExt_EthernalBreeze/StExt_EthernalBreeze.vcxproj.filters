@@ -330,6 +330,9 @@
     <ClCompile Include="MainMenu.cpp">
       <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
+    <ClCompile Include="C_ConfigPreset.h">
+      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ZenGin\zGothicAPI.h">
@@ -2884,6 +2887,9 @@
       <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
     </ClInclude>
     <ClInclude Include="C_UncapedStat.h">
+      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
+    </ClInclude>
+    <ClInclude Include="ModExtensionsInfo.h">
       <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
     </ClInclude>
   </ItemGroup>

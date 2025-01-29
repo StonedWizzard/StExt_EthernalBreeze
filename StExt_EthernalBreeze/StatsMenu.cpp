@@ -275,17 +275,24 @@ namespace Gothic_II_Addon
 
 	void StatsMenu::PrintModPresetName(int y)
 	{
-		int presetId = parser->GetSymbol("StExt_SelectedConfigsIndex")->single_intdata;
-		if (presetId == 0) View->SetFontColor(zCOLOR(200, 200, 200));
-		else if (presetId == 1) View->SetFontColor(zCOLOR(0, 225, 0));
-		else if (presetId == 2) View->SetFontColor(zCOLOR(225, 120, 0));
-		else if (presetId == 3) View->SetFontColor(zCOLOR(225, 0, 100));
-		else if (presetId == 4) View->SetFontColor(zCOLOR(225, 32, 225));
-		else return;
+		zSTRING presetId = parser->GetSymbol("StExt_CurrentUserConfigs")->stringdata;
+		C_ConfigPreset* config = GetConfigPreset(presetId);
+		zSTRING text = zSTRING();
+		if (config)
+		{
+			text = Z(config->Text + " (" + config->Name + ")");
+			View->SetFontColor(ParseHexColor(config->TextColor.ToChar()));
+		}
+		else
+		{
+			text = Z("???");
+			View->SetFontColor(zCOLOR(200, 200, 200));
+		}
 
-		zSTRING presetName = parser->GetSymbol("StExt_Str_DiffLevel")->stringdata[presetId];
-		int x = View->vposx + (View->vsizex * 0.5f) - (View->FontSize(presetName) * 0.5f);
-		PrintText(x, y, presetName);
+		zSTRING itemGeneratorPresetName = parser->GetSymbol("StExt_CurrentItemGeneratorConfigs")->stringdata;
+		if (itemGeneratorPresetName.Length() > 0) text += Z(" | " + itemGeneratorPresetName);
+		int x = View->vposx + (View->vsizex * 0.5f) - (View->FontSize(text) * 0.5f);
+		PrintText(x, y, text);
 		View->SetFontColor(zCOLOR(250, 250, 250));
 	}
 
@@ -1110,8 +1117,10 @@ namespace Gothic_II_Addon
 	void StatsMenu::DrawModConfigs() 
 	{
 		int fontY = View->FontY() + 96;
+		int pluginCount = ModPluginsInfo.GetNum();
 		int y = PrintBorderTop + fontY - PrintOffset;
-		PrintOffsetMax = 228 * fontY;
+		PrintOffsetMax = 230 * fontY;
+		PrintOffsetMax += pluginCount > 0 ? pluginCount + 2 : 0;
 
 		PrintModPresetName(y);
 		y += fontY * 1.5f;
@@ -1543,7 +1552,20 @@ namespace Gothic_II_Addon
 		PrintSectionHeader(y, modVersionString);
 		y += fontY;
 		PrintSectionHeader(y, modAuthor, zCOLOR(250, 250, 250));
-		y += fontY * 2;
+		if (pluginCount > 0)
+		{
+			y += fontY * 2;
+			PrintSectionHeader(y, "Mod plugins:", zCOLOR(250, 250, 250));
+			for (int i = 0; i < pluginCount; i++)
+			{
+				y += fontY;
+				zSTRING modPluginInfo = Z(ModPluginsInfo[i].Name + " [" + ModPluginsInfo[i].Version + "] by " + ModPluginsInfo[i].Author);
+				PrintSectionHeader(y, modPluginInfo);
+			}
+			y += fontY * 2;
+		}
+		else { y += fontY * 2; }
+		
 		PrintSectionHeader(y, Z "Special thanks to:");
 		y += fontY;
 		PrintSectionHeader(y, Z "Liker, Haart (New Balance mod Team)", zCOLOR(250, 250, 250));

@@ -870,6 +870,7 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ArrayOperations.cpp" />
+    <ClCompile Include="C_ConfigPreset.h" />
     <ClCompile Include="MainMenu.cpp" />
     <ClCompile Include="MsgTray.cpp" />
     <ClCompile Include="StatsUncaper.cpp" />
@@ -885,6 +886,7 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
     <ClInclude Include="C_UncapedStat.h" />
     <ClInclude Include="DamageInfo.h" />
     <ClInclude Include="GeneratorConfigs.h" />
+    <ClInclude Include="ModExtensionsInfo.h" />
     <ClInclude Include="Plugin.cpp" />
     <ClCompile Include="ExtendedArmors.cpp" />
     <ClCompile Include="Interface.cpp" />

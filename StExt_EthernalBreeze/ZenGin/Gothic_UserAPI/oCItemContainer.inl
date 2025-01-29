@@ -8,3 +8,5 @@ void oCItemContainer::DrawItemInfo_StExt(oCItem* item, zCWorld* world);
 void oCItemContainer::OpenPassive_StExt(int x, int y, int mode);
 
 void oCItemContainer::Close_StExt();
+
+static float oCItemContainer::GetValueMultiplier_StExt();

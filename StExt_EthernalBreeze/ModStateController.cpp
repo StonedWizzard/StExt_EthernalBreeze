@@ -26,6 +26,9 @@ namespace Gothic_II_Addon
         arc.WriteString("StExt_RandomizeWorld_Wp3", ModState.StExt_RandomizeWorld_Wp3);
 
         arc.WriteString("StExt_ArmorVisualBackup", ModState.StExt_ArmorVisualBackup);
+
+        arc.WriteString("StExt_CurrentItemGeneratorConfigs", ModState.StExt_CurrentItemGeneratorConfigs);
+        arc.WriteString("StExt_CurrentUserConfigs", ModState.StExt_CurrentUserConfigs);
     }
 
     void UnarchiveState(zCArchiver& arc)
@@ -39,6 +42,9 @@ namespace Gothic_II_Addon
         arc.ReadString("StExt_RandomizeWorld_Wp3", ModState.StExt_RandomizeWorld_Wp3);
 
         arc.ReadString("StExt_ArmorVisualBackup", ModState.StExt_ArmorVisualBackup);
+
+        arc.ReadString("StExt_CurrentItemGeneratorConfigs", ModState.StExt_CurrentItemGeneratorConfigs);
+        arc.ReadString("StExt_CurrentUserConfigs", ModState.StExt_CurrentUserConfigs);
     }
 
     // Save
@@ -58,6 +64,9 @@ namespace Gothic_II_Addon
             ModState.StExt_RandomizeWorld_Wp3 = parser->GetSymbol("StExt_WorldRandimizer_Waypoint")->stringdata[2];
 
             ModState.StExt_ArmorVisualBackup = parser->GetSymbol("StExt_ArmorVisualBackup")->stringdata;
+
+            ModState.StExt_CurrentItemGeneratorConfigs = parser->GetSymbol("StExt_CurrentItemGeneratorConfigs")->stringdata;
+            ModState.StExt_CurrentUserConfigs = parser->GetSymbol("StExt_CurrentUserConfigs")->stringdata;
 
             ArchiveState(*ar);
             ar->Close();
@@ -88,6 +97,9 @@ namespace Gothic_II_Addon
             parser->GetSymbol("StExt_WorldRandimizer_Waypoint")->SetValue(ModState.StExt_RandomizeWorld_Wp3, 2);
 
             parser->GetSymbol("StExt_ArmorVisualBackup")->SetValue(ModState.StExt_ArmorVisualBackup, 0);
+
+            parser->GetSymbol("StExt_CurrentItemGeneratorConfigs")->SetValue(ModState.StExt_CurrentItemGeneratorConfigs, 0);
+            parser->GetSymbol("StExt_CurrentUserConfigs")->SetValue(ModState.StExt_CurrentUserConfigs, 0);
         }
         DEBUG_MSG("Load game state done!");
     }

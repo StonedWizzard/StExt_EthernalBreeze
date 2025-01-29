@@ -4,6 +4,9 @@
 #include <vector>
 #include <algorithm>
 #include <random>
+#include <regex>
+#include <iomanip> // Äëÿ std::setw è std::setfill
+#include <sstream> // Äëÿ std::ostringstream
 #include <StonedExtension.h>
 
 namespace Gothic_II_Addon
@@ -14,8 +17,24 @@ namespace Gothic_II_Addon
     Array<C_MagicInfusionData*> InfusionData_Suffixes = {};
     Array<C_MagicInfusionData*> InfusionData_Preffixes = {};
     Array<WaypointData> ProhibitedWaypoints = {};
+    Array<C_ConfigPreset*> GameConfigsPresets = {};
+    Array<zSTRING> ExportConfigsSymNames = {};
+    Array<ModExtensionInfo> ModPluginsInfo = {};
     TimerBlock FpsTimer;
     int FpsCounter;
+
+    std::string FormatNumber(int number, int width) {
+        std::ostringstream oss;
+        oss << std::setfill('0') << std::setw(width) << number;
+        return oss.str();
+    }
+    void replaceAll(std::string& str, const std::string& from, const std::string& to) {
+        size_t startPos = 0;
+        while ((startPos = str.find(from, startPos)) != std::string::npos) {
+            str.replace(startPos, from.length(), to);
+            startPos += to.length();
+        }
+    }
 
     string GetSlotNameByID(int ID)
     {
@@ -78,6 +97,7 @@ namespace Gothic_II_Addon
 
     void C_AuraData::SetByScript(int index) { parser->CreateInstance(index, this); }
     void C_MagicInfusionData::SetByScript(int index) { parser->CreateInstance(index, this); }
+    void C_ConfigPreset::SetByScript(int index) { parser->CreateInstance(index, this); }
 
     C_AuraData* GetAuraById(int id)
     {
@@ -371,7 +391,7 @@ namespace Gothic_II_Addon
         return true;
     }
 
-    int StExt_Info_AddChoice()
+    int __cdecl StExt_Info_AddChoice()
     {
         zCParser* par = zCParser::GetParser();
         int menu, action;
@@ -381,7 +401,7 @@ namespace Gothic_II_Addon
         par->GetParameter(menu);
 
         action = par->GetIndex(actionName);
-        if (action == -1) 
+        if (action == Invalid) 
             return 0;
         oCInfo* pInfo = ogame->GetInfoManager()->GetInformation(menu);
         if (pInfo)
@@ -389,7 +409,7 @@ namespace Gothic_II_Addon
         return 0;
     }
 
-    int StExt_TryCallFunc()
+    int __cdecl StExt_TryCallFunc()
     {
         zCParser* par = zCParser::GetParser();
         zSTRING funcName;
@@ -409,7 +429,7 @@ namespace Gothic_II_Addon
     //      Npc Funcs
 
     // (instance, count, wp, initFunc)
-    int StExt_SpawnNpcWithFunc()
+    int __cdecl StExt_SpawnNpcWithFunc()
     {
         zCParser* par = zCParser::GetParser();
         int count, instance, initFuncIndx;
@@ -1188,6 +1208,486 @@ namespace Gothic_II_Addon
         return true;
     }
 
+    int __cdecl StExt_Info_BuildItemGeneratorPresetsChoices()
+    {
+        zCParser* par = zCParser::GetParser();
+        int menu, action;
+        zSTRING text, actionName;
+        par->GetParameter(actionName);
+        par->GetParameter(menu);
+
+        action = par->GetIndex(actionName);
+        oCInfo* pInfo = ogame->GetInfoManager()->GetInformation(menu);
+        if ((action == Invalid) || !pInfo)
+            return 0;        
+        
+        string root = zoptions->GetDirString(zTOptionPaths::DIR_ROOT);
+        string path = string::Combine("%s\\%s\\%s\\", root, ModDataRootDir, ItemGeneratorConfigsDir);
+        zFILE_FILE* configsDir = new zFILE_FILE(path);
+        configsDir->s_physPathString = Z path;
+        configsDir->s_virtPathString = Z ("\\" + ItemGeneratorConfigsDir + "\\");
+
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> path: " + Z path);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> complete_directory: " + Z configsDir->complete_directory);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> complete_path: " + Z configsDir->complete_path);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> dir: " + Z configsDir->dir);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> drive: " + Z configsDir->drive);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> filename: " + Z configsDir->filename);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> s_physPathString: " + Z configsDir->s_physPathString);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> s_rootDirString: " + Z configsDir->s_rootDirString);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> s_virtPathString: " + Z configsDir->s_virtPathString);
+        DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+
+        if (!configsDir->FindFirst("*.json"))
+        {
+            DEBUG_MSG("StExt_Info_BuildItemGeneratorPresetsChoices -> NOTHING FOUND!");
+            delete configsDir;
+            return 0;
+        }
+
+        do
+        {
+            zSTRING configFileName = configsDir->GetFilename();
+            if (configFileName.IsEmpty())
+                continue;
+            pInfo->AddChoice(configFileName + "." + configsDir->GetExt(), action);
+        } 
+        while (configsDir->FindNext());
+        delete configsDir;
+        return 0;
+    }
+
+    int __cdecl StExt_SetItemGeneratorConfigs()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING configFileName;
+        par->GetParameter(configFileName);
+        DEBUG_MSG("StExt_SetItemGeneratorConfigs -> read config: " + configFileName + "...");
+        if (!SelectItemGeneratorConfigs(configFileName))
+        {
+            DEBUG_MSG("StExt_SetItemGeneratorConfigs -> ERROR. Item Generator Configs not loaded!");
+            par->SetReturn(false);
+            return FALSE;
+        }
+        par->SetReturn(true);
+        return TRUE;
+    }
+
+    int __cdecl StExt_ResetItemGeneratorConfigs()
+    {
+        InitItemGeneratorConfigs();
+        return TRUE;
+    }
+
+    int __cdecl StExt_RegistrateConfigsPreset()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING presetInstance;
+        par->GetParameter(presetInstance);
+
+        int index = par->GetIndex(presetInstance);
+        if ((index == Invalid) || (presetInstance.Length() == 0))
+        {
+            DEBUG_MSG("StExt_RegistrateConfigsPreset -> Can't load configs preset instance '" + presetInstance + "'!");
+            par->SetReturn(false);
+            return FALSE;
+        }
+        
+        for (int i = 0; i < GameConfigsPresets.GetNum(); i++) {
+            if (GameConfigsPresets[i]->Name.Upper() == presetInstance.Upper())
+            {
+                DEBUG_MSG("StExt_RegistrateConfigsPreset -> Configs preset instance '" + presetInstance + "' already contains in presets list!");
+                par->SetReturn(false);
+                return FALSE;
+            }
+        }
+
+        C_ConfigPreset* configPreset = new C_ConfigPreset();
+        configPreset->SetByScript(index);
+        GameConfigsPresets.InsertEnd(configPreset);
+        par->SetReturn(true);
+        return TRUE;
+    }
+
+    C_ConfigPreset* GetConfigPreset(zSTRING presetName)
+    {
+        if (presetName.Length() == 0) return Null;
+
+        for (int i = 0; i < GameConfigsPresets.GetNum(); i++) {
+            if (GameConfigsPresets[i]->Name.Upper() == presetName.Upper()) { return GameConfigsPresets[i]; }
+        }
+        return Null;
+    }
+
+    int __cdecl StExt_GetConfigsPreset()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING presetInstance;
+        par->GetParameter(presetInstance);
+
+        if (presetInstance.Length() == 0)
+        {
+            DEBUG_MSG("StExt_GetConfigsPreset -> Instance name is empty!");
+            par->SetReturn(Null);
+            return FALSE;
+        }
+        
+        C_ConfigPreset* result = GetConfigPreset(presetInstance.Upper());
+        par->SetReturn(result);
+        return FALSE;
+    }
+
+    int __cdecl StExt_Info_BuildConfigPresetsChoices()
+    {
+        zCParser* par = zCParser::GetParser();
+        int menu, action;
+        zSTRING text, actionName;
+        par->GetParameter(actionName);
+        par->GetParameter(menu);
+
+        action = par->GetIndex(actionName);
+        oCInfo* pInfo = ogame->GetInfoManager()->GetInformation(menu);
+        if ((action == Invalid) || !pInfo)
+            return 0;
+
+        for (int i = 0; i < GameConfigsPresets.GetNum(); i++) 
+        {
+            zSTRING text = GameConfigsPresets[i]->Text + " [" + GameConfigsPresets[i]->Name + "]";
+            pInfo->AddChoice(text, action);
+        }
+        return 0;
+    }
+
+    int __cdecl StExt_ParsePresetName()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING rawInput, result = zSTRING();
+        par->GetParameter(rawInput);
+
+        if (rawInput.Length() == 0)
+        {
+            DEBUG_MSG("StExt_GetConfigsPreset -> Instance name is empty!");
+            par->GetSymbol("StExt_ReturnString")->SetValue(result, 0);
+            par->SetReturn(result);
+            return FALSE;
+        }
+
+        std::string input = rawInput;
+        std::regex pattern("\\[(.*?)\\]");
+        std::smatch match;
+        if (std::regex_search(input, match, pattern)) {
+            result = match[1].str().c_str();
+        }
+        par->GetSymbol("StExt_ReturnString")->SetValue(result, 0);
+        par->SetReturn(result);
+        return TRUE;
+    }
+
+    int __cdecl StExt_RegisterExportConfig()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING symName = zSTRING();
+        par->GetParameter(symName);
+        
+        if (symName.Length() == 0)
+        {
+            DEBUG_MSG("StExt_RegisterExportConfig -> Symbol name is empty!");
+            return FALSE;
+        }
+        ExportConfigsSymNames.Insert(symName);
+        return TRUE;
+    }
+
+    int __cdecl StExt_ExportCurrentConfigs()
+    {
+        DEBUG_MSG("StExt_ExportCurrentConfigs -> export started...");
+        zCParser* par = zCParser::GetParser();
+        string configName, configText, configApplyFunc, configsList;
+        string tmpName = "EthernalBreeze_ExportedConfig_", tmpText = "ExportedConfigs_";
+        int configId = 1;
+        configName = tmpName + FormatNumber(configId, 3).c_str();
+        while (GetConfigPreset(configName.ToChar()) != Null)
+        {
+            ++configId;
+            configName = tmpName + FormatNumber(configId, 3).c_str();
+        }
+        DEBUG_MSG("StExt_ExportCurrentConfigs -> export config name: " + configName);
+        configText = tmpText + FormatNumber(configId, 3).c_str();
+        configApplyFunc = configName + "_OnApply";
+
+        configsList = "";
+        for (int i = 0; i < ExportConfigsSymNames.GetNum(); i++)
+        {            
+            zCPar_Symbol* sym = par->GetSymbol(ExportConfigsSymNames[i]);
+            if (!sym)
+            {
+                DEBUG_MSG("StExt_ExportCurrentConfigs -> symbol '" + ExportConfigsSymNames[i] + "' Not Founded!");
+                continue;
+            }
+            
+            string tmpLine = ExportConfigsSymNames[i] + " = ";                
+            if (sym->type == zPAR_TYPE_INT)
+                tmpLine += sym->single_intdata;
+            else if(sym->type == zPAR_TYPE_FLOAT)
+                tmpLine += sym->single_floatdata;
+            else if (sym->type == zPAR_TYPE_STRING)
+            {
+
+                tmpLine += "\"";
+                tmpLine += sym->stringdata->ToChar();
+                tmpLine += "\"";
+            }                
+            else
+            {
+                DEBUG_MSG("StExt_ExportCurrentConfigs -> symbol '" + ExportConfigsSymNames[i] + "' Has unknown type!");
+                continue;
+            }
+            configsList += "\r\n";
+            configsList += "\t" + tmpLine + ";";
+        }
+
+        DEBUG_MSG("StExt_ExportCurrentConfigs -> process template...");
+        std::string result = ConfigsExportTemplate;
+        replaceAll(result, "[ConfigName]", configName.ToChar());
+        replaceAll(result, "[ConfigText]", configText.ToChar());
+        replaceAll(result, "[ConfigApplyFunc]", configApplyFunc.ToChar());
+        replaceAll(result, "[ConfigsList]", configsList.ToChar());
+
+        DEBUG_MSG("StExt_ExportCurrentConfigs -> start save file...");
+        string root = zoptions->GetDirString(zTOptionPaths::DIR_SYSTEM);
+        string configFileName = configName + ".d";
+        string path = string::Combine("%s\\Autorun\\%s", root, configFileName);
+        DEBUG_MSG("StExt_ExportCurrentConfigs -> path: " + path);
+
+        zFILE_FILE* configsFile = new zFILE_FILE(path);
+        configsFile->Create(path);
+        configsFile->s_physPathString = Z path;
+        configsFile->s_virtPathString = Z("\\Autorun\\");
+        configsFile->Open(path, true);
+        configsFile->Write(result.c_str());
+        configsFile->Close();
+
+        DEBUG_MSG("StExt_ExportCurrentConfigs -> Config " + configName + " was exported!");
+        par->SetReturn(true);
+        return TRUE;
+    }
+
+    int __cdecl StExt_UpdateTradeVars()
+    {
+        zCParser* par = zCParser::GetParser();
+        int sellMulRaw;
+        par->GetParameter(sellMulRaw);
+
+        float sellMul = (sellMulRaw > 0) ? sellMulRaw * 0.001f : 0.01f;
+        if (sellMul < 0.01f) sellMul = 0.01f;
+        if (sellMul > 0.99f) sellMul = 0.99f;
+        ItemSellPriceMult = sellMul;
+        
+        if (ItemBasePriceMult < 0.1f) ItemBasePriceMult = 0.1f;
+        if (ItemBasePriceMult > 100.0f) ItemBasePriceMult = 100.0f;
+
+        DEBUG_MSG("StExt_UpdateTradeVars -> ItemSellPriceMult: " + Z ItemSellPriceMult);
+        DEBUG_MSG("StExt_UpdateTradeVars -> ItemBasePriceMult: " + Z ItemBasePriceMult);
+        return TRUE;
+    }
+
+    HOOK Hook_oCItemContainer_GetValueMultiplier PATCH(&oCItemContainer::GetValueMultiplier, &oCItemContainer::GetValueMultiplier_StExt);
+    float oCItemContainer::GetValueMultiplier_StExt()
+    {
+        if (ItemSellPriceMult < 0.01f)
+            ItemSellPriceMult = parser->GetSymbol("trade_value_multiplier")->single_floatdata;
+        float result = (ItemSellPriceMult >= 0.01f) ? ItemSellPriceMult : 0.1f;
+        return result;
+    }
+    
+    int __cdecl StExt_BuildItemsSellForm()
+    {
+        zCParser* par = zCParser::GetParser();
+        if (!player || !player->inventory2.GetContents())
+        {
+            DEBUG_MSG("StExt_BuildItemsSellForm - player seems not initialized!");
+            return FALSE;
+        }
+
+        int callBackFunc = par->GetIndex("StExt_BuildItemsSellForm_Loop");
+        if (callBackFunc == Invalid)
+        {
+            DEBUG_MSG("StExt_BuildItemsSellForm - func 'StExt_BuildItemsSellForm_Loop' not found!");
+            return false;
+        }
+
+        Array<int> excludedItems = {};
+        zCPar_Symbol* exludedItemsArr = par->GetSymbol("StExt_ItemsSellForm_ExcludedItems");
+        if (exludedItemsArr)
+        {
+            int arrSize = exludedItemsArr->ele;
+            for (int i = 0; i < arrSize; i++)
+            {
+                int indx = par->GetIndex(exludedItemsArr->stringdata[i]);
+                if (indx != Invalid) excludedItems.InsertEnd(indx);
+            }
+        }
+
+        int mainFlag = 0, flags = 0, allowGenerated = FALSE, priceMultRaw = 10;
+        par->GetParameter(priceMultRaw);
+        par->GetParameter(allowGenerated);
+        par->GetParameter(flags);
+        par->GetParameter(mainFlag);
+
+        auto contents = player->inventory2.GetContents();
+        float priceMult = priceMultRaw * 0.01f;
+        if (priceMult < 0.01f) priceMult = 0.01f;
+        int size = contents->GetNumInList();
+        int i = 0; zSTRING instName;
+        while (i < size)
+        {
+            oCItem* pItem = contents->Get(i);
+            if (!pItem) { ++i; continue; }
+
+            instName = pItem->GetInstanceName();
+            if (pItem->HasFlag(ITM_FLAG_ACTIVE)) { i++; continue; }
+            if (HasFlag(pItem->hitp, 524288)) { i++; continue; }           //524288 is integer literal for NB bit_item_questitem
+            if (!excludedItems.IsEmpty() && excludedItems.HasEqual(pItem->GetInstance())) { i++; continue; }            
+            if (instName.StartWith(GenerateItemPrefix) && !allowGenerated) { i++; continue; }
+
+            if ((mainFlag != 0) && !HasFlag(pItem->mainflag, mainFlag)) { i++; continue; }
+            if ((flags != 0) && !pItem->HasFlag(flags)) { i++; continue; }
+
+            CraftData craftData = BuildCraftData();
+            craftData.Price = pItem->value * priceMult;
+            if (craftData.Price <= 0) craftData.Price = 1;
+            craftData.ResultInstance = instName;
+            par->SetInstance("StExt_CraftInfo", &craftData);
+            par->CallFunc(callBackFunc);
+            ++i;
+        }
+        return true;
+    }
+
+    int __cdecl StExt_OverrideFunc()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING origFuncName, newFuncName;
+        par->GetParameter(newFuncName);
+        par->GetParameter(origFuncName);
+        DEBUG_MSG("StExt_OverrideFunc - replace '" + origFuncName + "' func to '" + newFuncName + "' ...");
+
+        zCPar_Symbol* origFuncSym;
+        zCPar_Symbol* newFuncSym;
+        origFuncSym = par->GetSymbol(origFuncName);
+        newFuncSym = par->GetSymbol(newFuncName);
+        if (!origFuncSym || !newFuncSym)
+        {
+            DEBUG_MSG("StExt_OverrideFunc - symbols not found!");
+            par->SetReturn(false);
+            return false;
+        }
+
+        if (origFuncSym->type != zPAR_TYPE_FUNC || newFuncSym->type != zPAR_TYPE_FUNC)
+        {
+            if (origFuncSym->type != zPAR_TYPE_FUNC) { DEBUG_MSG("StExt_OverrideFunc - original symbol is not a func!"); }
+            else { DEBUG_MSG("StExt_OverrideFunc - new symbol is not a func!"); }
+            par->SetReturn(false);
+            return false;
+        }
+
+        int oldPos = origFuncSym->single_intdata;
+        int newPos = newFuncSym->single_intdata;
+        byte* bytecodes = par->stack.stack;
+
+        Array<byte*> referralTokens = Array<byte*>();
+        uint index = 0, stackSize = par->stack.GetDynSize();
+        while (index < stackSize - 1)
+        {
+            byte& token = bytecodes[index++];
+            switch (token) 
+            {
+            case zPAR_TOK_CALL:
+                referralTokens += &token;
+                index += 4;
+                break;
+            }
+        }
+
+        int tokensCount = referralTokens.GetNum();
+        int overrideCount = 0;
+        for (int i = 0; i < tokensCount; i++)
+        {
+            byte* bytecode = referralTokens[i];
+            int byteIndx = (int_t)bytecode - (int_t)bytecodes;
+            if (byteIndx >= stackSize) continue;
+
+            byte& command = bytecode[0];
+            int& address = (int&)bytecode[1];
+
+            if (address == oldPos)
+            {
+                address = newPos;
+                ++overrideCount;
+            }
+        }
+
+        referralTokens.Clear();
+        DEBUG_MSG("StExt_OverrideFunc - overriding '" + origFuncName + "' (" + Z overrideCount + ") was DONE!");
+        par->SetReturn(true);
+        return true;
+    }
+
+    int __cdecl StExt_RegtisterScriptPlugin()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING modName, modVersion, modAuthor;
+        par->GetParameter(modAuthor);
+        par->GetParameter(modVersion);
+        par->GetParameter(modName);
+
+        ModExtensionInfo info = ModExtensionInfo();
+        info.Name = modName;
+        info.Version = modVersion;
+        info.Author = modAuthor;
+        ModPluginsInfo.Insert(info);
+        return true;
+    }
+
+    int __cdecl StExt_OverrideDialog()
+    {
+        zCParser* par = zCParser::GetParser();
+        int instanceId, actionId, condId;
+        zSTRING infoFuncName, condFuncName;
+        par->GetParameter(condFuncName);
+        par->GetParameter(infoFuncName);
+        par->GetParameter(instanceId);
+
+        oCInfo* pInfo = ogame->GetInfoManager()->GetInformation(instanceId);
+        if (!pInfo)
+        {
+            DEBUG_MSG("StExt_OverrideDialog - dialog not found!");
+            par->SetReturn(false);
+            return false;
+        }
+
+        actionId = par->GetIndex(infoFuncName);
+        int oldActionId = pInfo->pd.information;
+        if (actionId != Invalid && oldActionId != actionId)
+        {
+            pInfo->pd.information = actionId;
+            DEBUG_MSG("StExt_OverrideDialog - override action. Id was/new: " + Z oldActionId + " / " + Z actionId + " | New func name: " + infoFuncName);
+        }
+
+        condId = par->GetIndex(condFuncName);
+        int oldConditionId = pInfo->pd.conditions;
+        if (condId != Invalid && oldConditionId != condId)
+        {
+            pInfo->pd.conditions = condId;
+            DEBUG_MSG("StExt_OverrideDialog - override condition. Id was/new: " + Z oldConditionId + " / " + Z condId + " | New func name: " + condFuncName);
+        }
+
+        DEBUG_MSG("StExt_OverrideDialog - overriding '" + pInfo->name + "' was DONE!");
+        par->SetReturn(true);
+        return true;
+    }
+   
 
     void StonedExtension_DefineExternals()
     {
@@ -1205,7 +1705,16 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_ForEachNpcInRadius", StExt_ForEachNpcInRadius, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_InfuseNpcWithMagic", StExt_InfuseNpcWithMagic, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetNpc", StExt_GetNpc, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
-        parser->DefineExternal("StExt_Info_AddChoice", StExt_Info_AddChoice, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);        
+        parser->DefineExternal("StExt_Info_AddChoice", StExt_Info_AddChoice, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);    
+        parser->DefineExternal("StExt_Info_BuildItemGeneratorPresetsChoices", StExt_Info_BuildItemGeneratorPresetsChoices, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+
+        parser->DefineExternal("StExt_SetItemGeneratorConfigs", StExt_SetItemGeneratorConfigs, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_ResetItemGeneratorConfigs", StExt_ResetItemGeneratorConfigs, zPAR_TYPE_VOID, zPAR_TYPE_VOID);  
+        parser->DefineExternal("StExt_RegistrateConfigsPreset", StExt_RegistrateConfigsPreset, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_GetConfigsPreset", StExt_GetConfigsPreset, zPAR_TYPE_INSTANCE, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Info_BuildConfigPresetsChoices", StExt_Info_BuildConfigPresetsChoices, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_ParsePresetName", StExt_ParsePresetName, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+
         parser->DefineExternal("StExt_InitializeExtraDamage", StExt_InitializeExtraDamage, zPAR_TYPE_VOID, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_InitializeDotDamage", StExt_InitializeDotDamage, zPAR_TYPE_VOID, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_InitializeReflectDamage", StExt_InitializeReflectDamage, zPAR_TYPE_VOID, zPAR_TYPE_VOID);        
@@ -1213,7 +1722,12 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_ApplyDotDamage", StExt_ApplyDotDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_ApplyReflectDamage", StExt_ApplyReflectDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);        
         parser->DefineExternal("StExt_ApplyDamage", StExt_ApplyDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+
         parser->DefineExternal("StExt_TryCallFunc", StExt_TryCallFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_OverrideFunc", StExt_OverrideFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_OverrideDialog", StExt_OverrideDialog, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_RegtisterScriptPlugin", StExt_RegtisterScriptPlugin, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);        
+
         parser->DefineExternal("StExt_StunPlayer", StExt_StunPlayer, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetTimedEffectsCount", GetTimedEffectsCount, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetTimedEffectByIndex", GetTimedEffectByIndex, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);
@@ -1237,17 +1751,22 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_TryGetSymbolDescriptionText", StExt_TryGetSymbolDescriptionText, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         
         parser->DefineExternal("StExt_ProhibitWp", StExt_ProhibitWp, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_RegisterExportConfig", StExt_RegisterExportConfig, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_ExportCurrentConfigs", StExt_ExportCurrentConfigs, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+
         parser->DefineExternal("StExt_IsNpcInProhibitedPlace", StExt_IsNpcInProhibitedPlace, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_BuildEnchntedItemsSellForm", StExt_BuildEnchntedItemsSellForm, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetUndefinedItemsCount", StExt_GetUndefinedItemsCount, zPAR_TYPE_INT, zPAR_TYPE_VOID);   
         parser->DefineExternal("StExt_IdentifyAllItems", StExt_IdentifyAllItems, zPAR_TYPE_VOID, zPAR_TYPE_VOID);
-
+        parser->DefineExternal("StExt_BuildItemsSellForm", StExt_BuildItemsSellForm, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        
         parser->DefineExternal("StExt_StartUncaper", StExt_StartUncaper, zPAR_TYPE_VOID, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_UpdateUncaper", StExt_UpdateUncaper, zPAR_TYPE_VOID, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_UpdateUncaperStat", StExt_UpdateUncaperStat, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetItemInstanceName", StExt_GetItemInstanceName, zPAR_TYPE_STRING, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
 
         parser->DefineExternal("StExt_CopyNpcLook", StExt_CopyNpcLook, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_UpdateTradeVars", StExt_UpdateTradeVars, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);        
     }
 
 
@@ -1286,6 +1805,14 @@ namespace Gothic_II_Addon
             parser->SetInstance("StExt_Self", this);
             parser->CallFunc(indx);
         }
+    }
+
+    HOOK Hook_oCInformationManager_OnChoice PATCH(&oCInformationManager::OnChoice, &oCInformationManager::StExt_OnChoice);
+    void __fastcall oCInformationManager::StExt_OnChoice(oCInfoChoice* pChoice)
+    {
+        if (pChoice)
+            parser->GetSymbol("StExt_ChoiceName")->SetValue(pChoice->Text, 0);
+        THISCALL(Hook_oCInformationManager_OnChoice)(pChoice);
     }
 
     /*

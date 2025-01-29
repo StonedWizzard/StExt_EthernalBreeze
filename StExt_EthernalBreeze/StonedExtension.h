@@ -7,13 +7,39 @@
 #include <C_ItemData.h>
 #include <C_CraftData.h>
 #include <C_UncapedStat.h>
+#include <C_ConfigPreset.h>
 #include <DamageInfo.h>
 #include <GeneratorConfigs.h>
+#include <ModExtensionsInfo.h>
 
 namespace Gothic_II_Addon
 {
 	const string ModDataRootDir = "EthernalBreeze_Data";
+	const string ItemGeneratorConfigsDir = "ItemGeneratorConfigs";
+	const string UserExportedConfigsDir = "UserExportedConfigs";
 	const zSTRING GenerateItemPrefix = "STEXT_GENERATED_";
+
+	constexpr auto ConfigsExportTemplate = R"(META
+{
+    After = ConfigsPresets.d;
+    Mod = EthernalBreeze.vdf;
+};
+
+instance [ConfigName](C_ConfigPreset)
+{
+    Name = "[ConfigName]";
+    Text = "[ConfigText]";
+    TextColor = StExt_Color_Header;
+    OnApply = "[ConfigApplyFunc]";
+};
+
+func event StExt_Evt_OnModLoaded() { StExt_RegistrateConfigsPreset("[ConfigName]"); };	
+
+func void [ConfigApplyFunc]() 
+{
+[ConfigsList]
+};
+)";
 
 	#define DebugEnabled false
 	#define DebugStackEnabled false
@@ -45,6 +71,8 @@ namespace Gothic_II_Addon
 	extern Array<C_MagicInfusionData*> InfusionData_Suffixes;
 	extern Array<C_MagicInfusionData*> InfusionData_Preffixes;
 	extern Array<WaypointData> ProhibitedWaypoints;
+	extern Array<C_ConfigPreset*> GameConfigsPresets;
+	extern Array<ModExtensionInfo> ModPluginsInfo;
 
 	extern std::map<int, int> StatsTypeMap;
 	extern zSTRING ModVersionString;
@@ -78,12 +106,17 @@ namespace Gothic_II_Addon
 	extern int SaveParserVarsFunc;
 	extern int RestoreParserVarsFunc;
 	extern int UpdateUiStatusFunc;
+	extern int StExt_CheckConditionStatFunc;
 
 	extern int MaxSpellId;
 	extern int StExt_AbilityPrefix;
+	extern int ItemCondSpecialSeparator;
 
 	extern int StExt_Config_NpcStats_TopOffset;
 	extern int StExt_Config_NpcStats_HideTags;
+
+	extern float ItemBasePriceMult;
+	extern float ItemSellPriceMult;
 
 	extern bool IsLevelChanging;
 	extern bool IsLoading;
@@ -139,6 +172,7 @@ namespace Gothic_II_Addon
 	void StonedExtension_DefineExternals();
 	void StonedExtension_MsgTray_Loop();
 	void MsgTray_AddEntry(zSTRING text, zSTRING color);
+	zCOLOR ParseHexColor(std::string inputColor);
 
 	void LoadModState();
 	void SaveModState();
@@ -198,6 +232,10 @@ namespace Gothic_II_Addon
 
 	void DrawModInfo();
 	void ClearDamageMeta();
+
+	bool SelectItemGeneratorConfigs(const string fileName);
+	void InitItemGeneratorConfigs();
+	C_ConfigPreset* GetConfigPreset(zSTRING presetName);
 
 	// Item generator constants
 	const int ItemType_None = 0;

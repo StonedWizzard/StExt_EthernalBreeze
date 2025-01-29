@@ -9,6 +9,7 @@ namespace Gothic_II_Addon
 	CExtraDamage ReflectDamage;
 	CIncomingDamage IncomingDamage;
 
+	int ItemCondSpecialSeparator;
 	int MaxSpellId;
 	int StExt_AbilityPrefix;
 	oCNpc::oSDamageDescriptor* CurrentDescriptor = Null;

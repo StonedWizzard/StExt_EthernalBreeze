@@ -13,6 +13,9 @@ namespace Gothic_II_Addon
         {90, zSTRING("StExt_Str_Item_Cond_Shield") },
         {89, zSTRING("StExt_Str_Item_Cond_Bow") },
         {91, zSTRING("StExt_Str_Item_Cond_CBow") },
+        {1001, zSTRING("StExt_Str_Item_Cond_OneHanded") },
+        {1002, zSTRING("StExt_Str_Item_Cond_TwoHanded") },
+        {1003, zSTRING("StExt_Str_Item_Cond_Int") },
     };
 
     void DebugSymInfo(zCPar_Symbol* ps)
