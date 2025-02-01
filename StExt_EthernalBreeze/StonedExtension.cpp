@@ -1687,7 +1687,62 @@ namespace Gothic_II_Addon
         par->SetReturn(true);
         return true;
     }
-   
+
+    int __cdecl StExt_Struct_Sizeof()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING className;
+        par->GetParameter(className);
+        DEBUG_MSG("StExt_Struct_Sizeof - Class: " + className);
+
+        int instanceID;
+        instanceID = par->GetIndex(className);
+        if (instanceID == Invalid)
+        {
+            DEBUG_MSG("StExt_Struct_Sizeof - Class not found!");
+            par->SetReturn(Invalid);
+            return false;
+        }
+
+        zCPar_Symbol* classInstSym = par->GetSymbol(instanceID);
+        unsigned int elementsCount = classInstSym->ele;
+        DEBUG_MSG("StExt_Struct_Sizeof - '" + className + "' members count: " + Z (static_cast<int>(elementsCount)));
+
+        zCPar_Symbol* second = classInstSym;
+        int size = 0, memberId = 0;
+        while (second) 
+        {
+            DEBUG_MSG("StExt_Struct_Sizeof - member name: " + second->name);
+            ++memberId;
+            size += second->type == zPAR_TYPE_STRING ? sizeof(zSTRING) : 4;
+            second = second->next;        
+            if (memberId > elementsCount) break;
+        }
+        DEBUG_MSG("StExt_Struct_Sizeof - Size: " + Z size + " bytes");
+        par->SetReturn(size);
+        return true;
+    }
+
+    int __cdecl StExt_Struct_Alloc()
+    {
+        zCParser* par = zCParser::GetParser();
+        int length;
+        par->GetParameter(length);
+        void* mem = malloc(length);
+        par->SetReturn(mem);
+        DEBUG_MSG("StExt_Struct_Alloc - Allocated: " + Z length + " bytes in heap!");
+        return true;
+    }
+
+    int StExt_Struct_Free()
+    {
+        zCParser* par = zCParser::GetParser();
+        void* mem = par->GetInstance();
+        free(mem);
+        DEBUG_MSG("StExt_Struct_Free - Allocated memory was cleared!");
+        return true;
+    }
+    
 
     void StonedExtension_DefineExternals()
     {
@@ -1726,7 +1781,10 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_TryCallFunc", StExt_TryCallFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_OverrideFunc", StExt_OverrideFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_OverrideDialog", StExt_OverrideDialog, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
-        parser->DefineExternal("StExt_RegtisterScriptPlugin", StExt_RegtisterScriptPlugin, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);        
+        parser->DefineExternal("StExt_RegtisterScriptPlugin", StExt_RegtisterScriptPlugin, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);     
+        parser->DefineExternal("StExt_Struct_Sizeof", StExt_Struct_Sizeof, zPAR_TYPE_INT, zPAR_TYPE_STRING, 0);
+        parser->DefineExternal("StExt_Struct_Alloc", StExt_Struct_Alloc, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, 0);
+        parser->DefineExternal("StExt_Struct_Free", StExt_Struct_Free, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, 0);
 
         parser->DefineExternal("StExt_StunPlayer", StExt_StunPlayer, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetTimedEffectsCount", GetTimedEffectsCount, zPAR_TYPE_INT, zPAR_TYPE_VOID);
