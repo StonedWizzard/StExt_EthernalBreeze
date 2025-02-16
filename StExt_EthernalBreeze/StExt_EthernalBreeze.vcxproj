@@ -870,8 +870,14 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ArrayOperations.cpp" />
+    <ClCompile Include="BaseMenuItem.cpp" />
+    <ClCompile Include="BaseMenuPanel.cpp" />
+    <ClCompile Include="CraftMenu.cpp" />
     <ClCompile Include="C_ConfigPreset.h" />
     <ClCompile Include="MainMenu.cpp" />
+    <ClCompile Include="MenuController.cpp" />
+    <ClCompile Include="MenuItem.cpp" />
+    <ClCompile Include="MenuListView.cpp" />
     <ClCompile Include="MsgTray.cpp" />
     <ClCompile Include="StatsUncaper.cpp" />
     <ClCompile Include="ThrowingItemsController.cpp" />
@@ -887,6 +893,7 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
     <ClInclude Include="DamageInfo.h" />
     <ClInclude Include="GeneratorConfigs.h" />
     <ClInclude Include="ModExtensionsInfo.h" />
+    <ClInclude Include="ModUi.h" />
     <ClInclude Include="Plugin.cpp" />
     <ClCompile Include="ExtendedArmors.cpp" />
     <ClCompile Include="Interface.cpp" />
@@ -901,6 +908,7 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
     <ClCompile Include="StonedExtension.cpp" />
     <ClCompile Include="C_TimedEffect.cpp" />
     <ClCompile Include="UiController.cpp" />
+    <ClCompile Include="VoiceController.cpp" />
     <ClCompile Include="ZenGin\Gothic_II_Addon\ClassDeclarators_G2A.cpp" />
     <ClCompile Include="ZenGin\Gothic_II_Addon\Globals_G2A.cpp" />
     <ClCompile Include="ZenGin\Gothic_II_Addon\Statics_G2A.cpp" />

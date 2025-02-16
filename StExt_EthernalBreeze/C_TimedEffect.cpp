@@ -80,7 +80,7 @@ namespace Gothic_II_Addon
         return true;
     }
 
-    void C_TimedEffect::SetAsInstance(zSTRING instName) { parser->SetInstance(instName, this); }
+    void C_TimedEffect::SetAsInstance(zSTRING instName) { parser->SetInstance(instName.Upper(), this); }
     void C_TimedEffect::RegisterClassOffset()
     {
         C_TimedEffect* trigger = Null;
@@ -225,7 +225,7 @@ namespace Gothic_II_Addon
                 }
             }
         }
-        parser->SetInstance("CurrentTimedEffect", Null);
+        parser->SetInstance("CURRENTTIMEDEFFECT", Null);
     }
 
     void RegisterNearestNpcs()

@@ -4,6 +4,10 @@
 
 namespace Gothic_II_Addon
 {
+    zCOLOR DefaultColor = zCOLOR(235, 235, 235);
+    zCOLOR HoveredColor = zCOLOR(255, 255, 235);
+    zCOLOR SelectedColor = zCOLOR(240, 240, 0);
+
     zCOLOR WhiteColor = zCOLOR(250, 250, 250);
     static oCViewStatusBar* esBar = NULL;
     static oCViewStatusBar* npcEsBar = NULL;
@@ -326,7 +330,7 @@ namespace Gothic_II_Addon
             {
                 FocusNpcEx = dynamic_cast<oCNpcEx*>(FocusNpc);
                 FocusName = FocusNpc->name;
-                parser->SetInstance("StExt_FocusNpc", FocusNpc);
+                parser->SetInstance("STEXT_FOCUSNPC", FocusNpc);
                 PrintNpcEs();
                 PrintNpcInfo();
                 if (FocusNpc->IsDead()) ClearFocusNpc();

@@ -48,3 +48,9 @@ void oCNpc::PutAdditionalArmorItemToSlot(oCItem* item);
 void oCNpc::RemoveAdditionalArmorItemFromSlot(oCItem* item);
 
 //void oCNpc::InitModel_StExt();
+
+void oCNpc::StopAllVoices_StExt();
+
+int oCNpc::UpdateNextVoice_StExt();
+
+int oCNpc::EV_PlaySound_StExt(oCMsgConversation*);

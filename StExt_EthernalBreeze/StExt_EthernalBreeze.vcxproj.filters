@@ -288,9 +288,6 @@
     <ClCompile Include="Damage.cpp">
       <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
-    <ClCompile Include="UiController.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
     <ClCompile Include="StatsMenu.cpp">
       <Filter>Plugin\Workspace\Plugin\Menu</Filter>
     </ClCompile>
@@ -321,17 +318,41 @@
     <ClCompile Include="ThrowingItemsController.cpp">
       <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
-    <ClCompile Include="MsgTray.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
     <ClCompile Include="StatsUncaper.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="MainMenu.cpp">
       <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
     <ClCompile Include="C_ConfigPreset.h">
       <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuItem.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseMenuItem.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseMenuPanel.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="CraftMenu.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuListView.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="UiController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="MsgTray.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="MainMenu.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="VoiceController.cpp">
+      <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -2891,6 +2912,9 @@
     </ClInclude>
     <ClInclude Include="ModExtensionsInfo.h">
       <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
+    </ClInclude>
+    <ClInclude Include="ModUi.h">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -230,6 +230,7 @@ namespace Gothic_II_Addon
         GeneratorConfigs.CodePage = JsonFile["CodePage"].get<int>();
 
         GeneratorConfigs.NextRankOffset = JsonFile["NextRankOffset"].get<int>();
+        GeneratorConfigs.NextRankOffsetMin = JsonFile["NextRankOffsetMin"].get<int>();        
         GeneratorConfigs.ItemLevelFromPowerRatio = JsonFile["ItemLevelFromPowerRatio"].get<float>();
         GeneratorConfigs.MedTierSeparator = JsonFile["MedTierSeparator"].get<int>();
         GeneratorConfigs.TopTierSeparator = JsonFile["TopTierSeparator"].get<int>();
@@ -270,6 +271,8 @@ namespace Gothic_II_Addon
 
         GeneratorConfigs.ConditionPerLevelMult = JsonFile["ConditionPerLevelMult"].get<float>();
         GeneratorConfigs.ConditionPerRankMult = JsonFile["ConditionPerRankMult"].get<float>();
+        GeneratorConfigs.BaseConditionPerLevelMult = JsonFile["BaseConditionPerLevelMult"].get<float>();
+        GeneratorConfigs.BaseConditionPerRankMult = JsonFile["BaseConditionPerRankMult"].get<float>();
         GeneratorConfigs.ExtraConditionChanceBase = JsonFile["ExtraConditionChanceBase"].get<float>();
         GeneratorConfigs.ExtraConditionChancePerRankMult = JsonFile["ExtraConditionChancePerRankMult"].get<float>();
         GeneratorConfigs.ExtraConditionChancePerLevelMult = JsonFile["ExtraConditionChancePerLevelMult"].get<float>();
@@ -589,8 +592,8 @@ namespace Gothic_II_Addon
 
         IsLevelChanging = false;
         IsLoading = false;
-        parser->SetInstance("StExt_NullNpc", Null);
-        parser->SetInstance("StExt_NullItem", Null);
+        parser->SetInstance("STEXT_NULLNPC", Null);
+        parser->SetInstance("STEXT_NULLITEM", Null);
         parser->GetSymbol("StExt_Fps")->SetValue(60, 0);
 
         OnPreLoopFunc = parser->GetIndex("StExt_OnFrameBegin");
@@ -707,7 +710,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.3.0)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.1)]");
         #if DebugEnabled
             ModVersionString += Z(" | [Debug]");
         #endif
@@ -724,6 +727,7 @@ namespace Gothic_II_Addon
         InitNpcPreffixes();
         InitNpcSuffixes();
         InitModScriptData();
+        InitVoiceController();
         DEBUG_MSG("StExt - Mod data initialized!");
     }
 }

@@ -182,7 +182,7 @@ namespace Gothic_II_Addon
         if (this->IsSelfPlayer())
         {
             UnequipAdditionalArmorItem(item->wear);
-            parser->SetInstance("StExt_Item", item);
+            parser->SetInstance("STEXT_ITEM", item);
             parser->CallFunc(OnArmorEquipFunc);
         }
 

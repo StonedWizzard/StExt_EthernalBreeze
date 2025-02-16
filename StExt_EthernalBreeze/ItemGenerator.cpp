@@ -64,7 +64,7 @@ namespace Gothic_II_Addon
         if (power <= 0) return 0;
         int RankMax = parser->GetSymbol("StExt_ItemRankMax")->single_intdata - 1;
         int maxRank = power / GeneratorConfigs.NextRankOffset;        
-        int minRank = static_cast<int>(maxRank * 0.5f);
+        int minRank = power / GeneratorConfigs.NextRankOffsetMin;
 
         //normalize rank
         if (maxRank > RankMax) maxRank = RankMax;
@@ -276,7 +276,9 @@ namespace Gothic_II_Addon
 
         // conditions change
         float conditionsMult = (itemLevel * GeneratorConfigs.ConditionPerLevelMult) + (itemRank * GeneratorConfigs.ConditionPerRankMult);
+        float baseConditionMult = 0.5f + (itemLevel * GeneratorConfigs.BaseConditionPerLevelMult) + (itemRank * GeneratorConfigs.BaseConditionPerRankMult);
         if (conditionsMult < 0.1f) conditionsMult = 0.1f;
+        if (baseConditionMult < 0.5f) baseConditionMult = 0.5f;
         int extraCondChance = 10 * (GeneratorConfigs.ExtraConditionChanceBase + (itemLevel * GeneratorConfigs.ExtraConditionChancePerLevelMult) + (itemRank * GeneratorConfigs.ExtraConditionChancePerRankMult));
         bool extraCondAdded = false;
         
@@ -291,7 +293,7 @@ namespace Gothic_II_Addon
                 ItemCondition* condData = GetConditionData(item->cond_atr[i]);
                 if (condData)
                 {
-                    enchantment->CondValue[i] *= conditionsMult;
+                    enchantment->CondValue[i] *= baseConditionMult;
                     enchantment->CondValue[i] = enchantment->CondValue[i] > condData->HardCap ? condData->HardCap : 
                         (enchantment->CondValue[i] <= 0 ? 1 : enchantment->CondValue[i]);
                 }
@@ -677,7 +679,7 @@ namespace Gothic_II_Addon
         result->Type = itemType;
         result->Flags = GetItemFlags(item, itemType);
         result->Level = CalcItemLevel(power);
-        result->Rank = CalcItemRank(power);
+        result->Rank = CalcItemRank(result->Level);
         result->AdditionalFlags = item->hitp;
 
         DEBUG_MSG("Build enchantment data Item type: " + Z result->Type);

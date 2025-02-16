@@ -6,3 +6,5 @@
 //void Print_StExt(int, int, zSTRING const&);
 
 //void zCView::Render_StExt();
+
+void zCView::DialogMessageCXY_StExt(zSTRING const&, zSTRING const&, float, zCOLOR&);

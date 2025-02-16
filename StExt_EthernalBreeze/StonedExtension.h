@@ -1,5 +1,11 @@
 #include "nlohmann/json.hpp"
 #include <vector>
+#include <functional>
+#include <algorithm>
+#include <sapi.h>
+#pragma warning (disable:4996)
+#include <sphelper.h>
+#pragma warning (default:4996)
 #include <C_ModState.h>
 #include <C_AuraData.h>
 #include <C_MagicInfusion.h>
@@ -11,6 +17,7 @@
 #include <DamageInfo.h>
 #include <GeneratorConfigs.h>
 #include <ModExtensionsInfo.h>
+#include <ModUi.h>
 
 namespace Gothic_II_Addon
 {
@@ -237,6 +244,8 @@ func void [ConfigApplyFunc]()
 	void InitItemGeneratorConfigs();
 	C_ConfigPreset* GetConfigPreset(zSTRING presetName);
 
+	bool InitVoiceController();
+
 	// Item generator constants
 	const int ItemType_None = 0;
 	const int ItemType_Helm = 1 << 0;
@@ -425,6 +434,7 @@ func void [ConfigApplyFunc]()
 	const int Value_Type_YesNo = 2;
 	const int Value_Type_DefaultPerc = 3;
 	const int Value_Type_InvertPerc = 4;
+	const int Value_Type_Approx = 5;
 
 	const int StExt_DamageMessageType_Default = 0;
 	const int StExt_DamageMessageType_Dot = 2;
@@ -435,6 +445,7 @@ func void [ConfigApplyFunc]()
 	const int StExt_IncomingDamageFlag_Index_HasAttacker = 2;
 	const int StExt_IncomingDamageFlag_Index_HasWeapon = 4;
 	const int StExt_IncomingDamageFlag_Index_ExtraDamage = 8;
+	const int StExt_IncomingDamageFlag_Index_DontKill = 16;
 
 	// **************************************************************
 	//					NB Hooks

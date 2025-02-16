@@ -1,7 +1,7 @@
 #include <UnionAfx.h>
 #include <string> 
 #include <iostream>
-#include <vector>
+//#include <vector>
 #include <algorithm>
 #include <random>
 #include <regex>
@@ -223,7 +223,7 @@ namespace Gothic_II_Addon
         if (npc)
         {
             int idx = parser->GetIndex("StExt_NpcToUid");
-            parser->SetInstance("StExt_Self", npc);
+            parser->SetInstance("STEXT_SELF", npc);
             int uid = *(int*)parser->CallFunc(idx);
             return uid;
         }
@@ -449,7 +449,7 @@ namespace Gothic_II_Addon
             rtnMan->UpdateSingleRoutine(pNpc);
             if (initFuncIndx > 0)
             {
-                parser->SetInstance("StExt_Self", pNpc);
+                parser->SetInstance("STEXT_SELF", pNpc);
                 par->CallFunc(initFuncIndx);
             }
         }
@@ -493,7 +493,7 @@ namespace Gothic_II_Addon
         sym = parser->GetSymbol("StExt_Other");
         if (sym) oldOtherNpc = dynamic_cast<oCNpc*>((zCVob*)sym->GetInstanceAdr());
 
-        parser->SetInstance("StExt_Other", center);
+        parser->SetInstance("STEXT_OTHER", center);
         if (initFuncIndx != Invalid)
             par->CallFunc(initFuncIndx, center->GetInstance());
 
@@ -501,7 +501,7 @@ namespace Gothic_II_Addon
         for (int i = 0; i < npcArray.GetNum(); i++)
         {
             if (npcArray[i] == Null) continue;
-            parser->SetInstance("StExt_Self", npcArray[i]);
+            parser->SetInstance("STEXT_SELF", npcArray[i]);
             
             //DEBUG_MSG("StExt_ForEachNpcInRadius -> npc - " + Z npcArray[i]->name);
             if (condFuncIndx != Invalid)
@@ -514,8 +514,8 @@ namespace Gothic_II_Addon
                 par->CallFunc(execFuncIndx);
         }
 
-        parser->SetInstance("StExt_Other", oldOtherNpc);
-        parser->SetInstance("StExt_Self", oldSelfNpc);
+        parser->SetInstance("STEXT_OTHER", oldOtherNpc);
+        parser->SetInstance("STEXT_SELF", oldSelfNpc);
     }
 
     // (center, radius, condFunc)
@@ -542,11 +542,11 @@ namespace Gothic_II_Addon
         for (int i = 0; i < npcArray.GetNum(); i++)
         {
             if (npcArray[i] == Null) continue;
-            parser->SetInstance("StExt_Self", npcArray[i]);
+            parser->SetInstance("STEXT_SELF", npcArray[i]);
             int condResult = *(int*)par->CallFunc(condFuncIndx);
             if (condResult)
             {
-                parser->SetInstance("StExt_Other", npcArray[i]);
+                parser->SetInstance("STEXT_OTHER", npcArray[i]);
                 parser->SetReturn(true);
                 return false;
             };
@@ -587,7 +587,7 @@ namespace Gothic_II_Addon
         zCParser* par = zCParser::GetParser();
         ExtraDamage = CExtraDamage();
         memset(&ExtraDamage, 0, sizeof ExtraDamage);
-        par->SetInstance("StExt_ExtraDamageInfo", &ExtraDamage);
+        par->SetInstance("STEXT_EXTRADAMAGEINFO", &ExtraDamage);
         return true;
     }
 
@@ -596,7 +596,7 @@ namespace Gothic_II_Addon
         zCParser* par = zCParser::GetParser();
         DotDamage = CDotDamage();
         memset(&DotDamage, 0, sizeof DotDamage);
-        par->SetInstance("StExt_DotDamageInfo", &DotDamage);
+        par->SetInstance("STEXT_DOTDAMAGEINFO", &DotDamage);
         return true;
     }
 
@@ -605,7 +605,7 @@ namespace Gothic_II_Addon
         zCParser* par = zCParser::GetParser();
         ReflectDamage = CExtraDamage();
         memset(&ReflectDamage, 0, sizeof ReflectDamage);
-        par->SetInstance("StExt_ReflectDamageInfo", &ReflectDamage);
+        par->SetInstance("STEXT_REFLECTDAMAGEINFO", &ReflectDamage);
         return true;
     }
 
@@ -1092,7 +1092,7 @@ namespace Gothic_II_Addon
             CraftData craftData = BuildCraftData();
             craftData.Price = enchantedItems[i]->value;
             craftData.ResultInstance = enchantedItems[i]->GetInstanceName();
-            par->SetInstance("StExt_CraftInfo", &craftData);
+            par->SetInstance("STEXT_CRAFTINFO", &craftData);
             par->CallFunc(callBackFunc);
         }
         return true;
@@ -1558,7 +1558,7 @@ namespace Gothic_II_Addon
             craftData.Price = pItem->value * priceMult;
             if (craftData.Price <= 0) craftData.Price = 1;
             craftData.ResultInstance = instName;
-            par->SetInstance("StExt_CraftInfo", &craftData);
+            par->SetInstance("STEXT_CRAFTINFO", &craftData);
             par->CallFunc(callBackFunc);
             ++i;
         }
@@ -1688,6 +1688,20 @@ namespace Gothic_II_Addon
         return true;
     }
 
+    int __cdecl StExt_OverrideConst()
+    {
+        zCParser* par = zCParser::GetParser();
+        int newValue;
+        zSTRING constName;
+        par->GetParameter(constName);
+        par->GetParameter(newValue);
+
+        zCPar_Symbol* sym = par->GetSymbol(constName);
+        if (sym)
+            sym->SetValue(newValue, 0);
+        return true;
+    }
+
     int __cdecl StExt_Struct_Sizeof()
     {
         zCParser* par = zCParser::GetParser();
@@ -1781,6 +1795,7 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_TryCallFunc", StExt_TryCallFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_OverrideFunc", StExt_OverrideFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_OverrideDialog", StExt_OverrideDialog, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_OverrideConst", StExt_OverrideConst, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);        
         parser->DefineExternal("StExt_RegtisterScriptPlugin", StExt_RegtisterScriptPlugin, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);     
         parser->DefineExternal("StExt_Struct_Sizeof", StExt_Struct_Sizeof, zPAR_TYPE_INT, zPAR_TYPE_STRING, 0);
         parser->DefineExternal("StExt_Struct_Alloc", StExt_Struct_Alloc, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, 0);
@@ -1860,7 +1875,7 @@ namespace Gothic_II_Addon
         if (this && !this->IsDead())
         {
             int indx = parser->GetIndex("StExt_OnAiState");
-            parser->SetInstance("StExt_Self", this);
+            parser->SetInstance("STEXT_SELF", this);
             parser->CallFunc(indx);
         }
     }

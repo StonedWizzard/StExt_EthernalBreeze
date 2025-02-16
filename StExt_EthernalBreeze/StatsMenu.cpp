@@ -227,6 +227,11 @@ namespace Gothic_II_Addon
 		else if (valType == Value_Type_Percent) statValStr = GetFloatStringFromInt(statVal);
 		else if (valType == Value_Type_DefaultPerc) statValStr = zSTRING(statVal) + "%";
 		else if (valType == Value_Type_InvertPerc) statValStr = zSTRING(statVal * 10) + "%";
+		else if (valType == Value_Type_Approx)
+		{
+			statValStr = "(±) " + zSTRING(statVal);
+			if (statVal == Invalid) statValStr = "(?) N/A";
+		}
 		else statValStr = zSTRING(statVal);
 
 		PrintText(PrintBorderLeft, y, statDesc);
@@ -821,7 +826,7 @@ namespace Gothic_II_Addon
 		int esCurFuncIndex = parser->GetIndex("StExt_Npc_GetBarCurEs");
 		int esMaxFuncIndex = parser->GetIndex("StExt_Npc_GetBarMaxEs");
 		zSTRING esStr = parser->GetSymbol("StExt_EsText")->stringdata;
-		parser->SetInstance("StExt_FocusNpc", player);
+		parser->SetInstance("STEXT_FOCUSNPC", player);
 		int esCur = *(int*)parser->CallFunc(NpcGetBarCurEsFunc);
 		int esMax = *(int*)parser->CallFunc(NpcGetBarMaxEsFunc);
 
@@ -891,6 +896,11 @@ namespace Gothic_II_Addon
 
 		// Stats
 		y += fontY;
+		PrintStatLine(y, parser->GetSymbol("StExt_Str_AverageWeapDamageInfo_Meele")->stringdata, parser->GetSymbol("StExt_MeeleDamageInfo")->single_intdata, Value_Type_Approx);
+		PrintStatLine(y, parser->GetSymbol("StExt_Str_AverageWeapDamageInfo_Range")->stringdata, parser->GetSymbol("StExt_RangeDamageInfo")->single_intdata, Value_Type_Approx);
+		PrintStatLine(y, parser->GetSymbol("StExt_Str_AverageWeapDamageInfo_Magic")->stringdata, parser->GetSymbol("StExt_RuneDamageInfo")->single_intdata, Value_Type_Approx);
+		y += fontY * 2.0f;
+
 		PrintSectionHeader(y, StExt_PcStats_SectionDescArray->stringdata[6]);
 		y += fontY;
 		zSTRING str;
@@ -919,6 +929,7 @@ namespace Gothic_II_Addon
 		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[242], StExt_PcStatsArray->intdata[242], Value_Type_Percent);
 		y += fontY * 2.0f;
 
+		PrintStatLine(y, StExt_PcStatsDescArray->stringdata[159], StExt_PcStatsArray->intdata[159], 0);
 		str = Z(parser->GetSymbol("StExt_HeroActiveAuras")->single_intdata) + "/" + Z(parser->GetSymbol("StExt_HeroActiveAurasMax")->single_intdata);
 		PrintText(PrintBorderLeft, y, parser->GetSymbol("StExt_Str_Auras")->stringdata);
 		PrintText(PrintBorderRight - View->FontSize(str) * 0.5f, y, str);
@@ -1491,6 +1502,10 @@ namespace Gothic_II_Addon
 		PrintOptionLine(y, "StExt_Str_Config_SncExp", "StExt_Config_SncExp", Value_Type_DefaultPerc, true);
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_BelliarRageExp", "StExt_Config_BelliarRageExp", Value_Type_DefaultPerc, true);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_CorruptionTouchExp", "StExt_Config_CorruptionTouchExp", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_DamageReductionExpRate", "StExt_Config_DamageReductionExpRate", Value_Type_DefaultPerc, false);
 		y += fontY;
 		y += fontY;
 

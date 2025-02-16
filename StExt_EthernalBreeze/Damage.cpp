@@ -21,9 +21,9 @@ namespace Gothic_II_Addon
 		DamageMeta = meta;
 		if (CurrentDescriptor)
 		{
-			parser->SetInstance("StExt_TargetNpc", target);
-			parser->SetInstance("StExt_AttackNpc", CurrentDescriptor->pNpcAttacker);
-			parser->SetInstance("StExt_AttackWeapon", CurrentDescriptor->pItemWeapon);
+			parser->SetInstance("STEXT_TARGETNPC", target);
+			parser->SetInstance("STEXT_ATTACKNPC", CurrentDescriptor->pNpcAttacker);
+			parser->SetInstance("STEXT_ATTACKWEAPON", CurrentDescriptor->pItemWeapon);
 		}
 		else
 		{
@@ -31,10 +31,10 @@ namespace Gothic_II_Addon
 			memset(&IncomingDamage, 0, sizeof(CIncomingDamage));
 			IncomingDamage.ScriptInstance.Processed = true;
 
-			parser->SetInstance("StExt_IncomingDamageInfo", Null);
-			parser->SetInstance("StExt_TargetNpc", Null);
-			parser->SetInstance("StExt_AttackNpc", Null);
-			parser->SetInstance("StExt_AttackWeapon", Null);
+			parser->SetInstance("STEXT_INCOMINGDAMAGEINFO", Null);
+			parser->SetInstance("STEXT_TARGETNPC", Null);
+			parser->SetInstance("STEXT_ATTACKNPC", Null);
+			parser->SetInstance("STEXT_ATTACKWEAPON", Null);
 		}
 	}
 	
@@ -356,10 +356,10 @@ namespace Gothic_II_Addon
 			}
 		}
 
-		parser->SetInstance("StExt_IncomingDamageInfo", &IncomingDamage.ScriptInstance);
-		parser->SetInstance("StExt_TargetNpc", IncomingDamage.Target);
-		parser->SetInstance("StExt_AttackNpc", IncomingDamage.Attacker);
-		parser->SetInstance("StExt_AttackWeapon", IncomingDamage.Weapon);
+		parser->SetInstance("STEXT_INCOMINGDAMAGEINFO", &IncomingDamage.ScriptInstance);
+		parser->SetInstance("STEXT_TARGETNPC", IncomingDamage.Target);
+		parser->SetInstance("STEXT_ATTACKNPC", IncomingDamage.Attacker);
+		parser->SetInstance("STEXT_ATTACKWEAPON", IncomingDamage.Weapon);
 	}
 
 	void ProcessExtraDamage(oCNpc::oSDamageDescriptor& desc, CDamageMeta* damageMeta, oCNpc* target)
@@ -368,7 +368,6 @@ namespace Gothic_II_Addon
 
 		int damageTotal = 0;
 		int damageReal = 0;
-		oCNpc* slf = Null;
 		for (int i = 0; i < oEDamageIndex_MAX; i++)
 		{
 			int dam = static_cast<int>(desc.aryDamage[i]);
@@ -397,8 +396,37 @@ namespace Gothic_II_Addon
 
 		SetDamageMeta(&desc, damageMeta, target);
 		target->ChangeAttribute(NPC_ATR_HITPOINTS, -damageReal);
-		//target->OnDamage_Script(desc);
-		//target->AssessDamage_S(desc.pNpcAttacker, damageReal);
+
+		if (desc.pNpcAttacker)
+		{
+			DEBUG_MSG(Z"attackNpc: " + Z desc.pNpcAttacker->GetName(0));
+			void* oldSelf = parser->GetSymbol("SELF")->GetInstanceAdr();
+			void* oldOther = parser->GetSymbol("OTHER")->GetInstanceAdr();
+			parser->SetInstance("SELF", target);
+			parser->SetInstance("OTHER", desc.pNpcAttacker);
+
+			if (target->IsHuman() && (target->attribute[0] == 1) && !target->IsUnconscious())
+			{
+				DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - IsUnconscious!"));
+				desc.bIsUnconscious = true;
+			
+				target->DropAllInHand();
+				target->SetWeaponMode(NPC_WEAPON_NONE);
+				target->SetAttribute(NPC_ATR_HITPOINTS, 1);
+				target->SetBodyState(BS_UNCONSCIOUS);				
+				target->state.StartAIState(-4, FALSE, 0, 0, FALSE);
+				target->AssessDefeat_S(desc.pNpcAttacker);
+			}
+			else if (target->attribute[0] <= 0)
+			{
+				DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - IsDead!"));
+				desc.bIsDead = true;			
+				target->DoDie(desc.pNpcAttacker);	
+			}
+
+			parser->SetInstance("SELF", oldSelf);
+			parser->SetInstance("OTHER", oldOther);
+		}
 		DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - true damage: ") + Z damageReal);
 	}
 
@@ -473,9 +501,9 @@ namespace Gothic_II_Addon
 			return;
 		}
 
-		parser->SetInstance("StExt_TargetNpc", this);
-		parser->SetInstance("StExt_AttackNpc", desc.pNpcAttacker);
-		parser->SetInstance("StExt_AttackWeapon", desc.pItemWeapon);
+		parser->SetInstance("STEXT_TARGETNPC", this);
+		parser->SetInstance("STEXT_ATTACKNPC", desc.pNpcAttacker);
+		parser->SetInstance("STEXT_ATTACKWEAPON", desc.pItemWeapon);
 		int isImmortal = *(int*)parser->CallFunc(IsNpcImmortalFunc);
 
 		if (desc.pFXHit)
@@ -544,7 +572,7 @@ namespace Gothic_II_Addon
 				damageInfo = BuildDamageInfo(desc);
 				damageInfo.IsInitial = (int)isInitial;
 				damageInfo.SpellId = isAbility ? abilityId : spellId;
-				parser->SetInstance("StExt_DamageInfo", &damageInfo);
+				parser->SetInstance("STEXT_DAMAGEINFO", &damageInfo);
 				isDamageInfo = true;
 				DEBUG_MSG(this->name + Z(" OnDamage - damage info builded."));
 			}
@@ -599,7 +627,7 @@ namespace Gothic_II_Addon
 					damageInfo.IsInitial = (int)isInitial;
 					damageInfo.SpellId = isAbility ? abilityId : spellId;
 					isDamageInfoUpdated = true;
-					parser->SetInstance("StExt_DamageInfo", &damageInfo);
+					parser->SetInstance("STEXT_DAMAGEINFO", &damageInfo);
 				}
 
 				SetDamageMeta(&desc, &damageMeta, this);
@@ -622,7 +650,7 @@ namespace Gothic_II_Addon
 						if ((desc.aryDamage[i] > 0) || (desc.aryDamageEffective[i] > 0))
 							damageInfo.DamageEnum |= (unsigned long)(1 << i);
 					}
-					parser->SetInstance("StExt_DamageInfo", &damageInfo);
+					parser->SetInstance("STEXT_DAMAGEINFO", &damageInfo);
 				}
 
 				SetDamageMeta(&desc, &damageMeta, this);
@@ -644,11 +672,17 @@ namespace Gothic_II_Addon
 			value += *(int*)parser->CallFunc(ProcessHpDamageFunc);
 			damage = value >= 0 ? 0 : value * (-1);
 			DEBUG_MSG("Apply damage to '" + Z this->name[0] + "'. Damage after: " + Z damage);
-			if (value >= 0) return;
+			if (value >= 0)
+			{
+				DEBUG_MSG("Apply damage to '" + Z this->name[0] + "'. Damage fully absorbed!");
+				return;
+			}
 
+			bool isExtraDamage = HasFlag(IncomingDamage.ScriptInstance.Flags, StExt_IncomingDamageFlag_Index_ExtraDamage);
+			bool isExtraDamageDontKill = HasFlag(IncomingDamage.ScriptInstance.Flags, StExt_IncomingDamageFlag_Index_DontKill);
 			bool isKill = ((this->attribute[0] + value) <= 0);
-			if (isKill && CurrentDescriptor && HasFlag(IncomingDamage.ScriptInstance.Flags, StExt_IncomingDamageFlag_Index_ExtraDamage))
-				value = -(this->attribute[0] - 1);
+			int preserveHp = isKill && isExtraDamage && isExtraDamageDontKill ? -1 : 0;
+			value = (value * (-1) > this->attribute[0] + preserveHp) ? -(this->attribute[0] + preserveHp) : value;
 		}
 		THISCALL(ivk_oCNpc_ChangeAttribute)(attrIndex, value);
 		if (attrIndex == NPC_ATR_HITPOINTS)

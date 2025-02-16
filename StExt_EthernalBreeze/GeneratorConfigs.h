@@ -43,6 +43,7 @@ namespace Gothic_II_Addon
 		int CodePage;
 
 		int NextRankOffset;										// How much item levels required for next rank 
+		int NextRankOffsetMin;
 		float ItemLevelFromPowerRatio;							// How calculate item level from icoming power
 		int MedTierSeparator;
 		int TopTierSeparator;
@@ -86,6 +87,8 @@ namespace Gothic_II_Addon
 		// Item requirements configs		
 		float ConditionPerLevelMult;
 		float ConditionPerRankMult;
+		float BaseConditionPerLevelMult;
+		float BaseConditionPerRankMult;
 		float ExtraConditionChanceBase;
 		float ExtraConditionChancePerRankMult;
 		float ExtraConditionChancePerLevelMult;
