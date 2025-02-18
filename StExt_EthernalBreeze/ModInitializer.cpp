@@ -40,6 +40,7 @@ namespace Gothic_II_Addon
     int UpdateUiStatusFunc = Invalid;
     int IsExtraDamageProhibitedFunc = Invalid;
     int StExt_CheckConditionStatFunc = Invalid;
+    int StExt_OnAiStateFunc = Invalid;
 
     int StExt_Config_NpcStats_TopOffset;
     int StExt_Config_NpcStats_HideTags;
@@ -269,6 +270,8 @@ namespace Gothic_II_Addon
         GeneratorConfigs.ExtraProtectionChancePerLevelMult = JsonFile["ExtraProtectionChancePerLevelMult"].get<float>();
         GeneratorConfigs.OrigProtectionPerLevelMult = JsonFile["OrigProtectionPerLevelMult"].get<float>();
 
+        GeneratorConfigs.ConditionStaticMult = JsonFile["ConditionStaticMult"].get<float>();
+        GeneratorConfigs.BaseConditionStaticMult = JsonFile["BaseConditionStaticMult"].get<float>();
         GeneratorConfigs.ConditionPerLevelMult = JsonFile["ConditionPerLevelMult"].get<float>();
         GeneratorConfigs.ConditionPerRankMult = JsonFile["ConditionPerRankMult"].get<float>();
         GeneratorConfigs.BaseConditionPerLevelMult = JsonFile["BaseConditionPerLevelMult"].get<float>();
@@ -487,6 +490,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("Parse config file: 'StExt_ItemGeneratorConfigs.json' ...");
         string root = zoptions->GetDirString(zTOptionPaths::DIR_ROOT);
         string path = string::Combine("%s\\%s\\StExt_ItemGeneratorConfigs.json", root, ModDataRootDir);
+
         if (ParseModData(path)) {
             ReadItemGeneratorJsonConfigs();
         }
@@ -513,6 +517,13 @@ namespace Gothic_II_Addon
         DEBUG_MSG("Parse config file: " + fileName + "...");
         string root = zoptions->GetDirString(zTOptionPaths::DIR_ROOT);
         string path = string::Combine("%s\\%s\\%s\\%s", root, ModDataRootDir, ItemGeneratorConfigsDir, fileName);
+        string fileData;
+        if (!fileData.ReadFromVdf(path, VDF_DEFAULT))
+        {
+            DEBUG_MSG("Config file: '" + path + "' not found!");
+            return false;
+        }
+
         if (ParseModData(path)) {
             ReadItemGeneratorJsonConfigs();
         }
@@ -522,7 +533,7 @@ namespace Gothic_II_Addon
             DEBUG_MSG("SelectItemGeneratorConfigs: configs update is failed!");
             return false;
         }
-        DEBUG_MSG("Parse config file: " + fileName + " Done!");
+        DEBUG_MSG("Parse config file: '" + fileName + "' Done!");
         DEBUG_MSG("Item generator configs updated!");
         return true;
     }
@@ -673,7 +684,9 @@ namespace Gothic_II_Addon
 
         StExt_CheckConditionStatFunc = parser->GetIndex("StExt_CheckConditionStat");
         DEBUG_MSG_IF(StExt_CheckConditionStatFunc == Invalid, "StExt_CheckConditionStatFunc is null!");
-        
+
+        StExt_OnAiStateFunc = parser->GetIndex("StExt_OnAiState");
+        DEBUG_MSG_IF(StExt_CheckConditionStatFunc == Invalid, "StExt_OnAiStateFunc is null!");
 
         StExt_EsText = parser->GetSymbol("StExt_EsText")->stringdata;
         SpellFxNames = parser->GetSymbol("spellfxinstancenames")->stringdata;
@@ -710,7 +723,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.1)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.2)]");
         #if DebugEnabled
             ModVersionString += Z(" | [Debug]");
         #endif

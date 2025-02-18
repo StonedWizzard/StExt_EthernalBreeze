@@ -1593,7 +1593,7 @@ namespace Gothic_II_Addon
 		y += fontY;
 		PrintSectionHeader(y, Z "ToXaL1, Icefist, Junes, Shiva, Khellzhao", zCOLOR(250, 250, 250));
 		y += fontY;
-		PrintSectionHeader(y, Z "Gothicmap, Dezomorphin, lev4enko and others...", zCOLOR(250, 250, 250));
+		PrintSectionHeader(y, Z "Gothicmap, Dezomorphin, lev4enko, Denis Bagretsov and others...", zCOLOR(250, 250, 250));
 	}
 
 	void StatsMenu::Loop()

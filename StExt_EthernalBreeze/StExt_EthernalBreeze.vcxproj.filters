@@ -354,6 +354,9 @@
     <ClCompile Include="VoiceController.cpp">
       <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
+    <ClCompile Include="DynamicScriptObjects.cpp">
+      <Filter>Plugin\Workspace\Plugin</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ZenGin\zGothicAPI.h">

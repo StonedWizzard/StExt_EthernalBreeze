@@ -1726,7 +1726,7 @@ namespace Gothic_II_Addon
         int size = 0, memberId = 0;
         while (second) 
         {
-            DEBUG_MSG("StExt_Struct_Sizeof - member name: " + second->name);
+            //DEBUG_MSG("StExt_Struct_Sizeof - member name: " + second->name);
             ++memberId;
             size += second->type == zPAR_TYPE_STRING ? sizeof(zSTRING) : 4;
             second = second->next;        
@@ -1737,14 +1737,23 @@ namespace Gothic_II_Addon
         return true;
     }
 
+    /*void* AllocateDynamicObject(size_t size);
+	void FreeDynamicObject(void* ptr);
+	bool IsObjectsTableAllocated(void* ptr);*/
     int __cdecl StExt_Struct_Alloc()
     {
         zCParser* par = zCParser::GetParser();
         int length;
         par->GetParameter(length);
-        void* mem = malloc(length);
+        void* mem = AllocateDynamicObject(static_cast<size_t>(length));
+        if (mem == Null)
+        {
+            par->SetReturn(Null);
+            DEBUG_MSG("StExt_Struct_Alloc - Allocate failed!");
+            return false;
+        }
         par->SetReturn(mem);
-        DEBUG_MSG("StExt_Struct_Alloc - Allocated: " + Z length + " bytes in heap!");
+        DEBUG_MSG("StExt_Struct_Alloc - Allocated: " + Z length + " bytes in ObjectsMemPool!");
         return true;
     }
 
@@ -1752,11 +1761,19 @@ namespace Gothic_II_Addon
     {
         zCParser* par = zCParser::GetParser();
         void* mem = par->GetInstance();
-        free(mem);
+        if(!FreeDynamicObject(mem)) return false;
         DEBUG_MSG("StExt_Struct_Free - Allocated memory was cleared!");
         return true;
     }
     
+    int StExt_Struct_IsEmpty()
+    {
+        zCParser* par = zCParser::GetParser();
+        void* mem = par->GetInstance();
+        bool result = mem && IsObjectsTableAllocated(mem);
+        par->SetReturn(result);
+        return result;
+    }
 
     void StonedExtension_DefineExternals()
     {
@@ -1800,6 +1817,7 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_Struct_Sizeof", StExt_Struct_Sizeof, zPAR_TYPE_INT, zPAR_TYPE_STRING, 0);
         parser->DefineExternal("StExt_Struct_Alloc", StExt_Struct_Alloc, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, 0);
         parser->DefineExternal("StExt_Struct_Free", StExt_Struct_Free, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, 0);
+        parser->DefineExternal("StExt_Struct_IsEmpty", StExt_Struct_IsEmpty, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, 0);
 
         parser->DefineExternal("StExt_StunPlayer", StExt_StunPlayer, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetTimedEffectsCount", GetTimedEffectsCount, zPAR_TYPE_INT, zPAR_TYPE_VOID);
@@ -1872,11 +1890,10 @@ namespace Gothic_II_Addon
     {
         THISCALL(Hook_oCNpc_ProcessNpc)();
 
-        if (this && !this->IsDead())
+        if (this && !this->IsDead() && (StExt_OnAiStateFunc != Invalid))
         {
-            int indx = parser->GetIndex("StExt_OnAiState");
             parser->SetInstance("STEXT_SELF", this);
-            parser->CallFunc(indx);
+            parser->CallFunc(StExt_OnAiStateFunc);
         }
     }
 

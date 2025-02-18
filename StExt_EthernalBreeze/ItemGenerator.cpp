@@ -275,8 +275,8 @@ namespace Gothic_II_Addon
         }
 
         // conditions change
-        float conditionsMult = (itemLevel * GeneratorConfigs.ConditionPerLevelMult) + (itemRank * GeneratorConfigs.ConditionPerRankMult);
-        float baseConditionMult = 0.5f + (itemLevel * GeneratorConfigs.BaseConditionPerLevelMult) + (itemRank * GeneratorConfigs.BaseConditionPerRankMult);
+        float conditionsMult = GeneratorConfigs.ConditionStaticMult + (itemLevel * GeneratorConfigs.ConditionPerLevelMult) + (itemRank * GeneratorConfigs.ConditionPerRankMult);
+        float baseConditionMult = GeneratorConfigs.BaseConditionStaticMult + (itemLevel * GeneratorConfigs.BaseConditionPerLevelMult) + (itemRank * GeneratorConfigs.BaseConditionPerRankMult);
         if (conditionsMult < 0.1f) conditionsMult = 0.1f;
         if (baseConditionMult < 0.5f) baseConditionMult = 0.5f;
         int extraCondChance = 10 * (GeneratorConfigs.ExtraConditionChanceBase + (itemLevel * GeneratorConfigs.ExtraConditionChancePerLevelMult) + (itemRank * GeneratorConfigs.ExtraConditionChancePerRankMult));

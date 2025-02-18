@@ -114,6 +114,7 @@ func void [ConfigApplyFunc]()
 	extern int RestoreParserVarsFunc;
 	extern int UpdateUiStatusFunc;
 	extern int StExt_CheckConditionStatFunc;
+	extern int StExt_OnAiStateFunc;
 
 	extern int MaxSpellId;
 	extern int StExt_AbilityPrefix;
@@ -245,6 +246,10 @@ func void [ConfigApplyFunc]()
 	C_ConfigPreset* GetConfigPreset(zSTRING presetName);
 
 	bool InitVoiceController();
+
+	void* AllocateDynamicObject(size_t size);
+	bool FreeDynamicObject(void* ptr);
+	bool IsObjectsTableAllocated(void* ptr);
 
 	// Item generator constants
 	const int ItemType_None = 0;

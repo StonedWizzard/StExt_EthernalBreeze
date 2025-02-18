@@ -84,7 +84,9 @@ namespace Gothic_II_Addon
 		float ExtraProtectionChancePerLevelMult;
 		float OrigProtectionPerLevelMult;
 
-		// Item requirements configs		
+		// Item requirements configs
+		float ConditionStaticMult;
+		float BaseConditionStaticMult;
 		float ConditionPerLevelMult;
 		float ConditionPerRankMult;
 		float BaseConditionPerLevelMult;
