@@ -1266,6 +1266,10 @@ namespace Gothic_II_Addon
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_Npc_MagicInfusion_Chance", "StExt_Config_Npc_MagicInfusion_Chance", Value_Type_Percent, false);
 		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Npc_MagicInfusion_BossesExtraChance", "StExt_Config_Npc_MagicInfusion_BossesExtraChance", Value_Type_Percent, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_Npc_MagicInfusion_HumansExtraChance", "StExt_Config_Npc_MagicInfusion_HumansExtraChance", Value_Type_Percent, false);
+		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_Npc_MagicInfusion_LevelThreshold", "StExt_Config_Npc_MagicInfusion_LevelThreshold", Value_Type_Default, false);
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_Npc_MagicInfusion_PowerMod", "StExt_Config_Npc_MagicInfusion_PowerMod", Value_Type_Percent, false);

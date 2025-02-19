@@ -84,11 +84,13 @@ namespace Gothic_II_Addon
 
     bool ParseModData(const string path)
     {
+        DEBUG_MSG("ParseModData: parse file '" + path + "'...");
+
         zFILE_VDFS* originFile = new zFILE_VDFS(path);
+        if(originFile->IsOpened()) { DEBUG_MSG("ParseModData: file '" + path + "' is opened?!"); }
         if (!originFile->Exists())
         {
-            string msg = string::Combine("EthernalBreeze: data file %s not found!", originFile->complete_path);
-            Message::Error(msg);
+            DEBUG_MSG("ParseModData: file '" + path + "' not exist!");
             delete originFile;
             return false;
         }
@@ -108,6 +110,7 @@ namespace Gothic_II_Addon
         }
         
         originFile->Close();
+        delete originFile;
         DEBUG_MSG("Json file - '" + Z path + "' parsed!");
         return true;
     }
@@ -517,16 +520,8 @@ namespace Gothic_II_Addon
         DEBUG_MSG("Parse config file: " + fileName + "...");
         string root = zoptions->GetDirString(zTOptionPaths::DIR_ROOT);
         string path = string::Combine("%s\\%s\\%s\\%s", root, ModDataRootDir, ItemGeneratorConfigsDir, fileName);
-        string fileData;
-        if (!fileData.ReadFromVdf(path, VDF_DEFAULT))
-        {
-            DEBUG_MSG("Config file: '" + path + "' not found!");
-            return false;
-        }
 
-        if (ParseModData(path)) {
-            ReadItemGeneratorJsonConfigs();
-        }
+        if (ParseModData(path)) { ReadItemGeneratorJsonConfigs(); }
         else
         {
             GeneratorConfigs = configBackup;
@@ -723,7 +718,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.2)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.2.0)]");
         #if DebugEnabled
             ModVersionString += Z(" | [Debug]");
         #endif
