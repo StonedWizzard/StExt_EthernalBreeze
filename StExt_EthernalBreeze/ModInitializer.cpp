@@ -87,7 +87,8 @@ namespace Gothic_II_Addon
         DEBUG_MSG("ParseModData: parse file '" + path + "'...");
 
         zFILE_VDFS* originFile = new zFILE_VDFS(path);
-        if(originFile->IsOpened()) { DEBUG_MSG("ParseModData: file '" + path + "' is opened?!"); }
+        DEBUG_MSG_IF(originFile->IsOpened(),"ParseModData: file '" + path + "' is (wtf) opened?!");
+
         if (!originFile->Exists())
         {
             DEBUG_MSG("ParseModData: file '" + path + "' not exist!");
@@ -106,6 +107,8 @@ namespace Gothic_II_Addon
         catch (const std::exception&)
         {
             DEBUG_MSG("Can't load json file - " + Z path);
+            originFile->Close();
+            delete originFile;
             return false;
         }
         
@@ -718,7 +721,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.2.0)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.4)]");
         #if DebugEnabled
             ModVersionString += Z(" | [Debug]");
         #endif

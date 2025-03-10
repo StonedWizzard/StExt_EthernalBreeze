@@ -64,6 +64,7 @@ func void [ConfigApplyFunc]()
 	{
 		zSTRING Wp;
 		int Radius;
+		zCWaypoint* wpInst;
 	};
 
 	extern ItemsGeneratorConfigs GeneratorConfigs;
@@ -451,6 +452,8 @@ func void [ConfigApplyFunc]()
 	const int StExt_IncomingDamageFlag_Index_HasWeapon = 4;
 	const int StExt_IncomingDamageFlag_Index_ExtraDamage = 8;
 	const int StExt_IncomingDamageFlag_Index_DontKill = 16;
+	const int StExt_IncomingDamageFlag_Index_DotDamage = 32;
+	const int StExt_IncomingDamageFlag_Index_ReflectDamage = 64;
 
 	// **************************************************************
 	//					NB Hooks

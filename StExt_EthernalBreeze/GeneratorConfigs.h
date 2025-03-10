@@ -26,6 +26,7 @@ namespace Gothic_II_Addon
 
 	struct ItemAbilityOption
 	{
+		//zSTRING AbilityName;
 		int AbilityId;
 		int AbilityValueMin;
 		int AbilityValueMax;

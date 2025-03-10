@@ -334,7 +334,10 @@ namespace Gothic_II_Addon
 				if (isExtraDamage) 
 					IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ExtraDamage;
 				IncomingDamage.ScriptInstance.SpellId = static_cast<int>(CurrentDescriptor->nSpellID);
-			}			
+			}
+
+			if (HasFlag(CurrentDescriptor->dwFieldsValid, DamageDescFlag_DotDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_DotDamage;
+			if (HasFlag(CurrentDescriptor->dwFieldsValid, DamageDescFlag_ReflectDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ReflectDamage;
 
 			unsigned long damTotal = 0UL;
 			for (int i = 0; i < oEDamageIndex_MAX; i++)

@@ -1033,6 +1033,7 @@ namespace Gothic_II_Addon
         WaypointData wp = WaypointData();
         wp.Radius = radius;
         wp.Wp = wpId;
+        wp.wpInst = Null;
         ProhibitedWaypoints.Insert(wp);
         return true;
     }
@@ -1757,7 +1758,7 @@ namespace Gothic_II_Addon
         return true;
     }
 
-    int StExt_Struct_Free()
+    int __cdecl StExt_Struct_Free()
     {
         zCParser* par = zCParser::GetParser();
         void* mem = par->GetInstance();
@@ -1766,13 +1767,80 @@ namespace Gothic_II_Addon
         return true;
     }
     
-    int StExt_Struct_IsEmpty()
+    int __cdecl StExt_Struct_IsEmpty()
     {
         zCParser* par = zCParser::GetParser();
         void* mem = par->GetInstance();
         bool result = mem && IsObjectsTableAllocated(mem);
         par->SetReturn(result);
         return result;
+    }
+
+    int __cdecl StExt_GetRandomWp()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING result = zSTRING();
+        int size = ogame->GetGameWorld()->wayNet->wplist.GetNumInList();
+        
+        if (size <= 0)
+        {
+            DEBUG_MSG("StExt_GetRandomWp - Wp list is empty!");
+            par->SetReturn(result);
+            return false;
+        }
+
+        uint prohibitedCount = ProhibitedWaypoints.GetNum();
+        for (uint i = 0; i < prohibitedCount; i++)
+            ProhibitedWaypoints[i].wpInst = ogame->GetGameWorld()->wayNet->GetWaypoint(ProhibitedWaypoints[i].Wp);        
+
+        int iMax = 128 + (prohibitedCount * 32);
+        int i = 0, indx = Invalid;
+        bool isfound = false, wpIsValid;
+        float dist;
+        zCWaypoint* wp;
+        do
+        {
+            wpIsValid = true;
+            indx = rand() % size;
+            wp = ogame->GetGameWorld()->wayNet->wplist.Get(indx);
+
+            if (wp)
+            {
+                for (uint i = 0; i < prohibitedCount; i++)
+                {
+                    if (!ProhibitedWaypoints[i].wpInst) continue;
+
+                    dist = (wp->GetPositionWorld() - ProhibitedWaypoints[i].wpInst->GetPositionWorld()).LengthApprox();
+                    if (std::isnan(dist)) continue;
+
+                    if ((int)dist <= ProhibitedWaypoints[i].Radius)
+                    {
+                        wpIsValid = false;
+                        break;
+                    }
+                }
+
+                if (wpIsValid)
+                {
+                    isfound = true;
+                    result = wp->GetName();
+                    break;
+                }
+            }            
+
+            ++i;
+            if (i >= iMax)
+            {
+                DEBUG_MSG("StExt_GetRandomWp - Wp not found. Too many attempts: " + Z i + "!");
+                break;
+            }
+        } 
+        while ((i < iMax) && !isfound);
+        
+        DEBUG_MSG_IF(!isfound, "StExt_GetRandomWp - Wp not found!");
+        par->GetSymbol("StExt_ReturnString")->SetValue(result, 0);
+        par->SetReturn(result);
+        return isfound;
     }
 
     void StonedExtension_DefineExternals()
@@ -1857,7 +1925,9 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_GetItemInstanceName", StExt_GetItemInstanceName, zPAR_TYPE_STRING, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
 
         parser->DefineExternal("StExt_CopyNpcLook", StExt_CopyNpcLook, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
-        parser->DefineExternal("StExt_UpdateTradeVars", StExt_UpdateTradeVars, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);        
+        parser->DefineExternal("StExt_UpdateTradeVars", StExt_UpdateTradeVars, zPAR_TYPE_VOID, zPAR_TYPE_INT, zPAR_TYPE_VOID);     
+
+        parser->DefineExternal("StExt_GetRandomWp", StExt_GetRandomWp, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
     }
 
 
@@ -1895,6 +1965,16 @@ namespace Gothic_II_Addon
             parser->SetInstance("STEXT_SELF", this);
             parser->CallFunc(StExt_OnAiStateFunc);
         }
+    }
+
+    HOOK ivk_oCNpc_OpenInventory PATCH(&oCNpc::OpenInventory, &oCNpc::OpenInventory_StExt);
+    void oCNpc::OpenInventory_StExt(int mode) 
+    {
+        if (this->HasBodyStateModifier(BS_MOD_BURNING)) {
+            this->ModifyBodyState(0, BS_MOD_BURNING);
+        }
+        //ogame->game_text->Printwin("inv");
+        THISCALL(ivk_oCNpc_OpenInventory)(mode);
     }
 
     HOOK Hook_oCInformationManager_OnChoice PATCH(&oCInformationManager::OnChoice, &oCInformationManager::StExt_OnChoice);

@@ -1130,7 +1130,7 @@ namespace Gothic_II_Addon
 		int fontY = View->FontY() + 96;
 		int pluginCount = ModPluginsInfo.GetNum();
 		int y = PrintBorderTop + fontY - PrintOffset;
-		PrintOffsetMax = 230 * fontY;
+		PrintOffsetMax = 255 * fontY;
 		PrintOffsetMax += pluginCount > 0 ? pluginCount + 2 : 0;
 
 		PrintModPresetName(y);
@@ -1447,6 +1447,8 @@ namespace Gothic_II_Addon
 
 		y += fontY;
 		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_EnableWorldRandomization_ByTimeEvents", "StExt_Config_EnableWorldRandomization_ByTimeEvents", Value_Type_YesNo, true);
+		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_EnableWorldRandomization_Npc", "StExt_Config_EnableWorldRandomization_Npc", Value_Type_YesNo, true);
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_EnableWorldRandomization_Items", "StExt_Config_EnableWorldRandomization_Items", Value_Type_YesNo, true);
@@ -1510,6 +1512,52 @@ namespace Gothic_II_Addon
 		PrintOptionLine(y, "StExt_Str_Config_CorruptionTouchExp", "StExt_Config_CorruptionTouchExp", Value_Type_DefaultPerc, false);
 		y += fontY;
 		PrintOptionLine(y, "StExt_Str_Config_DamageReductionExpRate", "StExt_Config_DamageReductionExpRate", Value_Type_DefaultPerc, false);
+		y += fontY;
+		y += fontY;
+
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Fire", "StExt_Config_MasteryExpMult_Fire", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Ice", "StExt_Config_MasteryExpMult_Ice", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Electric", "StExt_Config_MasteryExpMult_Electric", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Air", "StExt_Config_MasteryExpMult_Air", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Earth", "StExt_Config_MasteryExpMult_Earth", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Light", "StExt_Config_MasteryExpMult_Light", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Dark", "StExt_Config_MasteryExpMult_Dark", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Death", "StExt_Config_MasteryExpMult_Death", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Life", "StExt_Config_MasteryExpMult_Life", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Golem", "StExt_Config_MasteryExpMult_Golem", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Demon", "StExt_Config_MasteryExpMult_Demon", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Necro", "StExt_Config_MasteryExpMult_Necro", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Shaman", "StExt_Config_MasteryExpMult_Shaman", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_MartialArts", "StExt_Config_MasteryExpMult_MartialArts", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Agile", "StExt_Config_MasteryExpMult_Agile", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Archery", "StExt_Config_MasteryExpMult_Archery", Value_Type_DefaultPerc, false);
+		/*
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Blood", "StExt_Config_MasteryExpMult_Blood", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_FistFight", "StExt_Config_MasteryExpMult_FistFight", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Aura", "StExt_Config_MasteryExpMult_Aura", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Traps", "StExt_Config_MasteryExpMult_Traps", Value_Type_DefaultPerc, false);
+		y += fontY;
+		PrintOptionLine(y, "StExt_Str_Config_MasteryExpMult_Poision", "StExt_Config_MasteryExpMult_Poision", Value_Type_DefaultPerc, false);		
+		*/
 		y += fontY;
 		y += fontY;
 

@@ -54,3 +54,5 @@ void oCNpc::StopAllVoices_StExt();
 int oCNpc::UpdateNextVoice_StExt();
 
 int oCNpc::EV_PlaySound_StExt(oCMsgConversation*);
+
+void oCNpc::OpenInventory_StExt(int mode);
