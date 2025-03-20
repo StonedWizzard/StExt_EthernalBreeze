@@ -45,6 +45,8 @@ namespace Gothic_II_Addon
     int StExt_Config_NpcStats_TopOffset;
     int StExt_Config_NpcStats_HideTags;
 
+    int StExt_CurrentDayPart;
+
     zSTRING StExt_EsText;
     zSTRING* SpellFxNames;
 
@@ -721,7 +723,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("DebugMode - " + zSTRING(parser->GetSymbol("StExt_Config_DebugAlwaysEnabled")->single_intdata));
         int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
         parser->CallFunc(setVerFunc);
-        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.4)]");
+        ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 6.4.6)]");
         #if DebugEnabled
             ModVersionString += Z(" | [Debug]");
         #endif

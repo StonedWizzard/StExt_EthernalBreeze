@@ -649,7 +649,8 @@ namespace Gothic_II_Addon
             int lines = 5;            
 
             SetMaxWidth(ItemName, maxWidth);
-            for (int i = 0; i < 16; i++)
+            int damTypeArrSize = damageTypeNames->ele;
+            for (int i = 0; i < damTypeArrSize; ++i)
             {
                 int flag = 1 << i;
                 if (Gothic_II_Addon::HasFlag(damageTags, flag))
@@ -660,7 +661,8 @@ namespace Gothic_II_Addon
             }
 
             zSTRING dmgFlags = zSTRING();
-            for (int i = 0; i < 27; i++)
+            int damFlagArrSize = damageFlagsNames->ele;
+            for (int i = 0; i < damFlagArrSize; ++i)
             {
                 int flag = 1 << i;
                 if (Gothic_II_Addon::HasFlag(damageFlags, flag))

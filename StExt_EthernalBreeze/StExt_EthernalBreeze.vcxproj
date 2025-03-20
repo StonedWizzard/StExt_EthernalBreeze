@@ -875,6 +875,7 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
     <ClCompile Include="CraftMenu.cpp" />
     <ClCompile Include="C_ConfigPreset.h" />
     <ClCompile Include="DynamicScriptObjects.cpp" />
+    <ClCompile Include="ItemAbility.cpp" />
     <ClCompile Include="MainMenu.cpp" />
     <ClCompile Include="MenuController.cpp" />
     <ClCompile Include="MenuItem.cpp" />
@@ -889,6 +890,7 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
     <ClInclude Include="C_AuraData.h" />
     <ClInclude Include="C_CraftData.h" />
     <ClInclude Include="C_EnchantmentData.h" />
+    <ClInclude Include="ItemAbility.h" />
     <ClInclude Include="C_ModState.h" />
     <ClInclude Include="C_UncapedStat.h" />
     <ClInclude Include="DamageInfo.h" />

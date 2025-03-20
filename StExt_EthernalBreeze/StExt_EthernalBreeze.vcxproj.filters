@@ -357,6 +357,9 @@
     <ClCompile Include="DynamicScriptObjects.cpp">
       <Filter>Plugin\Workspace\Plugin</Filter>
     </ClCompile>
+    <ClCompile Include="ItemAbility.cpp">
+      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ZenGin\zGothicAPI.h">
@@ -2918,6 +2921,9 @@
     </ClInclude>
     <ClInclude Include="ModUi.h">
       <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    </ClInclude>
+    <ClInclude Include="ItemAbility.h">
+      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

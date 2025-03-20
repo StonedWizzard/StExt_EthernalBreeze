@@ -146,6 +146,7 @@ namespace Gothic_II_Addon
         {
             //DEBUG_MSG("Curernt fps: " + Z FpsCounter);
             parser->GetSymbol("StExt_Fps")->SetValue(FpsCounter, 0);
+            StExt_CurrentDayPart = parser->GetSymbol("StExt_CurrentDayPart")->single_intdata;
             FpsCounter = 0;
         }
         PrintHeroEsBar();
@@ -753,7 +754,13 @@ namespace Gothic_II_Addon
         zCParser* par = zCParser::GetParser();
         int type, power;
         par->GetParameter(power);
-        par->GetParameter(type);        
+        par->GetParameter(type);
+        if (power <= 0)
+        {
+            DEBUG_MSG("StExt_CreateRandomItem - input power less or equal zero!");
+            par->SetReturn(Invalid);
+            return false;
+        }
         int newInstance = GenerateNewItem(type, power);
         par->SetReturn(newInstance);
         return true;
@@ -1842,6 +1849,60 @@ namespace Gothic_II_Addon
         par->SetReturn(result);
         return isfound;
     }
+
+
+    int __cdecl StExt_RegisterItemAbility()
+    {
+        zCParser* par = zCParser::GetParser();
+        zSTRING itemAbility;
+        par->GetParameter(itemAbility);
+        InitializeItemAbility(itemAbility);
+        return true;
+    }
+
+    // foreach invoke of onActive for specific abilities
+    int __cdecl StExt_ProcessItemsAbilities()
+    {
+        zCParser* par = zCParser::GetParser();
+        int abilityType;
+        int includeFlags = 0;
+        int excludeFlags = 0;
+        int triggerFlags = 0;
+        
+        ItemAbilityRecord* result = Null;
+        size_t max = EquipedItemAbilitiesData.GetNum();
+        for (size_t i = 0; i < max; ++i)
+        {
+            if (!EquipedItemAbilitiesData[i])
+            {
+                DEBUG_MSG("StExt_ProcessItemsAbilities - ability record is null!");
+                continue;
+            }
+
+            ItemAbility* ability = EquipedItemAbilitiesData[i]->Ability;
+            if (ability->OnApplyFunc == Invalid)
+            {
+                DEBUG_MSG("StExt_ProcessItemsAbilities - OnApply() handler for '" + ability->InstanceName + "' no found!");
+                continue;
+            }
+
+            if ((triggerFlags != 0) && !HasFlag(ability->C_ItemAbility.TriggerFlags, triggerFlags)) continue;
+            if (!FilterItemAbility(ability, abilityType, includeFlags, excludeFlags)) continue;
+            if (!GetItemAbilityChance(ability->C_ItemAbility.Id, EquipedItemAbilitiesData[i]->C_ItemAbilityRecord.Chance)) continue;
+            ItemAbilityRecord* abilityRecord = EquipedItemAbilitiesData[i];
+            
+            // Do funcs invoke, set "enviroment" and etc...
+
+            parser->SetInstance("STEXT_CURRENTITEMABILITY_SELF", Null);
+            parser->SetInstance("STEXT_CURRENTITEMABILITY_OTHER", Null);
+            parser->SetInstance("STEXT_CURRENTITEMABILITY", &ability->C_ItemAbility);
+            parser->SetInstance("STEXT_CURRENTITEMABILITY_STATS", &abilityRecord->C_ItemAbilityRecord);
+
+        }
+
+        return true;
+    }
+
 
     void StonedExtension_DefineExternals()
     {

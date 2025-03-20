@@ -11,6 +11,7 @@
 #include <C_MagicInfusion.h>
 #include <C_EnchantmentData.h>
 #include <C_ItemData.h>
+#include <ItemAbility.h>
 #include <C_CraftData.h>
 #include <C_UncapedStat.h>
 #include <C_ConfigPreset.h>
@@ -75,6 +76,8 @@ func void [ConfigApplyFunc]()
 	extern CIncomingDamage IncomingDamage;
 
 	extern std::map<int, C_AuraData*> AuraData;
+	extern std::map<int, ItemAbility*> ItemAbilitiesData;
+	extern Array<ItemAbilityRecord*> EquipedItemAbilitiesData;
 	extern Array<C_MagicInfusionData*> InfusionData_Afixes;
 	extern Array<C_MagicInfusionData*> InfusionData_Suffixes;
 	extern Array<C_MagicInfusionData*> InfusionData_Preffixes;
@@ -117,6 +120,7 @@ func void [ConfigApplyFunc]()
 	extern int StExt_CheckConditionStatFunc;
 	extern int StExt_OnAiStateFunc;
 
+	extern int StExt_CurrentDayPart;
 	extern int MaxSpellId;
 	extern int StExt_AbilityPrefix;
 	extern int ItemCondSpecialSeparator;

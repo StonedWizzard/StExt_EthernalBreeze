@@ -1123,7 +1123,6 @@ namespace Gothic_II_Addon
             }
             ApplyEnchntment(enchantment, this);
         }
-
     }
 
     HOOK Hook_oCNpc_AddItemEffects PATCH(&oCNpc::AddItemEffects, &oCNpc::AddItemEffects_StExt);
@@ -1161,6 +1160,7 @@ namespace Gothic_II_Addon
                 parser->CallFunc(HandlePcStatChangeFunc, enchantment->StatId[i], enchantment->StatValue[i]);
             }            
         }
+        ApplyItemAbilities(item, enchantment);
     }
 
     HOOK Hook_oCNpc_RemoveItemEffects PATCH(&oCNpc::RemoveItemEffects, &oCNpc::RemoveItemEffects_StExt);
@@ -1199,6 +1199,7 @@ namespace Gothic_II_Addon
                 parser->CallFunc(HandlePcStatChangeFunc, enchantment->StatId[i], -enchantment->StatValue[i]);
             }
         }
+        RemoveItemAbilities(item, enchantment);
     }
 
     HOOK Hook_oCNpc_CanUse PATCH(&oCNpc::CanUse, &oCNpc::CanUse_StExt);
