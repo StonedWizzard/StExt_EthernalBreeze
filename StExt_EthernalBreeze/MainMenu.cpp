@@ -3,10 +3,10 @@
 
 namespace Gothic_II_Addon
 {
-    const int Center = 8192 * 0.5f;
-    static zCView* ModInfoView;
-    static int PosX, PosY;
-    static int TextPosX, TextPosY;
+    const int Center = static_cast<int>(8192 * 0.5f);
+    zCView* ModInfoView;
+    int PosX, PosY;
+    int TextPosX, TextPosY;
 
     void DrawModInfo()
     {
@@ -37,8 +37,8 @@ namespace Gothic_II_Addon
         }
 
         screen->InsertItem(ModInfoView);
-        ModInfoView->SetSize(8192 * 0.255f, (screenFontY * (3 + pluginCount)));
-        TextPosX = screenFontY * 4.1f;
+        ModInfoView->SetSize(static_cast<int>(8192 * 0.255f), (screenFontY * (3 + pluginCount)));
+        TextPosX = static_cast<int>(screenFontY * 4.1f);
         if (pluginCount > 0)
         {
             int line = 1;
@@ -57,7 +57,7 @@ namespace Gothic_II_Addon
         }
         else
         {
-            TextPosY = Center - (ModInfoView->FontY() * 0.5f);
+            TextPosY = static_cast<int>(Center - (ModInfoView->FontY() * 0.5f));
             ModInfoView->SetFontColor(zCOLOR(128, 64, 240));
             ModInfoView->Print(TextPosX, TextPosY, ModVersionString);
         }        

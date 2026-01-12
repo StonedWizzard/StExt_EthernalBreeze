@@ -3,3 +3,7 @@
 // User API for oCSpell
 // Add your methods here
 
+int oCSpell::StExt_Cast();
+
+int oCSpell::StExt_Invest();
+

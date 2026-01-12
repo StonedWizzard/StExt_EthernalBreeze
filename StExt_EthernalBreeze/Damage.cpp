@@ -1,21 +1,20 @@
-#include <UnionAfx.h>
-#include <string> 
 #include <StonedExtension.h>
 
 namespace Gothic_II_Addon
 {
-	CExtraDamage ExtraDamage;
-	CDotDamage DotDamage;
-	CExtraDamage ReflectDamage;
-	CIncomingDamage IncomingDamage;
+	ExtraDamageInfo ExtraDamage;
+	DotDamageInfo DotDamage;
+	ExtraDamageInfo ReflectDamage;
+	IncomingDamageInfo IncomingDamage;
 
-	int ItemCondSpecialSeparator;
+	Array<zSTRING> SpellFxNames;
+	
 	int MaxSpellId;
 	int StExt_AbilityPrefix;
 	oCNpc::oSDamageDescriptor* CurrentDescriptor = Null;
-	CDamageMeta* DamageMeta = Null;
+	DamageMetaData* DamageMeta = Null;
 
-	inline void SetDamageMeta(oCNpc::oSDamageDescriptor* desc, CDamageMeta* meta, oCNpc* target)
+	inline void SetDamageMeta(oCNpc::oSDamageDescriptor* desc, DamageMetaData* meta, oCNpc* target)
 	{
 		CurrentDescriptor = desc;
 		DamageMeta = meta;
@@ -27,8 +26,8 @@ namespace Gothic_II_Addon
 		}
 		else
 		{
-			IncomingDamage = CIncomingDamage();
-			memset(&IncomingDamage, 0, sizeof(CIncomingDamage));
+			IncomingDamage = IncomingDamageInfo();
+			memset(&IncomingDamage, 0, sizeof(IncomingDamageInfo));
 			IncomingDamage.ScriptInstance.Processed = true;
 
 			parser->SetInstance("STEXT_INCOMINGDAMAGEINFO", Null);
@@ -43,14 +42,14 @@ namespace Gothic_II_Addon
 	void ApplyDamages(ULONG type, ULONG* damage, int& total)
 	{
 		float dam = 0.0f;
-		if (type & dam_barrier) dam += 1.0;
-		if (type & dam_blunt) dam += 1.0;
-		if (type & dam_edge) dam += 1.0;
-		if (type & dam_fire) dam += 1.0;
-		if (type & dam_fly) dam += 1.0;
-		if (type & dam_magic) dam += 1.0;
-		if (type & dam_point) dam += 1.0;
-		if (type & dam_fall) dam += 1.0;
+		unsigned long mask = type;
+		for (int i = 0; i < oEDamageIndex_MAX; ++i) 
+		{
+			if (mask & 1) {
+				dam += 1.0f;
+			}
+			mask >>= 1;
+		}
 
 		if (total <= 0) total = 5;
 		if (dam < 1.0) 
@@ -59,9 +58,61 @@ namespace Gothic_II_Addon
 			return; 
 		}
 
+		if (dam < 5.0f) dam = 5.0f;
 		dam = total / dam + 0.5f;
-		for (int i = 0; i < dam_index_max; i++)
+		for (int i = 0; i < oEDamageIndex_MAX; i++)
 			damage[i] = type & (1 << i) ? static_cast<unsigned long>(dam) : 0UL;
+	}
+	void ApplyDamages(int type, int* damage, int& total)
+	{
+		float dam = 0.0f;
+		int mask = type;
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+		{
+			if (mask & 1) {
+				dam += 1.0f;
+			}
+			mask >>= 1;
+		}
+
+		if (total <= 0) total = 5;
+		if (dam < 1.0)
+		{
+			damage[dam_index_barrier] = total;
+			return;
+		}
+
+		dam = total / dam + 0.5f;
+		if (dam < 5.0f) dam = 5.0f;
+		for (int i = 0; i < oEDamageIndex_MAX; i++)
+			damage[i] = type & (1 << i) ? static_cast<int>(dam) : 0;
+	}
+
+	void AddDamages(int type, int* damage, int& total)
+	{
+		float dam = 0.0f;
+		int mask = type;
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+		{
+			if (mask & 1) {
+				dam += 1.0f;
+			}
+			mask >>= 1;
+		}
+
+		if (total <= 0) total = 5;
+		if (dam < 1.0)
+		{
+			damage[dam_index_barrier] = total;
+			return;
+		}
+
+		dam = total / dam + 0.5f;
+		for (int i = 0; i < dam_index_max; i++) {
+			if (type & (1 << i)) {
+				damage[i] = ValidateValueMin(damage[i] + static_cast<int>(dam), 0);
+			}
+		}			
 	}
 
 	inline void* GetDamageStruct(zSTRING structName)
@@ -153,7 +204,7 @@ namespace Gothic_II_Addon
 			DEBUG_MSG(pTarget->name + zSTRING(" ApplyExtraDamage - Create damage descriptor - damage struct symbol is not found!"));
 			return;
 		}
-		ExtraDamage = *dynamic_cast<CExtraDamage*>((CExtraDamage*)damStructpointer);
+		ExtraDamage = *dynamic_cast<ExtraDamageInfo*>((ExtraDamageInfo*)damStructpointer);
 
 		int totalDamage = 0;
 		oCNpc::oSDamageDescriptor desc = BuildDescriptor(pAttaker, pTarget, ExtraDamage.Damage, totalDamage);
@@ -187,7 +238,7 @@ namespace Gothic_II_Addon
 			DEBUG_MSG(pTarget->name + zSTRING(" ApplyDotDamage - Create damage descriptor - damage struct symbol is not found!"));
 			return;
 		}
-		DotDamage = *dynamic_cast<CDotDamage*>((CDotDamage*)damStructpointer);
+		DotDamage = *dynamic_cast<DotDamageInfo*>((DotDamageInfo*)damStructpointer);
 		int totalDamage = 0;
 		oCNpc::oSDamageDescriptor desc = BuildDescriptor(pAttaker, pTarget, DotDamage.Damage, totalDamage);
 		desc.dwFieldsValid |= DamageDescFlag_ExtraDamage | DamageDescFlag_DotDamage;
@@ -220,7 +271,7 @@ namespace Gothic_II_Addon
 			DEBUG_MSG(pTarget->name + zSTRING(" ApplyReflectDamage - Create damage descriptor - damage struct symbol is not found!"));
 			return;
 		}
-		ReflectDamage = *dynamic_cast<CExtraDamage*>((CExtraDamage*)damStructpointer);
+		ReflectDamage = *dynamic_cast<ExtraDamageInfo*>((ExtraDamageInfo*)damStructpointer);
 
 		int totalDamage = 0;
 		oCNpc::oSDamageDescriptor desc = BuildDescriptor(pAttaker, pTarget, ReflectDamage.Damage, totalDamage);
@@ -237,9 +288,9 @@ namespace Gothic_II_Addon
 		return;
 	}
 
-	inline CDamageInfo BuildDamageInfo(oCNpc::oSDamageDescriptor& desc)
+	inline DamageInfo BuildDamageInfo(oCNpc::oSDamageDescriptor& desc)
 	{
-		CDamageInfo result = CDamageInfo();
+		DamageInfo result = DamageInfo();
 		result.SpellId = static_cast<int>(desc.nSpellID);
 		int totalDamage = 0;
 		for (int i = 0; i < oEDamageIndex_MAX; i++)
@@ -263,47 +314,35 @@ namespace Gothic_II_Addon
 		return result;
 	}
 
-	inline bool HasFlag(unsigned long flags, unsigned long bits) { return (flags & bits) != 0; }
-
 	inline bool IsDamageInitial(unsigned long flags) 
 	{ 
-		return (!HasFlag(flags, oCNpc::oEDamageDescFlag_OverlayActivate) && !HasFlag(flags, oCNpc::oEDamageDescFlag_OverlayInterval) && 
-		!HasFlag(flags, oCNpc::oEDamageDescFlag_OverlayDuration) && !HasFlag(flags, oCNpc::oEDamageDescFlag_OverlayDamage) &&
-		!HasFlag(flags, DamageDescFlag_ExtraDamage) && !HasFlag(flags, DamageDescFlag_DotDamage) && !HasFlag(flags, DamageDescFlag_ReflectDamage));
+		return (!HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayActivate) && !HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayInterval) &&
+		!HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayDuration) && !HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayDamage) &&
+		!HasFlag(flags, (ulong)DamageDescFlag_ExtraDamage) && !HasFlag(flags, (ulong)DamageDescFlag_DotDamage) && !HasFlag(flags, (ulong)DamageDescFlag_ReflectDamage));
 	}
 
-	inline int GetFxSpellId(zSTRING fxName)
+	inline int GetFxSpellId(zSTRING& fxName)
 	{
 		int result = Invalid;
-		if (!SpellFxNames)
+		if (SpellFxNames.IsEmpty())
 		{
 			DEBUG_MSG("GetFxSpellId - SpellFxNames is null!");
 			return result;
 		}
-		if (fxName.Length() == 0)
+		if (fxName.IsEmpty())
 		{
 			DEBUG_MSG("GetFxSpellId - fxName is empty!");
 			return result;
 		}
-		
-		for (int i = 0; i < MaxSpellId; i++)
-		{
-			zSTRING tmp = SpellFxNames[i];
-			if (tmp.Length() == 0)
-			{
-				DEBUG_MSG("GetFxSpellId - fxName (tmp) is empty!");
-				continue;
-			}
-			int idx = fxName.Search(tmp.Upper(), 0);
-			if (idx > Invalid) { result = i; break; }
-		}
+
+		result = static_cast<int>(SpellFxNames.SearchEqualSorted(fxName));
 		return result;
 	}
 
 	void UpdateIncomingDamage(int damage, oCNpc* target)
 	{
-		IncomingDamage = CIncomingDamage();
-		memset(&IncomingDamage, 0, sizeof(CIncomingDamage));
+		IncomingDamage = IncomingDamageInfo();
+		memset(&IncomingDamage, 0, sizeof(IncomingDamageInfo));
 
 		IncomingDamage.Target = target;
 		IncomingDamage.Attacker = Null;
@@ -328,16 +367,16 @@ namespace Gothic_II_Addon
 			else
 			{
 				unsigned long descriptorFlags = CurrentDescriptor->dwFieldsValid;
-				bool isExtraDamage = HasFlag(descriptorFlags, DamageDescFlag_ExtraDamage) || HasFlag(descriptorFlags, DamageDescFlag_DotDamage) ||
-					HasFlag(descriptorFlags, DamageDescFlag_ReflectDamage) || HasFlag(descriptorFlags, DamageDescFlag_IsAbilityDamage);
+				bool isExtraDamage = HasFlag(descriptorFlags, (ulong)DamageDescFlag_ExtraDamage) || HasFlag(descriptorFlags, (ulong)DamageDescFlag_DotDamage) ||
+					HasFlag(descriptorFlags, (ulong)DamageDescFlag_ReflectDamage) || HasFlag(descriptorFlags, (ulong)DamageDescFlag_IsAbilityDamage);
 
 				if (isExtraDamage) 
 					IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ExtraDamage;
 				IncomingDamage.ScriptInstance.SpellId = static_cast<int>(CurrentDescriptor->nSpellID);
 			}
 
-			if (HasFlag(CurrentDescriptor->dwFieldsValid, DamageDescFlag_DotDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_DotDamage;
-			if (HasFlag(CurrentDescriptor->dwFieldsValid, DamageDescFlag_ReflectDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ReflectDamage;
+			if (HasFlag(CurrentDescriptor->dwFieldsValid, (ulong)DamageDescFlag_DotDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_DotDamage;
+			if (HasFlag(CurrentDescriptor->dwFieldsValid, (ulong)DamageDescFlag_ReflectDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ReflectDamage;
 
 			unsigned long damTotal = 0UL;
 			for (int i = 0; i < oEDamageIndex_MAX; i++)
@@ -365,7 +404,7 @@ namespace Gothic_II_Addon
 		parser->SetInstance("STEXT_ATTACKWEAPON", IncomingDamage.Weapon);
 	}
 
-	void ProcessExtraDamage(oCNpc::oSDamageDescriptor& desc, CDamageMeta* damageMeta, oCNpc* target)
+	void ProcessExtraDamage(oCNpc::oSDamageDescriptor& desc, DamageMetaData* damageMeta, oCNpc* target)
 	{
 		DEBUG_MSG(target->name + Z(" ProcessExtraDamage - ENTER"));
 
@@ -393,8 +432,8 @@ namespace Gothic_II_Addon
 		desc.fDamageEffective = desc.fDamageReal = static_cast<float>(damageReal);
 		
 		int damType = StExt_DamageMessageType_Default;
-		if (HasFlag(desc.dwFieldsValid, DamageDescFlag_DotDamage)) damType |= StExt_DamageMessageType_Dot;
-		if (HasFlag(desc.dwFieldsValid, DamageDescFlag_ReflectDamage)) damType |= StExt_DamageMessageType_Reflect;
+		if (HasFlag(desc.dwFieldsValid, (ulong)DamageDescFlag_DotDamage)) damType |= StExt_DamageMessageType_Dot;
+		if (HasFlag(desc.dwFieldsValid, (ulong)DamageDescFlag_ReflectDamage)) damType |= StExt_DamageMessageType_Reflect;
 		parser->CallFunc(PrintDamageFunc, damageReal, damType);
 
 		SetDamageMeta(&desc, damageMeta, target);
@@ -531,8 +570,8 @@ namespace Gothic_II_Addon
 			}
 		}
 
-		CDamageMeta damageMeta = CDamageMeta();
-		memset(&damageMeta, 0, sizeof(CDamageMeta));
+		DamageMetaData damageMeta = DamageMetaData();
+		memset(&damageMeta, 0, sizeof(DamageMetaData));
 		damageMeta.DescriptorFlags = descriptorFlags;
 		damageMeta.IsInitial = isInitial;
 		damageMeta.IsExtraDamage = isExtraDamage;
@@ -565,8 +604,8 @@ namespace Gothic_II_Addon
 			return;
 		}
 
-		CDamageInfo damageInfo = CDamageInfo();
-		memset(&damageInfo, 0, sizeof(CDamageInfo));
+		DamageInfo damageInfo = DamageInfo();
+		memset(&damageInfo, 0, sizeof(DamageInfo));
 		if (desc.pNpcAttacker)
 		{
 			fightMode = desc.pNpcAttacker->GetWeaponMode();

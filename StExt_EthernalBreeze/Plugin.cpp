@@ -14,7 +14,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("StExt - Initialize mod...");
         StonedExtension_InitModData();
         StonedExtension_InitUi();
-        DEBUG_MSG("StExt - Mod initialized!");
+        DEBUG_MSG("StExt - Mod was initialized!");
         DEBUG_MSG("");
     }
 
@@ -83,7 +83,7 @@ namespace Gothic_II_Addon
         ClearRegisteredNpcs();
         ClearGeneratedItemsData();
         ResetModState();
-        TimedEffectsOnNewGame();
+        ClearTimedEffects();
     }
     void Game_LoadEnd_NewGame() 
     {
@@ -117,6 +117,7 @@ namespace Gothic_II_Addon
     void Game_LoadEnd_SaveGame() 
     {
         LoadModState();
+        RegisterNearestNpcs();
         LoadTimedEffects();
 
         IsLoading = false;
@@ -142,13 +143,13 @@ namespace Gothic_II_Addon
         parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
         parser->GetSymbol("StExt_IsLevelChanging")->SetValue(IsLevelChanging, 0);
         parser->CallFunc(OnLevelChangeFunc);
-        MsgTray_Clear();        
+        MsgTray_Clear();
         ClearDamageMeta();
     }
     void Game_LoadEnd_Trigger() { }
     void Game_LoadBegin_ChangeLevel()
     {
-        TimedEffectsFinalizeLoop();
+        FinalizeTimedEffects();
         StopUncaper();
         ClearRegisteredNpcs();
     }

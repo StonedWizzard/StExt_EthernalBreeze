@@ -3,6 +3,8 @@
 
 namespace Gothic_II_Addon
 {
+	Map<zSTRING, zSTRING> FemVoiceOverrides = {};
+
 	bool VoiceControllerInitialized = false;
 	int VoiceControllerShouldRead = false;
 
@@ -16,10 +18,10 @@ namespace Gothic_II_Addon
 	wstring Gender = L"Female";
 
 	ISpVoice* Voice;
-	oCNpc* CurrentSpeaker = nullptr;
+	oCNpc* CurrentSpeaker = Null;
 	int CurrentHandle = 0;
 
-	void InitVoiceControllerConfigs()
+	inline void InitVoiceControllerConfigs()
 	{
 		DEBUG_MSG("InitVoiceControllerConfigs - init configs...");
 
@@ -87,6 +89,7 @@ namespace Gothic_II_Addon
 			Voice = NULL;
 		}
 	}
+
 	inline bool InitVoice()
 	{
 		HRESULT hr = CoCreateInstance(CLSID_SpVoice, NULL, CLSCTX_ALL, IID_ISpVoice, (void**)&Voice);
@@ -97,6 +100,7 @@ namespace Gothic_II_Addon
 		}
 		return true;
 	}
+	
 	void VoiceControllerReloadVoiceSettings()
 	{
 		if (!VoiceControllerInitialized) return;
@@ -119,8 +123,35 @@ namespace Gothic_II_Addon
 		cpToken.Release();
 	}
 
+	void InitializeVoiceOverrides()
+	{
+		ExtraStatsNameData = Map<int, zSTRING>();
+		zCPar_Symbol* soundOverrideArray = parser->GetSymbol("StExt_FemaleVoiceReplacementIndexArray");
+		if (!soundOverrideArray)
+		{
+			DEBUG_MSG("InitializeVoiceOverrides - 'StExt_FemaleVoiceReplacementIndexArray' not found!");
+			return;
+		}
+
+		FemVoiceOverrides = Map<zSTRING, zSTRING>();
+		for (unsigned int i = 0; i < soundOverrideArray->ele; ++i)
+		{
+			zSTRING strIndx = soundOverrideArray->stringdata[i];
+			const int index = parser->GetIndex(strIndx);
+			if (index == Invalid)
+			{
+				DEBUG_MSG("InitializeVoiceOverrides - Can't load infusion instance '" + strIndx + "'!");
+				continue;
+			}
+			SoundOverrideData overrideData = SoundOverrideData();
+			parser->CreateInstance(index, &overrideData);
+			FemVoiceOverrides.Insert(overrideData.OrigSound, overrideData.NewSound);
+		}
+	}
+
 	bool InitVoiceController() 
 	{
+		InitializeVoiceOverrides();
 		if (!InitVoice())
 		{
 			DEBUG_MSG("InitVoiceController - ISp voice initialization failed!");
@@ -131,6 +162,7 @@ namespace Gothic_II_Addon
 		VoiceControllerInitialized = true;
 		return true;
 	}
+
 
 	bool VoiceControllerIsDoneReading() 
 	{
@@ -146,7 +178,6 @@ namespace Gothic_II_Addon
 	}
 
 	oCNpc* VoiceControllerGetCurrentSpeaker() { return CurrentSpeaker; }
-
 	int VoiceControllerGetCurrentHandle() { return CurrentHandle; }
 
 	void VoiceControllerRead(const string& str, oCNpc* speaker, int handle) 
@@ -162,10 +193,62 @@ namespace Gothic_II_Addon
 	void VoiceControllerStopReading() 
 	{
 		ReleaseVoice();
-		CurrentSpeaker = nullptr;
+		CurrentSpeaker = Null;
 		CurrentHandle = 0;
 	}
 
+	inline bool RequireHookFemSound(const zSTRING& nameSFX, zSTRING& newNameSFX)
+	{
+		const int isFem = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
+		if (isFem)
+		{
+			const auto& pair = FemVoiceOverrides.GetSafePair(nameSFX);
+			if (!pair) return false;			
+			newNameSFX = pair->GetValue();
+			return true;			
+		}
+		return false;
+	}
+
+	//-------------------------------------------------------------------
+	//						        Hooks
+	//-------------------------------------------------------------------
+
+	HOOK Ivk_zCSndSys_MSS_LoadSoundFXScript PATCH(&zCSndSys_MSS::LoadSoundFXScript, &zCSndSys_MSS::LoadSoundFXScript_StExt);
+	zCSoundFX* zCSndSys_MSS::LoadSoundFXScript_StExt(zSTRING const& nameSFX)
+	{
+		zSTRING newNameSFX = zString_Empty;
+		if (RequireHookFemSound(nameSFX, newNameSFX))
+			return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFXScript)(newNameSFX);
+		return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFXScript)(nameSFX);
+	}
+
+	HOOK Ivk_zCSndSys_MSS_LoadSoundFX PATCH(&zCSndSys_MSS::LoadSoundFX, &zCSndSys_MSS::LoadSoundFX_StExt);
+	zCSoundFX* zCSndSys_MSS::LoadSoundFX_StExt(zSTRING const& nameSFX)
+	{
+		zSTRING newNameSFX = zString_Empty;
+		if (RequireHookFemSound(nameSFX, newNameSFX))
+			return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFX)(newNameSFX);
+		return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFX)(nameSFX);
+	}
+
+	HOOK Ivk_zCSoundSystem_LoadSoundFXScript PATCH(&zCSoundSystem::LoadSoundFXScript, &zCSoundSystem::LoadSoundFXScript_StExt);
+	zCSoundFX* zCSoundSystem::LoadSoundFXScript_StExt(zSTRING const& nameSFX)
+	{
+		zSTRING newNameSFX = zString_Empty;
+		if(RequireHookFemSound(nameSFX, newNameSFX))
+			return THISCALL(Ivk_zCSoundSystem_LoadSoundFXScript)(newNameSFX);
+		return THISCALL(Ivk_zCSoundSystem_LoadSoundFXScript)(nameSFX);
+	}
+
+	HOOK Ivk_zCSoundSystem_LoadSoundFX PATCH(&zCSoundSystem::LoadSoundFX, &zCSoundSystem::LoadSoundFX_StExt);
+	zCSoundFX* zCSoundSystem::LoadSoundFX_StExt(zSTRING const& nameSFX)
+	{
+		zSTRING newNameSFX = zString_Empty;
+		if (RequireHookFemSound(nameSFX, newNameSFX))
+			return THISCALL(Ivk_zCSoundSystem_LoadSoundFX)(newNameSFX);
+		return THISCALL(Ivk_zCSoundSystem_LoadSoundFX)(nameSFX);
+	}
 
 	HOOK Ivk_zCView_DialogMessageCXY PATCH(&zCView::DialogMessageCXY, &zCView::DialogMessageCXY_StExt);
 	void zCView::DialogMessageCXY_StExt(zSTRING const& name, zSTRING const& text, float time, zCOLOR& color)

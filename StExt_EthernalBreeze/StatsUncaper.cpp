@@ -12,7 +12,7 @@ namespace Gothic_II_Addon
 	const int StExt_UncaperStatIndex_1hTalent = 5;
 	const int StExt_UncaperStatIndex_2hTalent = 6;
 
-	Array<C_UncapedStat*> UnacapedStatsData;
+	Array<UncapedStatData*> UnacapedStatsData;
 	bool UncaperStarted = false;
 
 	int UncaperSetFunc = Invalid;
@@ -34,12 +34,12 @@ namespace Gothic_II_Addon
 			return;
 		}
 
-		UnacapedStatsData = Array<C_UncapedStat*>();
+		UnacapedStatsData = Array<UncapedStatData*>();
 		DEBUG_MSG("Initialize " + Z(int)uncaperIndxArray->ele + "/" + Z StExt_UncaperStatIndex_Max + " uncapers...");
 		for (unsigned int i = 0; i < uncaperIndxArray->ele; i++)
 		{
 			int index = par->GetIndex(uncaperIndxArray->stringdata[i]);
-			C_UncapedStat* statData = new C_UncapedStat();
+			UncapedStatData* statData = new UncapedStatData();
 			parser->CreateInstance(index, statData);
 			UnacapedStatsData.InsertEnd(statData);
 		}
@@ -65,7 +65,7 @@ namespace Gothic_II_Addon
 		}
 		if (!UncaperStarted) return;
 
-		C_UncapedStat* statData = UnacapedStatsData[indx];
+		UncapedStatData* statData = UnacapedStatsData[indx];
 		if (!statData)
 		{
 			DEBUG_MSG("UpdateUncapedStat - statData is invalid. index: " + Z indx);
@@ -149,7 +149,7 @@ namespace Gothic_II_Addon
 	{
 		for (int i = 0; i < StExt_UncaperStatIndex_Max; i++)
 		{
-			C_UncapedStat* statData = UnacapedStatsData[i];
+			UncapedStatData* statData = UnacapedStatsData[i];
 			if (!statData)
 			{
 				DEBUG_MSG("UpdateUncapedStat - statData is invalid. index: " + Z i);

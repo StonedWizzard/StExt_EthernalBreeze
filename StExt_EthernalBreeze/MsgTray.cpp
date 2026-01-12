@@ -1,6 +1,4 @@
 #include <UnionAfx.h>
-#include <string> 
-#include <regex>
 #include <StonedExtension.h>
 
 namespace Gothic_II_Addon
@@ -16,56 +14,45 @@ namespace Gothic_II_Addon
 	Array<MsgTrayEntry> MsgTrayBuffer = Array<MsgTrayEntry>();
 	const int UpdateInterval = 30;
 	const int LifeTimeMax = 24;
+
 	int UpdateCounter;
+	int MsgTrayPosX_SymIndex = Invalid, MsgTrayPosY_SymIndex = Invalid;
 
-	zCOLOR ParseHexColor(std::string inputColor)
-	{
-		std::regex pattern("#([0-9a-fA-F]{6})");
-		std::smatch match;
-		if (std::regex_match(inputColor, match, pattern))
-		{
-			int r, g, b;
-			sscanf(match.str(1).c_str(), "%2x%2x%2x", &r, &g, &b);
-			return zCOLOR(r, g, b);
-		}
-		return zCOLOR(220, 220, 220);
-	}
-
-	void StonedExtension_MsgTray_Loop()
+	void StonedExtension_Loop_MsgTray()
 	{
 		UpdateCounter += 1;
-		if (IsLoading || IsLevelChanging || (UpdateCounter < UpdateInterval) || (ogame && ogame->IsOnPause())) return;
+		if (IsLoading || IsLevelChanging || (UpdateCounter < UpdateInterval) || !ogame || (ogame && ogame->IsOnPause())) return;
 
 		if (!MsgTrayView)
 		{
-			MsgTrayView = zNEW(zCView)(0, 0, 8192, 8192);
-			MsgTrayView->SetSize(8192, 8192);
+			MsgTrayView = zNEW(zCView)(0, 0, ScreenVBufferSize, ScreenVBufferSize);
+			MsgTrayView->SetSize(ScreenVBufferSize, ScreenVBufferSize);
 			MsgTrayView->SetPos(0, 0);
 			screen->InsertItem(MsgTrayView);
 		}
 		MsgTrayView->ClrPrintwin();
 
-		int y, x;
-		y = parser->GetSymbol("StExt_Config_MsgTray_PosY")->single_intdata * 81.919998;
-		x = parser->GetSymbol("StExt_Config_MsgTray_PosX")->single_intdata * 81.919998;
-		int fontY = MsgTrayView->FontY() + 96;
+		int x, y;
+		x = static_cast<int>(parser->GetSymbol(MsgTrayPosX_SymIndex)->single_intdata * 81.919998f);
+		y = static_cast<int>(parser->GetSymbol(MsgTrayPosY_SymIndex)->single_intdata * 81.919998f);
+		const int fontY = MsgTrayView->FontY() + 96;
 
 		int printLine = y;
-		for (int i = 0; i < MsgTrayBuffer.GetNum(); i++)
+		for (uint i = 0; i < MsgTrayBuffer.GetNum(); ++i)
 		{
 			int printLineTmp = y - (MsgTrayBuffer[i].LifeTime * fontY);
 			while (printLineTmp >= printLine) printLineTmp = printLine - fontY;
 			printLine = printLineTmp;
 
 			MsgTrayView->SetFontColor(MsgTrayBuffer[i].Color);
-			MsgTrayView->Print(x - (MsgTrayView->FontSize(MsgTrayBuffer[i].Text) * 0.5f), printLine, MsgTrayBuffer[i].Text);
-			MsgTrayView->SetFontColor(zCOLOR(250, 250, 250));
+			MsgTrayView->Print(static_cast<int>(x - (MsgTrayView->FontSize(MsgTrayBuffer[i].Text) * 0.5f)), printLine, MsgTrayBuffer[i].Text);
+			MsgTrayView->SetFontColor(TextColor_Default);
 
-			MsgTrayBuffer[i].LifeTime += 1;
+			++(MsgTrayBuffer[i].LifeTime);
 			if (MsgTrayBuffer[i].LifeTime >= LifeTimeMax)
 			{
 				MsgTrayBuffer.RemoveAt(i);
-				i -= 1;
+				--i;
 			}
 		}
 		UpdateCounter = 0;
@@ -75,7 +62,7 @@ namespace Gothic_II_Addon
 	{
 		MsgTrayEntry entry = MsgTrayEntry();
 		entry.Text = zSTRING(text);
-		entry.Color = ParseHexColor(color.ToChar());
+		ParseHexColor(color, entry.Color);
 		MsgTrayBuffer.InsertFront(entry);
 		UpdateCounter += UpdateInterval;
 	}

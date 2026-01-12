@@ -1,58 +1,103 @@
-#include <UnionAfx.h>
-#include <string> 
 #include <StonedExtension.h>
 
+// Here is entry point for whole mod ui part.
 namespace Gothic_II_Addon
 {
-    zCOLOR DefaultColor = zCOLOR(235, 235, 235);
-    zCOLOR HoveredColor = zCOLOR(255, 255, 235);
-    zCOLOR SelectedColor = zCOLOR(240, 240, 0);
+    constexpr int MaxTextWidth = 6200;
+    constexpr int MaxTextScreenWidth = 7800;
+    const zCOLOR NpcRankColor[] =
+    {
+        zCOLOR(250, 250, 250),
+        zCOLOR(200, 128, 255),
+        zCOLOR(64, 64, 252),
+        zCOLOR(255, 255, 64),
+        zCOLOR(255, 128, 0),
+        zCOLOR(255, 32, 32)
+    };
 
-    zCOLOR WhiteColor = zCOLOR(250, 250, 250);
-    static oCViewStatusBar* esBar = NULL;
-    static oCViewStatusBar* npcEsBar = NULL;
-    static zCView* esBarTextView;
-    static zCView* focusIcon = NULL;
-    static oCNpc* FocusNpc = NULL;
-    static oCNpcEx* FocusNpcEx = NULL;
+    oCViewStatusBar* esBar = Null;
+    oCViewStatusBar* npcEsBar = Null;
+    oCNpc* FocusNpc = Null;
+    oCNpcEx* FocusNpcEx = Null;
+    Array<zSTRING> abilitiesLines = Array<zSTRING>();
+
     zSTRING EsText;
-    zSTRING FocusRankName, FocusFlags, FocusAbilities, FocusStats, FocusExtraStats, FocusUidStr, FocusName;
+    int PcEsPosX_SymIndex = Invalid, PcEsPosY_SymIndex = Invalid; 
+    int EsBarDefaultPos_SymIndex = Invalid, CanShowPcEsBar_SymIndex = Invalid, CanShowModMenu_SymIndex = Invalid, BlockPcMovement_SymIndex = Invalid;
+    int FocusNpcRank_SymIndex = Invalid, FocusNpcInfo_SymIndex = Invalid;
+   
+    int focusRank, focusYOffset;
+    zSTRING FocusName;
     zSTRING PcEsCurStr;
 
-    static int updateDalay;
-    static int icon_space = 1;    
-    static int focusRank, focusYOffset;
-    int PcEsPosX;
-    int PcEsPosY;
     int ShowPcEs;
-    int ShowModMenu;
+    int CanShowModMenu;
     int BlockMovement;
+
 
     void UpdateUiStatus()
     {
         if (ogame && player && (!IsLevelChanging || !IsLoading))
         {
             parser->CallFunc(UpdateUiStatusFunc);
-            ShowPcEs = parser->GetSymbol("StExt_CanShowPcEsBar")->single_intdata;
-            ShowModMenu = parser->GetSymbol("StExt_CanShowModMenu")->single_intdata;
-            BlockMovement = parser->GetSymbol("StExt_BlockPcMovement")->single_intdata;            
+            ShowPcEs = parser->GetSymbol(CanShowPcEsBar_SymIndex)->single_intdata;
+            CanShowModMenu = parser->GetSymbol(CanShowModMenu_SymIndex)->single_intdata;
+            BlockMovement = parser->GetSymbol(BlockPcMovement_SymIndex)->single_intdata;
         }
         else
         {
             BlockMovement = false;
             ShowPcEs = false;
-            ShowModMenu = false;
+            CanShowModMenu = false;
         }
     }
 
     void StonedExtension_InitUi()
     {
+        DEBUG_MSG("StExt - Initialize mod Ui...");
         EsText = parser->GetSymbol("StExt_EsText")->stringdata;
-        StonedExtension_InitUi_StatMenu();
+        abilitiesLines = Array<zSTRING>();
+
+        PcEsPosX_SymIndex = parser->GetIndex("StExt_Config_EsBar_PosX");
+        DEBUG_MSG_IF(PcEsPosX_SymIndex == Invalid, "PcEsPosX_SymIndex is null!");
+        PcEsPosY_SymIndex = parser->GetIndex("StExt_Config_EsBar_PosY");
+        DEBUG_MSG_IF(PcEsPosY_SymIndex == Invalid, "PcEsPosY_SymIndex is null!");
+
+        EsBarDefaultPos_SymIndex = parser->GetIndex("StExt_Config_EsBar_DefaultPos");
+        DEBUG_MSG_IF(EsBarDefaultPos_SymIndex == Invalid, "EsBarDefaultPos_SymIndex is null!");
+
+        CanShowModMenu_SymIndex = parser->GetIndex("StExt_CanShowModMenu");
+        DEBUG_MSG_IF(CanShowModMenu_SymIndex == Invalid, "CanShowModMenu_SymIndex is null!");
+        CanShowPcEsBar_SymIndex = parser->GetIndex("StExt_CanShowPcEsBar");
+        DEBUG_MSG_IF(CanShowPcEsBar_SymIndex == Invalid, "CanShowPcEsBar_SymIndex is null!");
+        BlockPcMovement_SymIndex = parser->GetIndex("StExt_BlockPcMovement");
+        DEBUG_MSG_IF(BlockPcMovement_SymIndex == Invalid, "BlockPcMovement_SymIndex is null!");
+
+        FocusNpcRank_SymIndex = parser->GetIndex("StExt_FocusNpcRank");
+        DEBUG_MSG_IF(FocusNpcRank_SymIndex == Invalid, "FocusNpcRank_SymIndex is null!");
+        FocusNpcInfo_SymIndex = parser->GetIndex("StExt_FocusNpcInfo");
+        DEBUG_MSG_IF(FocusNpcInfo_SymIndex == Invalid, "FocusNpcInfo_SymIndex is null!");
+
+        MsgTrayPosX_SymIndex = parser->GetIndex("StExt_Config_MsgTray_PosX");
+        DEBUG_MSG_IF(MsgTrayPosX_SymIndex == Invalid, "MsgTrayPosX_SymIndex is null!");
+        MsgTrayPosY_SymIndex = parser->GetIndex("StExt_Config_MsgTray_PosY");
+        DEBUG_MSG_IF(MsgTrayPosY_SymIndex == Invalid, "MsgTrayPosY_SymIndex is null!");
+
+        StonedExtension_InitUi_Menu();
+        DEBUG_MSG("StExt - Mod Ui was initialized!");
+    }
+
+    inline void DeleteUiItem(zCView* uiItem)
+    {
+        if (screen && uiItem)
+            screen->RemoveItem(uiItem);
+        SAFE_DELETE(uiItem);
     }
 
     void InitHeroEsBar()
     {
+        DeleteUiItem(esBar);
+
         esBar = new oCViewStatusBar();
         esBar->Init(5, 5, 1.0);
         esBar->SetMaxRange(0, 100);
@@ -61,16 +106,13 @@ namespace Gothic_II_Addon
         screen->InsertItem(esBar);
         esBar->Render();
 
-        esBarTextView = new zCView(0, 0, 8192, 8192);
-        screen->InsertItem(esBarTextView, FALSE);
-        esBarTextView->SetPos(0, 0);
-        screen->RemoveItem(esBarTextView);
-
-        PcEsCurStr = zSTRING();
+        PcEsCurStr = zString_Empty;
     }
 
     void InitNpcEsBar()
     {
+        DeleteUiItem(npcEsBar);
+
         npcEsBar = new oCViewStatusBar();
         npcEsBar->Init(5, 5, 1.0);
         npcEsBar->SetMaxRange(0, 100);
@@ -78,78 +120,87 @@ namespace Gothic_II_Addon
         npcEsBar->SetSize(512, 180);
         int x, y;
         npcEsBar->GetSize(x, y);
-        //npcEsBar->SetPos((8192 - x) * 0.5f, screen->FontY() * (1 + StExt_Config_NpcStats_TopOffset));
-        npcEsBar->SetPos((8192 - x) * 0.5f, screen->FontY());
+        npcEsBar->SetPos(static_cast<int>((ScreenVBufferSize - x) * 0.5f), screen->FontY());
         screen->InsertItem(npcEsBar);
         npcEsBar->Render();
     }
 
+
+    inline const zCOLOR& GetNpcRankColor(const int rank) { return IsIndexInBounds(rank, 6) ? NpcRankColor[rank] : NpcRankColor[0]; }
+    inline int GetScreenLineWidth(const zSTRING& txt) { return (screen && screen->font) ? screen->font->GetFontX(txt) : 0; }
+
+    inline void PrintScreenTextContent(const int x, const int y, const zSTRING& txt, const zCOLOR& color)
+    {
+        if (!screen) return;
+        screen->SetFontColor(color);
+        screen->Print(x, y, txt);
+        screen->SetFontColor(TextColor_Default);
+    }
+
+    inline void PrintScreenTextContent(const int y, const zSTRING& txt, const zCOLOR& color)
+    {
+        if (!screen) return;
+        const int x = static_cast<int>((ScreenVBufferSize - GetScreenLineWidth(txt)) * 0.5f);
+        PrintScreenTextContent(x, y, txt, color);
+    }
+
     void PrintHeroEsBar()
     {
-        if (screen && ShowPcEs)
+        int sx, sy;
+        int x, y;
+        oCNpcEx* heroEx;
+
+        if (!screen || !ShowPcEs)
         {
-            int sx, sy;
-            int x, y;
-            oCNpcEx* heroEx;
+            if (esBar)
+                screen->RemoveItem(esBar);
+            return;
+        }
 
-            if (!esBar || !esBarTextView)
-                InitHeroEsBar();
-            screen->RemoveItem(esBar);
-            screen->RemoveItem(esBarTextView);            
+        if (!esBar)
+            InitHeroEsBar();
+        screen->RemoveItem(esBar);
 
-            heroEx = dynamic_cast<oCNpcEx*>(player); 
-            if (heroEx)
+        heroEx = dynamic_cast<oCNpcEx*>(player); 
+        if (heroEx)
+        {
+            int esCur = heroEx->m_pVARS[StExt_AiVar_EsCur];
+            int esMax = heroEx->m_pVARS[StExt_AiVar_EsMax];
+            int defaultPos = parser->GetSymbol(EsBarDefaultPos_SymIndex)->single_intdata;
+
+            if (esMax <= 0)
             {
-                int esCur = heroEx->m_pVARS[StExt_AiVar_EsCur];
-                int esMax = heroEx->m_pVARS[StExt_AiVar_EsMax];
-                int defaultPos = parser->GetSymbol("StExt_Config_EsBar_DefaultPos")->single_intdata;
-
-                if (esMax <= 0)
-                {
-                    esBar->ondesk = false;
-                    screen->RemoveItem(esBar);
-                    screen->RemoveItem(esBarTextView);
-                    return;
-                }
-                
-                ogame->hpBar->GetSize(sx, sy);
-                esBar->SetSize(sx, sy);
-                
-                if (defaultPos)
-                {
-                    ogame->hpBar->GetPos(x, y);
-                    x += sx + 15;
-                }                    
-                else
-                {
-                    x = parser->GetSymbol("StExt_Config_EsBar_PosX")->single_intdata * 81.919998f;
-                    y = parser->GetSymbol("StExt_Config_EsBar_PosY")->single_intdata * 81.919998f;
-                }
-                esBar->SetPos(x, y);
-                screen->InsertItem(esBar);
-                screen->InsertItem(esBarTextView);
-
-                PcEsCurStr = StExt_EsText + Z": " + Z esCur + Z"/" + Z esMax;
-                int PcEsPosX = x;
-                int PcEsPosY = y - sy + 3;
-                esBarTextView->SetFontColor(WhiteColor);
-                esBarTextView->Print(PcEsPosX, PcEsPosY, PcEsCurStr);
-
-                esBar->SetMaxRange(0, esMax);
-                esBar->SetRange(0, esMax);
-                esBar->SetValue(esCur);
-            }
-            else
-            {
-                screen->RemoveItem(esBarTextView);
+                esBar->ondesk = false;
                 screen->RemoveItem(esBar);
                 return;
-            } 
+            }
+                
+            ogame->hpBar->GetSize(sx, sy);
+            esBar->SetSize(sx, sy);                
+            if (defaultPos)
+            {
+                ogame->hpBar->GetPos(x, y);
+                x += sx + 15;
+            }                    
+            else
+            {
+                x = static_cast<int>(parser->GetSymbol(PcEsPosX_SymIndex)->single_intdata * 81.919998f);
+                y = static_cast<int>(parser->GetSymbol(PcEsPosY_SymIndex)->single_intdata * 81.919998f);
+            }
+            esBar->SetPos(x, y);
+            screen->InsertItem(esBar);
+
+            PcEsCurStr = StExt_EsText + ": " + Z(esCur) + "/" + Z(esMax);
+            PrintScreenTextContent(x, y - sy + 3, PcEsCurStr, TextColor_Default);
+
+            esBar->SetMaxRange(0.0f, static_cast<float>(esMax));
+            esBar->SetRange(0.0f, static_cast<float>(esMax));
+            esBar->SetValue(static_cast<float>(esCur));
         }
         else
         {
-            if (esBarTextView) screen->RemoveItem(esBarTextView);
-            if (esBar) screen->RemoveItem(esBar);
+            screen->RemoveItem(esBar);
+            return;
         }
     }
 
@@ -161,7 +212,6 @@ namespace Gothic_II_Addon
 
         int esCur;
         int esMax;
-
         if (FocusNpcEx)
         {
             esCur = FocusNpcEx->m_pVARS[StExt_AiVar_EsCur];
@@ -173,137 +223,160 @@ namespace Gothic_II_Addon
             esMax = *(int*)parser->CallFunc(NpcGetBarMaxEsFunc);            
         }
 
-        if ((esMax <= 0) || FocusNpc->IsDead())
+        if ((esMax <= 0) || (FocusNpc && FocusNpc->IsDead()))
         {
             npcEsBar->ondesk = false;
-            if(npcEsBar)
-                screen->RemoveItem(npcEsBar);
+            if(npcEsBar) screen->RemoveItem(npcEsBar);
             return;
         }                
         screen->InsertItem(npcEsBar);
-        npcEsBar->SetMaxRange(0, esMax);
-        npcEsBar->SetRange(0, esMax);
-        npcEsBar->SetValue(esCur);
+        npcEsBar->SetMaxRange(0.0, static_cast<float>(esMax));
+        npcEsBar->SetRange(0.0, static_cast<float>(esMax));
+        npcEsBar->SetValue(static_cast<float>(esCur));
 
-        zSTRING esText = StExt_EsText + ": " + zSTRING(esCur) + "/" + zSTRING(esMax);
-        focusYOffset = (screen->FontY() * (2 + StExt_Config_NpcStats_TopOffset)) + npcEsBar->pposy + npcEsBar->psizey;
-        screen->Print((8192 - screen->FontSize(esText)) * 0.5f, focusYOffset, esText);        
-        focusYOffset += screen->FontY();
+        const zSTRING esText = StExt_EsText + ": " + Z(esCur) + "/" + Z(esMax);
+        const int startPos = npcEsBar->pposy + npcEsBar->psizey;
+        const int fontY = screen->FontY();
+
+        focusYOffset = startPos + (fontY * (2 + StExt_Config_NpcStats_TopOffset));
+        PrintScreenTextContent(focusYOffset, esText, TextColor_Default);
+        focusYOffset += fontY;
     }
 
-    inline CArray<zSTRING> SplitAbilitiesString(zSTRING str)
-    {
-        CArray<zSTRING> result = CArray<zSTRING>();
-        std::string source = str.ToChar();
-        std::string tmp;
-        zSTRING tmpResult = zSTRING();
-        if (source.length() == 0)
-            return result;
 
-        for (int i = 0, j = 0; i < source.length(); i++)
+    inline zSTRING MakeSegmentFromRange(const char* begin, const char* end)
+    {
+        const size_t len = end - begin;
+        if (len == 0) return zString_Empty;
+
+        if (len <= 1023)
         {
-            if (source[i] == '|')
+            char buf[1024];
+            memcpy(buf, begin, len);
+            buf[len] = '\0';
+            return zSTRING(buf);
+        }
+        else
+        {
+            std::string tmp(begin, len);
+            return zSTRING(tmp.c_str());
+        }
+    }
+    inline void SplitAbilitiesString(const zSTRING& str, Array<zSTRING>& lines)
+    {
+        if (str.IsEmpty()) return;
+
+        const char* src = str.ToChar();
+        if (!src) return;
+
+        zSTRING currentLine;
+        const char* segmentStart = src;
+        static const zSTRING tagSeparator(" | ");
+
+        for (const char* p = src; ; ++p)
+        {
+            if (*p == '|' || *p == '\0')
             {
-                tmp = source.substr(j, i - 1);
-                j = i + 1;
-                tmpResult += tmp.c_str();
-                if (screen->FontSize(tmpResult) >= 6144)
+                zSTRING segment = MakeSegmentFromRange(segmentStart, p);
+                if (!segment.IsEmpty())
                 {
-                    tmp = tmpResult.ToChar();
-                    result.InsertEnd(tmp.c_str());
-                    tmpResult = zSTRING();
+                    zSTRING testLine = currentLine;
+                    if (!testLine.IsEmpty()) testLine += tagSeparator;                    
+                    testLine += segment;
+
+                    if (GetScreenLineWidth(testLine) > MaxTextWidth)
+                    {
+                        if (!currentLine.IsEmpty()) 
+                            lines.InsertEnd(currentLine);
+                        currentLine = segment;
+                    }
+                    else
+                    {
+                        if (!currentLine.IsEmpty()) 
+                            currentLine += tagSeparator;
+                        currentLine += segment;
+                    }
                 }
+                if (*p == '\0') break;
+                segmentStart = p + 1;
             }
         }
-        return result;
+
+        if (!currentLine.IsEmpty())
+            lines.InsertEnd(currentLine);
     }
 
     inline void PrintNpcInfo()
     {
         if (FocusNpc)
         {
-            // update npc info
             parser->CallFunc(UpdateFocusNpcInfoFunc);
-            if (FocusNpcEx)
-                focusRank = FocusNpcEx->m_pVARS[StExt_AiVar_IsRandomized];
-            else focusRank = parser->GetSymbol("StExt_FocusNpcRank")->single_intdata;
+            if (FocusNpcEx) focusRank = FocusNpcEx->m_pVARS[StExt_AiVar_IsRandomized];
+            else focusRank = parser->GetSymbol(FocusNpcRank_SymIndex)->single_intdata;
 
-            zCPar_Symbol* infoArray = parser->GetSymbol("StExt_FocusNpcInfo");
-            FocusRankName = infoArray->stringdata[0];
-            FocusFlags = infoArray->stringdata[1];
-            FocusAbilities = infoArray->stringdata[2];
-            FocusStats = infoArray->stringdata[3];
-            FocusExtraStats = infoArray->stringdata[4];            
+            zCPar_Symbol* infoArray = parser->GetSymbol(FocusNpcInfo_SymIndex);
+            const zSTRING& focusRankName = infoArray->stringdata[0];
+            const zSTRING& focusFlags = infoArray->stringdata[1];
+            const zSTRING& focusAbilities = infoArray->stringdata[2];
+            const zSTRING& focusStats = infoArray->stringdata[3];
+            const zSTRING& focusExtraStats = infoArray->stringdata[4];
 
-            if (!FocusRankName) FocusRankName = "";
-            if (!FocusFlags) FocusFlags = "";
-            if (!FocusAbilities) FocusAbilities = "";
-            if (!FocusStats) FocusStats = "";
-            if (!FocusExtraStats) FocusExtraStats = "";
+            const int fontY = screen->FontY();
 
             if (focusRank > 0)
             {
-                if (focusRank == 1)
-                    screen->SetFontColor(zCOLOR(200, 128, 255));
-                else if (focusRank == 2)
-                    screen->SetFontColor(zCOLOR(64, 64, 252));
-                else if (focusRank == 3)
-                    screen->SetFontColor(zCOLOR(255, 255, 64));
-                else if (focusRank == 4)
-                    screen->SetFontColor(zCOLOR(255, 128, 0));
-                else if (focusRank >= 5)
-                    screen->SetFontColor(zCOLOR(255, 32, 32));
-                else
-                    screen->SetFontColor(zCOLOR(250, 250, 250));
+                const zCOLOR& rankColor = GetNpcRankColor(focusRank);
+                const zSTRING summLine = focusRankName + " " + focusFlags;
+                const int y = fontY + focusYOffset;
+                const int x = static_cast<int>((ScreenVBufferSize - GetScreenLineWidth(summLine)) * 0.5f);
 
-                zSTRING summLine = FocusRankName + " " + FocusFlags;
-                int center = (8192 - screen->FontSize(summLine)) * 0.5f;
-                screen->Print(center, screen->FontY() + focusYOffset, FocusRankName);
-                screen->SetFontColor(zCOLOR(250, 250, 250));
-                screen->Print(center + screen->FontSize(FocusRankName + " "), screen->FontY() + focusYOffset, FocusFlags);
-                focusYOffset += screen->FontY();
+                PrintScreenTextContent(x, y, focusRankName, rankColor);
+                PrintScreenTextContent(x + GetScreenLineWidth(focusRankName + " "), y, focusFlags, TextColor_Default);
+                focusYOffset += fontY;
             }
-            if (FocusAbilities && (FocusAbilities.Length() > 0))
+
+            if (!focusAbilities.IsEmpty())
             {
-                screen->SetFontColor(zCOLOR(220, 220, 220));
-                int abilitiesWidth = screen->FontSize(FocusAbilities);
-                if (abilitiesWidth > 8000)
+                const int abilitiesWidth = GetScreenLineWidth(focusAbilities);
+                if (abilitiesWidth > MaxTextScreenWidth)
                 {
-                    CArray<zSTRING> abilitiesLines = SplitAbilitiesString(FocusAbilities);
-                    for (uint i = 0U; i < abilitiesLines.GetNum(); i++)
+                    abilitiesLines.Clear();
+                    SplitAbilitiesString(focusAbilities, abilitiesLines);
+                    for (uint i = 0U; i < abilitiesLines.GetNum(); ++i)
                     {
-                        screen->Print((8192 - screen->FontSize(abilitiesLines[i])) * 0.5f, screen->FontY() + focusYOffset, abilitiesLines[i]);
-                        focusYOffset += screen->FontY();
+                        PrintScreenTextContent(fontY + focusYOffset, abilitiesLines[i], TextColor_Regular_Faded);
+                        focusYOffset += fontY;
                     }
                 }
                 else
                 {
-                    screen->Print((8192 - abilitiesWidth) * 0.5f, screen->FontY() + focusYOffset, FocusAbilities);
-                    focusYOffset += screen->FontY();
+                    PrintScreenTextContent(fontY + focusYOffset, focusAbilities, TextColor_Regular_Faded);
+                    focusYOffset += fontY;
                 }                
             }
             
-            focusYOffset += screen->FontY() * 0.5f;
-            if (FocusStats && (FocusStats.Length() > 0))
+            focusYOffset += static_cast<int>(fontY * 0.5f);
+            if (!focusStats.IsEmpty())
             {
-                screen->SetFontColor(zCOLOR(200, 200, 200));
-                screen->Print((8192 - screen->FontSize(FocusStats)) * 0.5f, screen->FontY() + focusYOffset, FocusStats);
-                focusYOffset += screen->FontY();
+                PrintScreenTextContent(fontY + focusYOffset, focusStats, TextColor_Regular_Faded);
+                focusYOffset += fontY;
             }
-            if (FocusExtraStats && (FocusExtraStats.Length() > 0))
+
+            if (!focusExtraStats.IsEmpty())
             {
-                screen->SetFontColor(zCOLOR(200, 200, 200));
-                screen->Print((8192 - screen->FontSize(FocusExtraStats)) * 0.5f, screen->FontY() + focusYOffset, FocusExtraStats);
-                focusYOffset += screen->FontY();
+                PrintScreenTextContent(fontY + focusYOffset, focusExtraStats, TextColor_Regular_Faded);
+                focusYOffset += fontY;
             }
+
+            #if DebugEnabled
             if (parser->GetSymbol("StExt_Config_DebugEnabled")->single_intdata)
             {
-                screen->SetFontColor(zCOLOR(250, 250, 250));
-                FocusUidStr = "'" + FocusName + "' [" + Z GetNpcUid(FocusNpc) + "]";
-                screen->Print((8192 - screen->FontSize(FocusUidStr)) * 0.5f, screen->FontY() + focusYOffset, FocusUidStr);
-                focusYOffset += screen->FontY();
+                const zSTRING debugStr = "'" + FocusName + "' [" + Z(GetNpcUid(FocusNpc)) + "]";
+                PrintScreenTextContent(fontY + focusYOffset, debugStr, TextColor_Warn);
+                focusYOffset += fontY;
             }
-            screen->SetFontColor(zCOLOR(250, 250, 250));
+            #endif
+            screen->SetFontColor(TextColor_Default);
         }
     }
 
@@ -311,9 +384,16 @@ namespace Gothic_II_Addon
     {
         FocusNpc = Null;
         FocusNpcEx = Null;
-        FocusName = zSTRING();
+        FocusName = zString_Empty;
         if (npcEsBar)
             screen->RemoveItem(npcEsBar);
+    }
+
+    void StonedExtension_Loop_Ui()
+    {
+        StonedExtension_Loop_MenuController();
+        StonedExtension_Loop_MsgTray();
+        PrintHeroEsBar();
     }
 
     HOOK Hook_oCGame_UpdatePlayerStatus PATCH(&oCGame::UpdatePlayerStatus, &oCGame::UpdatePlayerStatus_StExt);
@@ -335,8 +415,7 @@ namespace Gothic_II_Addon
                 PrintNpcInfo();
                 if (FocusNpc->IsDead()) ClearFocusNpc();
             }
-            else
-                ClearFocusNpc();
+            else { ClearFocusNpc(); }
         }
         else { ClearFocusNpc(); }        
     }

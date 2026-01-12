@@ -5,6 +5,6 @@
 
 void zCParser::CreatePCode_StExt();
 
-void* zCParser::CallFuncStr_StExt(zSTRING const&);
+//void* zCParser::CallFuncStr_StExt(zSTRING const&);
 
-void* __cdecl zCParser::CallFunc_StExt(int, ...);
+//void* __cdecl zCParser::CallFunc_StExt(int, ...);

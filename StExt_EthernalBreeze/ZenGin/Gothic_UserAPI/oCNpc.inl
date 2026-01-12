@@ -35,7 +35,7 @@ int oCNpc::CanUse_StExt(oCItem* item);
 
 bool oCNpc::CanEquipAdditionalArmor(oCItem* item);
 
-Array<oCItem*> oCNpc::GetEquippedArmors();
+void oCNpc::GetEquippedArmors(Array<oCItem*>& array);
 
 TNpcSlot* oCNpc::CreateAdditionalItemSlot(const zSTRING& name);
 

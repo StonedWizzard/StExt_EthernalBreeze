@@ -46,12 +46,8 @@ namespace Gothic_II_Addon
         int index;
         int address;
 
-        StExt_FuncEntity(int index, int address) :
-            index(index),
-            address(address)
-        {
-
-        }
+        StExt_FuncEntity(int index, int address) : 
+            index(index), address(address) { }
     };
 
     std::vector<StExt_FuncEntity> StExt_Functions;
@@ -84,7 +80,7 @@ namespace Gothic_II_Addon
     void StExt_ExtractSegments(string name, zCArray<string>& segments)
     {
         int nextStart = 0;
-        for (size_t i = 0; i <= name.Length(); i++)
+        for (uint i = 0; i <= name.Length(); i++)
         {
             if (i == name.Length() || name[i] == '.')
             {

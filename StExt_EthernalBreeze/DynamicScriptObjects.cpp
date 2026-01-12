@@ -17,8 +17,8 @@ namespace Gothic_II_Addon
         DynamicObjectMeta(void* p, size_t s, bool u) : ptr(p), size(s), used(u) { }
     };
 
-    static std::vector<DynamicObjectMeta> ObjectsTable = { };
-
+    //static std::vector<DynamicObjectMeta> ObjectsTable = { };
+    static Array<DynamicObjectMeta> ObjectsTable = { };
 
     void* AllocateDynamicObject(size_t size)
     {
@@ -41,7 +41,7 @@ namespace Gothic_II_Addon
 
         void* ptr = ObjectsMemPool + MemPoolCurrentOffset;
         DynamicObjectMeta meta = DynamicObjectMeta(ptr, size, true);
-        ObjectsTable.push_back(meta);
+        ObjectsTable.InsertEnd(meta);
         MemPoolCurrentOffset += size;
 
         DEBUG_MSG("AllocateDynamicObject : Creatre pointer: " + Z((int)ptr) + " With size: " + Z((int)size));
@@ -67,6 +67,50 @@ namespace Gothic_II_Addon
         for (const auto& entry : ObjectsTable) {
             if (entry.ptr == ptr && entry.used) return true;
         }
+        return false;
+    }
+
+    bool WriteToDynamicObject(void* basePtr, size_t offset, int value)
+    {
+        for (auto& entry : ObjectsTable)
+        {
+            if (entry.ptr == basePtr && entry.used)
+            {
+                if (offset + sizeof(int) > entry.size)
+                {
+                    DEBUG_MSG("WriteToDynamicObject: offset out of bounds!");
+                    return false;
+                }
+
+                int* p = reinterpret_cast<int*>((uint8_t*)basePtr + offset);
+                *p = value;
+                return true;
+            }
+        }
+
+        DEBUG_MSG("WriteToDynamicObject: unknown pointer!");
+        return false;
+    }
+
+    bool ReadFormDynamicObject(void* basePtr, size_t offset, int& outValue)
+    {
+        for (auto& entry : ObjectsTable)
+        {
+            if (entry.ptr == basePtr && entry.used)
+            {
+                if (offset + sizeof(int) > entry.size)
+                {
+                    DEBUG_MSG("ReadFormDynamicObject: offset out of bounds!");
+                    return false;
+                }
+
+                int* p = reinterpret_cast<int*>((uint8_t*)basePtr + offset);
+                outValue = *p;
+                return true;
+            }
+        }
+
+        DEBUG_MSG("ReadFormDynamicObject: unknown pointer!");
         return false;
     }
 }

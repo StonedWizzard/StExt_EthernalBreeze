@@ -214,20 +214,32 @@
     <Filter Include="Engine SDK\4. Gothic II NoTR\Overloads">
       <UniqueIdentifier>{225cc81e-eae0-432b-9f39-e93512644977}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Plugin\Workspace\Plugin\ArrayOperations">
-      <UniqueIdentifier>{6a797549-83c6-4f90-9017-e55b1612a313}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Plugin\Workspace\Plugin\ClassDefinitions">
-      <UniqueIdentifier>{f7695904-1856-44f8-ad63-a9ea81daabc4}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Plugin\Workspace\Plugin\Menu">
       <UniqueIdentifier>{588c016d-a8ab-4666-b93b-bea0e2fa0e4d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Plugin\Workspace\Plugin\TimedEffect">
+    <Filter Include="Plugin\Workspace\Plugin\Menu\MenuFramework">
+      <UniqueIdentifier>{b25ef1d3-4bf3-4c3a-9a33-bc0c77c875ea}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin\Workspace\Plugin\ItemExtensions">
+      <UniqueIdentifier>{29efde67-ec49-4746-807e-b8b1f892b5f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin\Workspace\Plugin\TimedEffects">
       <UniqueIdentifier>{d761e985-56b8-4323-9a70-345ee00019b1}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Plugin\Workspace\Plugin\EnchantedItems">
-      <UniqueIdentifier>{29efde67-ec49-4746-807e-b8b1f892b5f5}</UniqueIdentifier>
+    <Filter Include="Plugin\Workspace\Plugin\Core">
+      <UniqueIdentifier>{0d6ba418-8dd0-4e00-aa95-9dbd8a5690d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin\Workspace\Plugin\Damage">
+      <UniqueIdentifier>{56aef5ca-9fd4-4c92-80b2-3c7e50124641}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin\Workspace\Plugin\Core\Random">
+      <UniqueIdentifier>{daf1bb8c-f5c4-4435-abef-e5d34150d763}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin\Workspace\Plugin\Core\ArrayOperations">
+      <UniqueIdentifier>{6a797549-83c6-4f90-9017-e55b1612a313}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Plugin\Workspace\Plugin\Core\JsonParser">
+      <UniqueIdentifier>{13c3fae6-4f4f-4bf0-a266-ac49b2fd36d0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -274,72 +286,12 @@
       <Filter>Engine SDK\4. Gothic II NoTR\Overloads</Filter>
     </ClCompile>
     <ClCompile Include="ArrayOperations.cpp">
-      <Filter>Plugin\Workspace\Plugin\ArrayOperations</Filter>
+      <Filter>Plugin\Workspace\Plugin\Core\ArrayOperations</Filter>
     </ClCompile>
-    <ClCompile Include="StonedExtension.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="ModInitializer.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="MagicInfusion.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="Damage.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="StatsMenu.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClCompile>
-    <ClCompile Include="C_TimedEffect.cpp">
-      <Filter>Plugin\Workspace\Plugin\TimedEffect</Filter>
-    </ClCompile>
-    <ClCompile Include="ItemGenerator.cpp">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClCompile>
-    <ClCompile Include="C_ItemData.h">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClCompile>
-    <ClCompile Include="ItemGeneratorUtils.cpp">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClCompile>
-    <ClCompile Include="ItemGeneratorClasses.cpp">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClCompile>
-    <ClCompile Include="ModStateController.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="InventoryMenu.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClCompile>
-    <ClCompile Include="ExtendedArmors.cpp">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClCompile>
-    <ClCompile Include="ThrowingItemsController.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="StatsUncaper.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClCompile>
-    <ClCompile Include="C_ConfigPreset.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClCompile>
-    <ClCompile Include="MenuItem.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClCompile>
-    <ClCompile Include="BaseMenuItem.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClCompile>
-    <ClCompile Include="BaseMenuPanel.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
+    <ClCompile Include="TimedEffect.cpp">
+      <Filter>Plugin\Workspace\Plugin\TimedEffects</Filter>
     </ClCompile>
     <ClCompile Include="MenuController.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClCompile>
-    <ClCompile Include="CraftMenu.cpp">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClCompile>
-    <ClCompile Include="MenuListView.cpp">
       <Filter>Plugin\Workspace\Plugin\Menu</Filter>
     </ClCompile>
     <ClCompile Include="UiController.cpp">
@@ -351,14 +303,119 @@
     <ClCompile Include="MainMenu.cpp">
       <Filter>Plugin\Workspace\Plugin\Menu</Filter>
     </ClCompile>
-    <ClCompile Include="VoiceController.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
+    <ClCompile Include="BaseMenuElement.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuItem.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseUiElement.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="BaseMenuPanel.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuListView.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuWindow.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuCursor.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="TestWindow.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuScrollPanel.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="StatsWindow.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuValueItem.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuTextItem.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="CraftMenu.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigsWindow.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemExtensionsCore.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemExtensionsInitializer.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemExtensionsBuilder.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemExtension.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemRandomController.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ExtendedArmors.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemAbilities.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="Damage.cpp">
+      <Filter>Plugin\Workspace\Plugin\Damage</Filter>
     </ClCompile>
     <ClCompile Include="DynamicScriptObjects.cpp">
-      <Filter>Plugin\Workspace\Plugin</Filter>
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
     </ClCompile>
-    <ClCompile Include="ItemAbility.cpp">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
+    <ClCompile Include="StatsUncaper.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="StonedExtension.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="VoiceController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="ModStateController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="ModInitializer.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="StExt_Rand.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core\Random</Filter>
+    </ClCompile>
+    <ClCompile Include="ThrowingItemsController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Damage</Filter>
+    </ClCompile>
+    <ClCompile Include="TimedEffectCore.cpp">
+      <Filter>Plugin\Workspace\Plugin\TimedEffects</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemExtensionDataStorage.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemExtensionIndexer.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="CraftEngine.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ReceiptSlotParser.cpp">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClCompile>
+    <ClCompile Include="ItemInfoPanel.cpp">
+      <Filter>Plugin\Workspace\Plugin\Menu\MenuFramework</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonParser.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core\JsonParser</Filter>
+    </ClCompile>
+    <ClCompile Include="JsonMapper.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core\JsonParser</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -2881,49 +2938,49 @@
     </ClInclude>
     <ClInclude Include="resource.h" />
     <ClInclude Include="ArrayOperations.h">
-      <Filter>Plugin\Workspace\Plugin\ArrayOperations</Filter>
+      <Filter>Plugin\Workspace\Plugin\Core\ArrayOperations</Filter>
     </ClInclude>
-    <ClInclude Include="StonedExtension.h">
-      <Filter>Plugin\Workspace\Plugin</Filter>
-    </ClInclude>
-    <ClInclude Include="C_MagicInfusion.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClInclude>
-    <ClInclude Include="StatsMenu.h">
-      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
-    </ClInclude>
-    <ClInclude Include="C_AuraData.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClInclude>
-    <ClInclude Include="DamageInfo.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClInclude>
-    <ClInclude Include="C_TimedEffect.h">
-      <Filter>Plugin\Workspace\Plugin\TimedEffect</Filter>
-    </ClInclude>
-    <ClInclude Include="C_EnchantmentData.h">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClInclude>
-    <ClInclude Include="GeneratorConfigs.h">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
-    </ClInclude>
-    <ClInclude Include="C_ModState.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClInclude>
-    <ClInclude Include="C_CraftData.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClInclude>
-    <ClInclude Include="C_UncapedStat.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
-    </ClInclude>
-    <ClInclude Include="ModExtensionsInfo.h">
-      <Filter>Plugin\Workspace\Plugin\ClassDefinitions</Filter>
+    <ClInclude Include="TimedEffect.h">
+      <Filter>Plugin\Workspace\Plugin\TimedEffects</Filter>
     </ClInclude>
     <ClInclude Include="ModUi.h">
       <Filter>Plugin\Workspace\Plugin\Menu</Filter>
     </ClInclude>
-    <ClInclude Include="ItemAbility.h">
-      <Filter>Plugin\Workspace\Plugin\EnchantedItems</Filter>
+    <ClInclude Include="ItemExtensions.h">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClInclude>
+    <ClInclude Include="ItemAbilities.h">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClInclude>
+    <ClInclude Include="Damage.h">
+      <Filter>Plugin\Workspace\Plugin\Damage</Filter>
+    </ClInclude>
+    <ClInclude Include="StExt_Classes.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="StExt_Constants.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="StExt_Debug.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="StonedExtension.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="StExt_Rand.h">
+      <Filter>Plugin\Workspace\Plugin\Core\Random</Filter>
+    </ClInclude>
+    <ClInclude Include="StExt_Helpers.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="CraftEngine.h">
+      <Filter>Plugin\Workspace\Plugin\ItemExtensions</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonParser.h">
+      <Filter>Plugin\Workspace\Plugin\Core\JsonParser</Filter>
+    </ClInclude>
+    <ClInclude Include="StExt_IO.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -4804,6 +4861,9 @@
     </None>
     <None Include="Plugin.patch">
       <Filter>Plugin\Workspace\Plugin</Filter>
+    </None>
+    <None Include="ModUi.inl">
+      <Filter>Plugin\Workspace\Plugin\Menu</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
