@@ -26,6 +26,7 @@ namespace Gothic_II_Addon
 	//---------------------------------------------------------------------------
 	//								GLOBAL VARS
 	//---------------------------------------------------------------------------
+	extern bool StExt_ModReady;
 
 	extern Map<int, ExtraStatData> ExtraStatsData;
 	extern Map<int, ExtraStatData> ExtraConditionStatsData;

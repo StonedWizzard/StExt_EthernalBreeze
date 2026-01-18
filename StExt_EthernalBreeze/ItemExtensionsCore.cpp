@@ -32,21 +32,18 @@ namespace Gothic_II_Addon
     zSTRING ItemProtectionString;
     int ItemCondSpecialSeparator;
 
-    void UpdateItemExtensionsCoreState()
+    inline void UpdateItemExtensionsCoreState()
     {
         ItemExtensionsState.ItemExtensionsCount = ItemsExtensionData->ItemsCount;
         ItemExtensionsState.NextItemExtensionUId = GetNextItemUId();
     }
 
-    void ResetItemExtensionsCoreState()
+    inline void ResetItemExtensionsCoreState()
     {
         ItemExtensionsState = ItemExtensionsCoreState();
         ItemExtensionsState.ItemExtensionsCount = 0U;
         ItemExtensionsState.NextItemExtensionUId = 0U;
     }
-
-    //Map<unsigned int, ItemExtension*> ItemExtensionData;
-    //Map<zSTRING, unsigned int> ItemExtensionDataIndexer_InstanceName;
 
     inline ItemClassKey ItemClassKey_Create(byte itemType, byte itemClass, byte itemSubClass) {
         return (static_cast<ItemClassKey>(itemType) << 16) | (static_cast<ItemClassKey>(itemClass) << 8) | (static_cast<ItemClassKey>(itemSubClass));
@@ -325,9 +322,6 @@ namespace Gothic_II_Addon
 
         for (int i = 0; i < ItemExtension_Conditions_Max; ++i)
         {
-            /*clear change values (Why was so?)
-                item->change_atr[i] = 0;
-                item->change_value[i] = 0; */
             item->cond_atr[i] = extension->CondAtr[i];
             item->cond_value[i] = extension->CondValue[i];
         }
@@ -566,14 +560,35 @@ namespace Gothic_II_Addon
         }
     }
 
-    const int GenerateNewMagicItem(const int itemClassId, int power)
+    inline const int FindGeneratedItem(const ItemClassKey itemClassKey, const int power, const int rank)
     {
-        const ItemClassKey itemClass = (ItemClassKey)itemClassId;
-        DEBUG_MSG("GenerateNewItem: start generation...");
+        byte type = 0, cls = 0, subClass = 0;
+        ItemClassKey_Unpack(itemClassKey, type, cls, subClass);
 
-        // TODO: Get already generated items from BD for optimization...?
+        const uint lookUpBufferSize = ItemsGeneratorConfigs.LookupGeneratedItemCountBufferSize <= 32U ? 32U : 
+            static_cast<unsigned int>(ItemsGeneratorConfigs.LookupGeneratedItemCountBufferSize);
+        Array<ItemExtension*> lookUpBuffer = Array<ItemExtension*>();
+        ItemsExtensionData->Get(lookUpBuffer, lookUpBufferSize, type, cls, subClass, 0ULL, Invalid, rank, power, 0, static_cast<int>(power * 0.05));
 
-        ItemExtension* extension = RollSpecificMagicItem(power, itemClass);
+        const uint realBufferSize = lookUpBuffer.GetNum();
+        if (realBufferSize <= 1U) return Invalid;
+
+        const uint selectedIndex = StExt_Rand::Index(realBufferSize);
+        ItemExtension* extension = lookUpBuffer[selectedIndex];
+        if (!extension) 
+            return Invalid;
+
+        const int itemInstnceId = parser->GetIndex(extension->InstanceName);
+        if (itemInstnceId == Invalid)
+        {
+            DEBUG_MSG("FindGeneratedItem: item virtual instance not in table! Instance name: " + extension->InstanceName);
+            return Invalid;
+        }
+        return itemInstnceId;
+    }
+
+    inline const int FinalizeItemGeneration(ItemExtension* extension)
+    {
         if (!extension)
         {
             DEBUG_MSG("GenerateNewItem: generation failed!");
@@ -596,13 +611,56 @@ namespace Gothic_II_Addon
         return itemInstnceId;
     }
 
-    const int GenerateNewRegularItem(const int itemClassId, int power)
+    const int GenerateNewMagicItem(const int itemClassId, const int power)
     {
-        const ItemClassKey itemClass = (ItemClassKey)itemClassId;
-        DEBUG_MSG("GenerateNewItem: start generation...");
+        if (itemClassId <= 0) 
+            return Invalid;
 
-        // TODO: Get already generated items from BD for optimization...?
-        return Invalid;
+        const ItemClassKey itemClass = static_cast<ItemClassKey>(itemClassId);
+        int itemInstnceId = Invalid;
+
+        if ((ItemsExtensionData->ItemsCount > ItemsGeneratorConfigs.LookupGeneratedItemCountThreshold) && StExt_Rand::Permille(ItemsGeneratorConfigs.LookupGeneratedItemChance))
+        {
+            itemInstnceId = FindGeneratedItem(itemClass, power, ItemsGeneratorConfigs.ItemMaxRank);
+            if(itemInstnceId != Invalid) return itemInstnceId;
+        }
+
+        DEBUG_MSG("GenerateNewItem: start generation...");
+        ItemExtension* extension = RollSpecificMagicItem(power, itemClass);
+        itemInstnceId = FinalizeItemGeneration(extension);
+        return itemInstnceId;
+    }
+
+    const int GenerateNewRegularItem(const int itemClassId, const int power)
+    {
+        if (itemClassId <= 0)
+            return Invalid;
+
+        const ItemClassKey itemClass = static_cast<ItemClassKey>(itemClassId);
+        int itemInstnceId = Invalid;
+
+        if (StExt_Rand::Permille(ItemsGeneratorConfigs.PlainPrototypeItemGenerateChance))
+        {
+            const ItemClassDescriptor* classDesc = GetItemClassDescriptor(itemClass);
+            if (classDesc)
+            {
+                const zSTRING instanceName = RollPrototypeInstanceName(CalcItemTier(power, classDesc), classDesc);
+                itemInstnceId = parser->GetIndex(instanceName);
+                if (itemInstnceId != Invalid) 
+                    return itemInstnceId;
+            }
+        }
+
+        if ((ItemsExtensionData->ItemsCount > ItemsGeneratorConfigs.LookupGeneratedItemCountThreshold) && StExt_Rand::Permille(ItemsGeneratorConfigs.LookupGeneratedItemChance))
+        {
+            itemInstnceId = FindGeneratedItem(itemClass, power, 0);
+            if (itemInstnceId != Invalid) return itemInstnceId;
+        }
+
+        DEBUG_MSG("GenerateNewItem: start generation...");
+        ItemExtension* extension = RollSpecificSimpleItem(power, itemClass);
+        itemInstnceId = FinalizeItemGeneration(extension);
+        return itemInstnceId;
     }
 
     void IdentifyItem(const oCItem* item)

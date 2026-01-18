@@ -586,6 +586,19 @@ namespace Gothic_II_Addon
         return 0;
     }
 
+    int __cdecl StExt_GetSize()
+    {
+        int funcIndex;
+        zSTRING arrayName;
+        parser->GetParameter(arrayName);
+
+        zCPar_Symbol* arrayDesc = parser->GetSymbol(arrayName);
+        int size = Invalid;
+        if (arrayDesc) size = static_cast<int>(arrayDesc->ele);
+        parser->SetReturn(size);
+        return 0;
+    }
+
     void ArraysOperations_DefineExternals()
     {
         // имя функции, указатель на реализацию, тип возвращаемого значения, тип первого аргумента, тип второго аргумента, метка конца аргументов (обязательно)
@@ -610,5 +623,7 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_Array_AlterEachInt", StExt_AlterEachInt, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_FUNC, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_Array_AlterEachFloat", StExt_AlterEachFloat, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_FUNC, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_Array_AlterEachStr", StExt_AlterEachStr, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_FUNC, zPAR_TYPE_VOID);
+
+        parser->DefineExternal("StExt_Array_GetSize", StExt_GetSize, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
     }
 }

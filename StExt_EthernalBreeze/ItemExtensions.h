@@ -494,11 +494,16 @@ namespace Gothic_II_Addon
 
 	struct ItemsGeneratorConfig
 	{
-		int ItemMaxRank;
+		int LookupGeneratedItemCountBufferSize;
+		int LookupGeneratedItemCountThreshold;
+		int LookupGeneratedItemChance;
+		int PlainPrototypeItemGenerateChance;
+
 		int ItemLevelMax;
 		float ItemLevelPowerRatio;
 		float ItemLevelSpread;
 
+		int ItemMaxRank;
 		int ItemRankMax;
 		int ItemRankBaseStep;
 		float ItemRankGrowthFactor;
@@ -745,21 +750,21 @@ namespace Gothic_II_Addon
 
 		ItemExtensionDataStorage();
 
-		inline ItemExtension* Get(const unsigned int uId);
-		inline ItemExtension* Get(const zSTRING& instanceName);
-		inline ItemExtension* Get(const ItemExtensionIndexer& indexer);
-		inline ItemExtension* Get(oCItem* item);
-		inline void Get(Array<ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize = 32U);
-		inline ItemExtension* Get(byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
-		inline void Get(Array<ItemExtension*>& buffer, const uint bufferSize = 32U, byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
+		ItemExtension* Get(const unsigned int uId);
+		ItemExtension* Get(const zSTRING& instanceName);
+		ItemExtension* Get(const ItemExtensionIndexer& indexer);
+		ItemExtension* Get(oCItem* item);
+		void Get(Array<ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize = 32U);
+		ItemExtension* Get(byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
+		void Get(Array<ItemExtension*>& buffer, const uint bufferSize = 32U, byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
 
-		inline const ItemExtension* GetSafe(const unsigned int uId);
-		inline const ItemExtension* GetSafe(const zSTRING& instanceName);
-		inline const ItemExtension* GetSafe(const ItemExtensionIndexer& indexer);
-		inline const ItemExtension* GetSafe(oCItem* item);
-		inline void GetSafe(Array<const ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize = 32U);
-		inline void GetSafe(Array<const ItemExtension*>& buffer, const uint bufferSize = 32U, byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
-		inline const ItemExtension* GetSafe(byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
+		const ItemExtension* GetSafe(const unsigned int uId);
+		const ItemExtension* GetSafe(const zSTRING& instanceName);
+		const ItemExtension* GetSafe(const ItemExtensionIndexer& indexer);
+		const ItemExtension* GetSafe(oCItem* item);
+		void GetSafe(Array<const ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize = 32U);
+		void GetSafe(Array<const ItemExtension*>& buffer, const uint bufferSize = 32U, byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
+		const ItemExtension* GetSafe(byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
 
 		bool Insert(ItemExtension* itemExtension);
 		void Clear();
@@ -892,6 +897,7 @@ namespace Gothic_II_Addon
 	ItemExtension* CreateItemExtension(const int power, zSTRING& instanceName, const ItemClassDescriptor* itemClassDescriptor);
 
 	ItemExtension* RollSpecificMagicItem(const int power, const ItemClassKey classKey);
+	ItemExtension* RollSpecificSimpleItem(const int power, const ItemClassKey classKey);
 
 	const int GenerateNewMagicItem(const int itemClassId, int power);
 	const int GenerateNewRegularItem(const int itemClassId, int power);
@@ -899,8 +905,6 @@ namespace Gothic_II_Addon
 	void FindPlayerItems(const int itemClassId, Array<const oCItem*>& foundItems);
 	void FindPlayerItems(const Array<int>& itemClassIds, Array<const oCItem*>& foundItems);
 	void FindPlayerUndefinedItems(Array<const oCItem*>& foundItems);
-
-	//const int GenerateNewItem(const int itemType, int power);
 
 	bool SelectItemGeneratorConfigs(const zSTRING& fileName);
 

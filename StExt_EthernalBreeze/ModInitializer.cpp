@@ -4,6 +4,7 @@ namespace Gothic_II_Addon
 {
 	zFILE* DebugFile;
 	zSTRING ModVersionString;
+	bool StExt_ModReady = false;
 
 	int OnPreLoopFunc = Invalid;
 	int OnPostLoopFunc = Invalid;

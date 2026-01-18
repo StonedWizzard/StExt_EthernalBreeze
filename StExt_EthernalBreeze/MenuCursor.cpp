@@ -41,6 +41,7 @@ namespace Gothic_II_Addon
 	// Low-level mouse hook callback
 	LRESULT CALLBACK MenuCursorController::MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
+		DEBUG_MSG("StExt - MouseHookProc...");
 		if (nCode >= 0 && Instance)
 		{
 			MSLLHOOKSTRUCT* p = (MSLLHOOKSTRUCT*)lParam;
@@ -106,6 +107,7 @@ namespace Gothic_II_Addon
 
 	void MenuCursorController::Init()
 	{
+		DEBUG_MSG("StExt - MenuCursorController::Init...");
 		HWND hwnd = hWndApp;
 		if (!hwnd || !IsWindow(hwnd))
 		{

@@ -59,8 +59,8 @@ IDR_PATCH1              PATCH                   "Plugin.patch"
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,2277
- PRODUCTVERSION 1,0,0,2277
+ FILEVERSION 3,0,6,2294
+ PRODUCTVERSION 3,0,6,2294
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -75,14 +75,14 @@ BEGIN
     BEGIN
         BLOCK "041904b0"
         BEGIN
-            VALUE "CompanyName", "Gothic community"
-            VALUE "FileDescription", "Plugin for Gothic"
-            VALUE "FileVersion", "1.0.0.2277"
-            VALUE "InternalName", "Plugin"
-            VALUE "LegalCopyright", "Copyright (C) 2023"
-            VALUE "OriginalFilename", "Plugin"
-            VALUE "ProductName", "Plugin"
-            VALUE "ProductVersion", "1.0.0.2277"
+            VALUE "CompanyName", "StonedWizzard, HomeMade Soft"
+            VALUE "FileDescription", "EthernalBreeze core. Plugin for Gothic, NB"
+            VALUE "FileVersion", "3.0.6.2294"
+            VALUE "InternalName", "EthernalBreeze"
+            VALUE "LegalCopyright", "StonedWizzard (C) 2026"
+            VALUE "OriginalFilename", "EthernalBreeze"
+            VALUE "ProductName", "EthernalBreeze"
+            VALUE "ProductVersion", "3.0.6.2294"
         END
     END
     BLOCK "VarFileInfo"

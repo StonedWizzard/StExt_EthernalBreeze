@@ -2140,13 +2140,13 @@ namespace Gothic_II_Addon
 
         const zSTRING root = zoptions->GetDirString(zTOptionPaths::DIR_SYSTEM);
         const zSTRING configFileName = configName + ".d";
-        const zSTRING path = root + "\\Autorun\\" + configFileName;
+        const zSTRING path = root + "\\Autorun\\EthernalBreezeConfigs\\" + configFileName;
         DEBUG_MSG("StExt_ExportCurrentConfigs - start save file to " + path + " ...");
 
         zFILE_FILE* configsFile = new zFILE_FILE(path);
         configsFile->Create(path);
         configsFile->s_physPathString = Z path;
-        configsFile->s_virtPathString = Z("\\Autorun\\");
+        configsFile->s_virtPathString = Z("\\Autorun\\EthernalBreezeConfigs\\");
         configsFile->Open(path, true);
         configsFile->Write(result);
         configsFile->Close();

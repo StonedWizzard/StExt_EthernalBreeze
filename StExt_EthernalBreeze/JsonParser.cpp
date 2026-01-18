@@ -204,13 +204,14 @@ namespace Gothic_II_Addon
 	inline void CalculateItemRankThresholds(ItemsGeneratorConfig& config)
 	{
 		config.ItemRankThresholds.Clear();
-		config.ItemMaxRank = parser->GetSymbol("StExt_ItemRankMax")->single_intdata;
+		config.ItemRankMax = parser->GetSymbol("StExt_ItemRankMax")->single_intdata;
+		config.ItemMaxRank = config.ItemRankMax - 1;
 
 		int current = 0;
 		config.ItemRankThresholds.InsertEnd(current);
 
 		int step = config.ItemRankBaseStep;
-		for (int i = 1; i < config.ItemMaxRank; i++)
+		for (int i = 1; i < config.ItemRankMax; ++i)
 		{
 			current += step;
 			config.ItemRankThresholds.InsertEnd(current);

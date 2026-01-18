@@ -322,7 +322,7 @@ namespace Gothic_II_Addon
 		RollItemSpecialDamage(desc);
 		RollItemAbilities(desc);
 
-		if (StExt_Rand::Percent(ItemsGeneratorConfigs.ItemRollAsUndefinedChance))
+		if (StExt_Rand::Permille(ItemsGeneratorConfigs.ItemRollAsUndefinedChance))
 			desc.ItemExtensionData->SetTag((int)ItemTags::Unidentified, 1);
 
 		// ToDo: apply infusion
@@ -372,19 +372,4 @@ namespace Gothic_II_Addon
 		FinalizeRandomItemRoll(rollDescriptor);
 		return rollDescriptor.ItemExtensionData;
 	}
-
-
-
-	ItemExtension* RollRandomMagicItem(const int power)
-	{
-
-	}
-
-
-	ItemExtension* RollRandomSimpleItem(const int power)
-	{
-
-	}
-
-	
 }

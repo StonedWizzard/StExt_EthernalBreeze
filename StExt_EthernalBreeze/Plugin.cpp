@@ -14,6 +14,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("StExt - Initialize mod...");
         StonedExtension_InitModData();
         StonedExtension_InitUi();
+        StExt_ModReady = true;
         DEBUG_MSG("StExt - Mod was initialized!");
         DEBUG_MSG("");
     }

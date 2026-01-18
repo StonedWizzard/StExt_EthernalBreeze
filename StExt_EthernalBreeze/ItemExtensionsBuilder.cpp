@@ -292,7 +292,7 @@ namespace Gothic_II_Addon
             if (power >= ItemsGeneratorConfigs.ItemRankThresholds[i]) maxRank = i;
             else break;
         }
-        minRank = ValidateValueMin(maxRank - 1, 1);
+        minRank = ValidateValueMin(maxRank - 1, 0);
         return StExt_Rand::Percent(10 + (minRank * 2) + (maxRank * maxRank) * 2) ? minRank : maxRank;
     }
 
@@ -502,7 +502,6 @@ namespace Gothic_II_Addon
 
             chance = ValidateValue(chance, 0, 999);
             if (chance <= 0) continue;
-
             statsPool.Insert(stat.Id, chance);
         }
 

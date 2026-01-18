@@ -1,6 +1,4 @@
-#include <UnionAfx.h>
-//#include <string> 
-//#include <regex>
+//#include <UnionAfx.h>
 #include <StonedExtension.h>
 
 // Controller manage all mods windows and cursor for them
@@ -523,6 +521,7 @@ namespace Gothic_II_Addon
 	HOOK ivk_oCGame_HandleEvent PATCH(&oCGame::HandleEvent, &oCGame::HandleEvent_StExt);
 	int oCGame::HandleEvent_StExt(int key) 
 	{
+		DEBUG_MSG("StExt - Initialize mod... handle event?");
 		if (IsLoading || IsLevelChanging) return true;
 		bool canProcess = ogame && player && screen && !GetWorld()->csPlayer->GetPlayingGlobalCutscene();
 

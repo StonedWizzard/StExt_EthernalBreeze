@@ -85,56 +85,55 @@ namespace Gothic_II_Addon
 		}
 	}
 
-	inline ItemExtension* ItemExtensionDataStorage::Get(const unsigned int uId) 
+	ItemExtension* ItemExtensionDataStorage::Get(const unsigned int uId) 
 	{
 		auto* pair = Data.GetSafePair(uId);
 		if (pair) return pair->GetValue();
 		return Null;
 	}
-	inline ItemExtension* ItemExtensionDataStorage::Get(const zSTRING& instanceName)
+	ItemExtension* ItemExtensionDataStorage::Get(const zSTRING& instanceName)
 	{
 		auto* pair = Indexer_InstanceName.GetSafePair(instanceName);
 		if (pair) return const_cast<ItemExtension*>(pair->GetValue());
 		return Null;
 	}
-	inline ItemExtension* ItemExtensionDataStorage::Get(const ItemExtensionIndexer& indexer)
+	ItemExtension* ItemExtensionDataStorage::Get(const ItemExtensionIndexer& indexer)
 	{
 		const uint index = Indexer.SearchEqualSorted(indexer);
 		return (index != Invalid) ? const_cast<ItemExtension*>(Indexer[index].Data) : Null;
 	}
-	inline ItemExtension* ItemExtensionDataStorage::Get(oCItem* item)
+	ItemExtension* ItemExtensionDataStorage::Get(oCItem* item)
 	{
 		const zSTRING instanceName = item->GetInstanceName();
 		return item ? Get(instanceName) : Null;
 	}
-	inline void ItemExtensionDataStorage::Get(Array<ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize) { GetImpl(buffer, indexer, bufferSize); }
-	inline ItemExtension* ItemExtensionDataStorage::Get(byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
+	void ItemExtensionDataStorage::Get(Array<ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize) { GetImpl(buffer, indexer, bufferSize); }
+	ItemExtension* ItemExtensionDataStorage::Get(byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
 	{
 		const ItemExtensionIndexer indexer = ItemExtensionIndexer(type, cls, subClass, flags, level, rank, power, levelDelta, powerDelta);
 		return Get(indexer);
 	}
-	inline void ItemExtensionDataStorage::Get(Array<ItemExtension*>& buffer, const uint bufferSize, byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
+	void ItemExtensionDataStorage::Get(Array<ItemExtension*>& buffer, const uint bufferSize, byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
 	{
 		const ItemExtensionIndexer indexer = ItemExtensionIndexer(type, cls, subClass, flags, level, rank, power, levelDelta, powerDelta);
 		Get(buffer, indexer, bufferSize);
 	}
 
-	inline const ItemExtension* ItemExtensionDataStorage::GetSafe(const unsigned int uId) { return Get(uId); }
-	inline const ItemExtension* ItemExtensionDataStorage::GetSafe(const zSTRING& instanceName) { return Get(instanceName); }
-	inline const ItemExtension* ItemExtensionDataStorage::GetSafe(const ItemExtensionIndexer& indexer)
+	const ItemExtension* ItemExtensionDataStorage::GetSafe(const unsigned int uId) { return Get(uId); }
+	const ItemExtension* ItemExtensionDataStorage::GetSafe(const zSTRING& instanceName) { return Get(instanceName); }
+	const ItemExtension* ItemExtensionDataStorage::GetSafe(const ItemExtensionIndexer& indexer)
 	{
 		const uint index = Indexer.SearchEqualSorted(indexer);
 		return (index != Invalid) ? Indexer[index].Data : Null;
 	}
-	inline const ItemExtension* ItemExtensionDataStorage::GetSafe(oCItem* item) { return Get(item); }
-	//inline const ItemExtension* ItemExtensionDataStorage::GetSafe(byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta) { return Get(type, cls, subClass, flags, level, rank, power, levelDelta, powerDelta); }
-	inline void ItemExtensionDataStorage::GetSafe(Array<const ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize) { GetImpl(buffer, indexer, bufferSize); }
-	inline const ItemExtension* ItemExtensionDataStorage::GetSafe(byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
+	const ItemExtension* ItemExtensionDataStorage::GetSafe(oCItem* item) { return Get(item); }
+	void ItemExtensionDataStorage::GetSafe(Array<const ItemExtension*>& buffer, const ItemExtensionIndexer& indexer, const uint bufferSize) { GetImpl(buffer, indexer, bufferSize); }
+	const ItemExtension* ItemExtensionDataStorage::GetSafe(byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
 	{
 		const ItemExtensionIndexer indexer = ItemExtensionIndexer(type, cls, subClass, flags, level, rank, power, levelDelta, powerDelta);
 		return GetSafe(indexer);
 	}
-	inline void ItemExtensionDataStorage::GetSafe(Array<const ItemExtension*>& buffer, const uint bufferSize, byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
+	void ItemExtensionDataStorage::GetSafe(Array<const ItemExtension*>& buffer, const uint bufferSize, byte type, byte cls, byte subClass, uflag64 flags, int level, int rank, int power, int levelDelta, int powerDelta)
 	{
 		const ItemExtensionIndexer indexer = ItemExtensionIndexer(type, cls, subClass, flags, level, rank, power, levelDelta, powerDelta);
 		GetSafe(buffer, indexer, bufferSize);

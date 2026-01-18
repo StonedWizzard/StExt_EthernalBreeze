@@ -198,13 +198,16 @@ namespace Gothic_II_Addon
 
 	JsonFieldDesc ItemsGeneratorConfig_Meta[] =
 	{
-		{ "ItemMaxRank", FIELD_OFFSET(ItemsGeneratorConfig, ItemMaxRank), JsonFieldType::Int },
+		{ "LookupGeneratedItemCountBufferSize", FIELD_OFFSET(ItemsGeneratorConfig, LookupGeneratedItemCountBufferSize), JsonFieldType::Int },
+		{ "LookupGeneratedItemCountThreshold", FIELD_OFFSET(ItemsGeneratorConfig, LookupGeneratedItemCountThreshold), JsonFieldType::Int },
+		{ "LookupGeneratedItemChance", FIELD_OFFSET(ItemsGeneratorConfig, LookupGeneratedItemChance), JsonFieldType::Int },
+		{ "PlainPrototypeItemGenerateChance", FIELD_OFFSET(ItemsGeneratorConfig, PlainPrototypeItemGenerateChance), JsonFieldType::Int },
+
 		{ "ItemLevelMax", FIELD_OFFSET(ItemsGeneratorConfig, ItemLevelMax), JsonFieldType::Int },
 		{ "ItemLevelPowerRatio", FIELD_OFFSET(ItemsGeneratorConfig, ItemLevelPowerRatio), JsonFieldType::Float },
 		{ "ItemLevelSpread", FIELD_OFFSET(ItemsGeneratorConfig, ItemLevelSpread), JsonFieldType::Float },
 
 		{ "ItemRankMax", FIELD_OFFSET(ItemsGeneratorConfig, ItemRankMax), JsonFieldType::Int },
-		{ "ItemRankBaseStep", FIELD_OFFSET(ItemsGeneratorConfig, ItemRankBaseStep), JsonFieldType::Int },
 		{ "ItemRankGrowthFactor", FIELD_OFFSET(ItemsGeneratorConfig, ItemRankGrowthFactor), JsonFieldType::Float },
 		{ "ItemRankThresholds", FIELD_OFFSET(ItemsGeneratorConfig, ItemRankThresholds), JsonFieldType::ArrayInt },
 

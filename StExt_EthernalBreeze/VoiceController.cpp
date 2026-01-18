@@ -199,6 +199,8 @@ namespace Gothic_II_Addon
 
 	inline bool RequireHookFemSound(const zSTRING& nameSFX, zSTRING& newNameSFX)
 	{
+		if (!parser || !StExt_ModReady) return false;
+
 		const int isFem = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
 		if (isFem)
 		{
