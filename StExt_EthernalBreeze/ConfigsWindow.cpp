@@ -3,6 +3,25 @@
 namespace Gothic_II_Addon
 {
 	ConfigsWindow* Instance = Null;
+	zSTRING ThxList[] = 
+	{
+		"Piranha Bytes",
+		"Liker (New Balance mod Team)",
+		"Haart (New Balance mod Team)",
+		"Gratt (zParserExtender)",
+		"Artists whose resources were used in this mod",
+		"DanilaDNL",
+		"Icefist",
+		"ToXaL1",
+		"lorddemonik",
+		"Shiva",
+		"Junes",
+		"Khellzhao",
+		"Gothicmap",
+		"Dezomorphin",
+		"lev4enko",
+		"Denis Bagretsov"
+	};
 
 	struct ConfigPanelArgs
 	{
@@ -52,10 +71,10 @@ namespace Gothic_II_Addon
 	void ChangeConfigValue(zSTRING& valueName, float changeValue)
 	{
 		zCPar_Symbol* sym = parser->GetSymbol(valueName);
-		auto pair = ExtraConfigsData.GetSafePair(valueName);
+		auto pair = ExtraConfigsData.Find(valueName);
 
 		if (!sym || !pair) return;
-		ExtraConfigData data = pair->GetValue();
+		ExtraConfigData& data = *pair;
 
 		float currentValue;
 		if (sym->type == zPAR_TYPE_FLOAT) currentValue = sym->single_floatdata;		
@@ -172,10 +191,10 @@ namespace Gothic_II_Addon
 			}
 
 			zCPar_Symbol* sym = parser->GetSymbol(argsData->ValueSymbol);
-			auto pair = ExtraConfigsData.GetSafePair(argsData->ValueSymbol);
+			auto pair = ExtraConfigsData.Find(argsData->ValueSymbol);
 
 			if (!sym || !pair) return;
-			ExtraConfigData data = pair->GetValue();
+			ExtraConfigData& data = *pair;
 
 			float currentValue;
 			switch (sym->type)
@@ -212,10 +231,10 @@ namespace Gothic_II_Addon
 			}
 
 			zCPar_Symbol* sym = parser->GetSymbol(argsData->ValueSymbol);
-			auto pair = ExtraConfigsData.GetSafePair(argsData->ValueSymbol);
+			auto pair = ExtraConfigsData.Find(argsData->ValueSymbol);
 
 			if (!sym || !pair) return;
-			ExtraConfigData data = pair->GetValue();
+			ExtraConfigData& data = *pair;
 
 			float currentValue;
 			switch (sym->type)
@@ -233,6 +252,43 @@ namespace Gothic_II_Addon
 			}
 
 			itm->IsEnabled = currentValue > data.MinValue;
+		}
+	}
+
+	void ConfigsWindow_OnCurrentDiffPresetsPanelUpdate(BaseUiElement* button)
+	{
+		if (!button || !Instance) return;
+		MenuItem* itm = static_cast<MenuItem*>(button);
+		if (itm)
+		{
+			zSTRING presetId = parser->GetSymbol("StExt_CurrentUserConfigs")->stringdata;			
+			const ConfigPresetData* config = GetConfigPreset(presetId);
+			if (config)
+			{
+				itm->Text = CurrentDiffPresetStr + config->Text + " (" + config->Name + ")";
+				ParseHexColor(config->TextColor.ToChar(), itm->TextColor_Default);
+			}
+			else 
+			{
+				itm->Text = CurrentDiffPresetStr + "???";
+				itm->TextColor_Default = TextColor_Regular_Default;
+			}
+		}
+	}
+	void ConfigsWindow_OnCurrentItemsPresetsPanelUpdate(BaseUiElement* button)
+	{
+		if (!button || !Instance) return;
+		MenuItem* itm = static_cast<MenuItem*>(button);
+		if (itm)
+		{
+			zSTRING itemsPresetName = parser->GetSymbol("StExt_CurrentItemGeneratorConfigs")->stringdata;
+			itm->Text = CurrentItemsPresetStr + (itemsPresetName.IsEmpty() ? "ItemGeneratorConfigs.json" : itemsPresetName);
+			zSTRING presetId = parser->GetSymbol("StExt_CurrentUserConfigs")->stringdata;
+			const ConfigPresetData* config = GetConfigPreset(presetId);
+			if (config)
+				ParseHexColor(config->TextColor.ToChar(), itm->TextColor_Default);			
+			else itm->TextColor_Default = TextColor_Regular_Default;
+			
 		}
 	}
 
@@ -513,9 +569,8 @@ namespace Gothic_II_Addon
 			ConfigsTabPanel->AddItem(configsCatPanel);
 
 			Array<ExtraConfigData*> configsForCategory;
-			for (auto& configPair : ExtraConfigsData)
+			for (auto& configData : ExtraConfigsData)
 			{
-				ExtraConfigData& configData = configPair.GetValue();
 				if (configData.ConfigGroup != catIndex)
 					continue;
 
@@ -547,6 +602,55 @@ namespace Gothic_II_Addon
 	//								MODINFO
 	//----------------------------------------------------------------------
 
+	inline MenuItem* BuildThxPanel(const zSTRING line, const float posY, const int id, const bool isMajor)
+	{
+		MenuItem* titleItem = new MenuItem();
+		titleItem->OnInit = [line, posY, id, isMajor](BaseUiElement* item)
+		{
+			item->Name = "ThxPanel_" + Z(id);
+			item->SizeX = 0.98f;
+			item->SizeY = 0.03f;
+			item->PosX = 0.01f;
+			item->PosY = posY;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = line;
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+				if(isMajor)
+					itm->TextColor_Default = TextColor_Header_Default;
+				itm->HorizontalAlign = UiContentAlignEnum::Center;
+				itm->VerticalAlign = UiContentAlignEnum::Center;
+			}
+		};
+		return titleItem;
+	}
+
+	inline MenuItem* BuildCopyrightPanel(const zSTRING line, const float posY, const int id)
+	{
+		MenuItem* titleItem = new MenuItem();
+		titleItem->OnInit = [line, posY, id](BaseUiElement* item)
+		{
+			item->Name = "CopyrightPanel_" + Z(id);
+			item->SizeX = 0.98f;
+			item->SizeY = 0.03f;
+			item->PosX = 0.01f;
+			item->PosY = posY;
+			item->BgTexture = UiElement_PanelNoBorderTexture;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = line;
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+				itm->TextColor_Default = zCOLOR(130, 80, 250);
+				itm->HorizontalAlign = UiContentAlignEnum::Center;
+				itm->VerticalAlign = UiContentAlignEnum::Center;
+			}
+		};
+		return titleItem;
+	}
+
+
 	void ConfigsWindow::InitModInfoTab()
 	{
 		ModInfoPanel = new MenuScrollPanel();
@@ -560,7 +664,79 @@ namespace Gothic_II_Addon
 			item->BgTexture = UiElement_PanelNoBorderTexture;
 		};
 		AddItem(ModInfoPanel);
+		float yOffset = 0.025f;
 
+		MenuItem* currentDiffPresetItem = new MenuItem();
+		currentDiffPresetItem->OnInit = [yOffset](BaseUiElement* item)
+		{
+			item->Name = "DiffPresetItem";
+			item->SizeX = 0.99f;
+			item->SizeY = 0.03f;
+			item->PosX = 0.01f;
+			item->PosY = yOffset;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = "";
+				itm->TextColor_Default = TextColor_Regular_Default;
+				itm->OnUpdate = ConfigsWindow_OnCurrentDiffPresetsPanelUpdate;
+			}
+		};
+		ModInfoPanel->AddItem(currentDiffPresetItem);
+		yOffset += 0.04f;
+
+		MenuItem* currentItemsPresetItem = new MenuItem();
+		currentItemsPresetItem->OnInit = [yOffset](BaseUiElement* item)
+		{
+			item->Name = "ItemsPresetItem";
+			item->SizeX = 0.99f;
+			item->SizeY = 0.03f;
+			item->PosX = 0.01f;
+			item->PosY = yOffset;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = "";
+				itm->TextColor_Default = TextColor_Regular_Default;
+				itm->OnUpdate = ConfigsWindow_OnCurrentItemsPresetsPanelUpdate;
+			}
+		};
+		ModInfoPanel->AddItem(currentItemsPresetItem);
+		yOffset += 0.125f;
+
+		// ToDo: plugins info?
+
+		ModInfoPanel->AddItem(BuildCopyrightPanel(ModVersionString, yOffset, 0));
+		yOffset += 0.03f;
+		ModInfoPanel->AddItem(BuildCopyrightPanel("Created by StonedWizzard.", yOffset, 1));
+		yOffset += 0.06f;
+
+		MenuItem* headerItem = new MenuItem();
+		headerItem->OnInit = [yOffset](BaseUiElement* item)
+		{
+			item->Name = "ThxHeader";
+			item->SizeX = 0.99f;
+			item->SizeY = 0.05f;
+			item->PosX = 0.01f;
+			item->PosY = yOffset;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = "Special thanks to everyone who contributed to the development of this mod:";
+				itm->TextColor_Default = TextColor_Regular_Default;
+			}
+		};
+		ModInfoPanel->AddItem(headerItem);
+		yOffset += 0.055f;
+
+		const uint count = sizeof(ThxList) / sizeof(ThxList[0]);
+		for (uint i = 0; i < count; ++i)
+		{
+			bool isMajor = i < 6;
+			MenuItem* itm = BuildThxPanel(ThxList[i], yOffset, i, isMajor);
+			ModInfoPanel->AddItem(itm);
+			yOffset += 0.035f;
+		}
 
 		ModInfoPanel->Init();
 	}

@@ -6,6 +6,8 @@
 #define READ_JSON(expr) do { if (!(expr)) return false; } while(0)
 namespace Gothic_II_Addon
 {
+	bool SkipMissingErrorFlag = false;
+
 	inline bool ParseJsonContent(const char* buffer, rapidjson::Document& doc)
 	{
 		constexpr auto parseFlags = rapidjson::kParseCommentsFlag | rapidjson::kParseTrailingCommasFlag;
@@ -16,6 +18,17 @@ namespace Gothic_II_Addon
 		if (parseResult.IsError())
 		{
 			DEBUG_MSG("ParseJsonFile: file parsing failed! Error: " + Z(GetParseError_En(parseResult.Code())) + " | Offset: " + Z((int)parseResult.Offset()));
+
+			size_t offset = parseResult.Offset();
+			const int context = 256;
+			size_t begin = offset > context ? offset - context : 0;
+			size_t end = offset + context;
+
+			zSTRING snippet;
+			for (size_t i = begin; i < end && buffer[i]; ++i)
+				snippet += buffer[i];
+
+			DEBUG_MSG("ParseJsonFile: JSON error context:\n" + snippet);
 			isSuccess = false;
 		}
 		return isSuccess;
@@ -28,6 +41,7 @@ namespace Gothic_II_Addon
 			value = source[name].GetInt();
 			return true;
 		}
+		if (SkipMissingErrorFlag) return true;
 		DEBUG_MSG("ReadJsonInt: fail read property '" + Z(name) + "'");
 		return false;
 	}
@@ -38,6 +52,7 @@ namespace Gothic_II_Addon
 			value = source[name].GetBool();
 			return true;
 		}
+		if (SkipMissingErrorFlag) return true;
 		DEBUG_MSG("ReadJsonBool: fail read property '" + Z(name) + "'");
 		return false;
 	}
@@ -48,6 +63,7 @@ namespace Gothic_II_Addon
 			value = static_cast<byte>(source[name].GetInt());
 			return true;
 		}
+		if (SkipMissingErrorFlag) return true;
 		DEBUG_MSG("ReadJsonByte: fail read property '" + Z(name) + "'");
 		return false;
 	}
@@ -59,6 +75,7 @@ namespace Gothic_II_Addon
 			if (source[name].IsFloat()) { value = source[name].GetFloat(); return true; }
 			if (source[name].IsInt()) { value = static_cast<float>(source[name].GetInt()); return true; }
 		}
+		if (SkipMissingErrorFlag) return true;
 		DEBUG_MSG("ReadJsonFloat: fail read property '" + Z(name) + "'");
 		return false;
 	}
@@ -69,6 +86,7 @@ namespace Gothic_II_Addon
 			value = source[name].GetString();
 			return true;
 		}
+		if (SkipMissingErrorFlag) return true;
 		DEBUG_MSG("ReadJsonString: fail read property '" + Z(name) + "'");
 		return false;
 	}
@@ -118,7 +136,8 @@ namespace Gothic_II_Addon
 	{
 		if (!source.HasMember(name))
 		{
-			DEBUG_MSG("ReadJsonArray: array element '" + Z(name) + "' not found!");
+			if (SkipMissingErrorFlag) return true;
+			DEBUG_MSG("ReadJsonArray: array element '" + Z(name) + "' not found!");			
 			return false;
 		}
 		const rapidjson::Value& arrVal = source[name];
@@ -168,7 +187,13 @@ namespace Gothic_II_Addon
 		return true;
 	}
 
-	bool ReadJsonItemClassDescriptor(const rapidjson::Value& source, ItemClassDescriptor& value) { return ReadJsonStruct(source, &value, ItemClassDescriptor_Meta); }
+	bool ReadJsonItemClassDescriptor(const rapidjson::Value& source, ItemClassDescriptor& value, bool skipMissingProps = false) 
+	{ 
+		SkipMissingErrorFlag = skipMissingProps;
+		bool result = ReadJsonStruct(source, &value, ItemClassDescriptor_Meta);
+		SkipMissingErrorFlag = false;
+		return result;
+	}
 	bool ReadJsonItemsGeneratorConfigs(const rapidjson::Value& source, ItemsGeneratorConfig& value) { return ReadJsonStruct(source, &value, ItemsGeneratorConfig_Meta); }
 
 	inline void RegisterItemInstancesName(const Array<zSTRING>& arr, const ItemClassKey classKey)
@@ -176,9 +201,9 @@ namespace Gothic_II_Addon
 		if (arr.IsEmpty()) return;
 		for (uint i = 0; i < arr.GetNum(); ++i)
 		{
-			if (ItemsClassDataIndexer_InstanceName.GetSafePair(arr[i]))
+			if (ItemsClassDataIndexer_InstanceName.Find(arr[i]))
 			{
-				DEBUG_MSG("RegisterItemInstancesName: instance '" + Z(arr[i]) + "' has already assigned class!");
+				//DEBUG_MSG("RegisterItemInstancesName: instance '" + Z(arr[i]) + "' has already assigned class!");
 				continue;
 			}
 			ItemsClassDataIndexer_InstanceName.Insert(arr[i], classKey);
@@ -199,6 +224,19 @@ namespace Gothic_II_Addon
 		RegisterItemInstancesName(classData.TopTierPrototypes, classKey);
 		RegisterItemInstancesName(classData.ExtraTierPrototypes, classKey);
 		ItemsClassData.Insert(classKey, classData);
+
+		/*
+		DEBUG_MSG("");
+		DEBUG_MSG("Check ItemClassData: " + classData.Name + "...");
+		ItemClassDescriptor& checkData = ItemsClassData.GetSafePair(classKey)->GetValue();
+		DEBUG_MSG("Check ItemClassData.StatsCountCap: " + Z(checkData.StatsCountCap));
+		DEBUG_MSG("Check ItemClassData.StatsCountMin: " + Z(checkData.StatsCountMin));
+		DEBUG_MSG("Check ItemClassData.StatsCountMax: " + Z(checkData.StatsCountMax));
+		DEBUG_MSG("Check ItemClassData.DamageMult: " + Z(checkData.DamageMult));
+		DEBUG_MSG("Check ItemClassData.ProtectionMult: " + Z(checkData.ProtectionMult));
+		DEBUG_MSG("Check ItemClassData.ConditionMult: " + Z(checkData.ConditionMult));
+		DEBUG_MSG("");
+		*/
 	}
 
 	inline void CalculateItemRankThresholds(ItemsGeneratorConfig& config)
@@ -225,7 +263,7 @@ namespace Gothic_II_Addon
 
 	void InitItemsClassData()
 	{
-		const zSTRING path = zoptions->GetDirString(zTOptionPaths::DIR_SYSTEM) + "\\Autorun\\EthernalBreeze\\Data\\ItemClassData.json";
+		const zSTRING path = zoptions->GetDirString(zTOptionPaths::DIR_EXECUTABLE) + "Autorun\\EthernalBreeze\\Data\\ItemClassData.json";
 		DEBUG_MSG("InitializeItemsClassData: reading '" + Z(path) + "' ...");
 
 		zSTRING FileBuffer;
@@ -256,7 +294,6 @@ namespace Gothic_II_Addon
 
 		BaseItemClassDescriptor = ItemClassDescriptor();
 		ItemsClassData = Map<ItemClassKey, ItemClassDescriptor>();
-		ItemsClassDataIndexer_InstanceName = Map<zSTRING, ItemClassKey>();
 
 		if (!ReadJsonItemClassDescriptor(itemClassConfigsJson["BaseItemClassDescriptor"], BaseItemClassDescriptor))
 			DEBUG_MSG("InitializeItemsClassData: Base item class has some syntax errors!");
@@ -265,9 +302,9 @@ namespace Gothic_II_Addon
 		for (rapidjson::SizeType i = 0; i < arr.Size(); ++i)
 		{
 			ItemClassDescriptor classDescriptor = BaseItemClassDescriptor;
-			if (!ReadJsonItemClassDescriptor(arr[i], classDescriptor))
+			if (!ReadJsonItemClassDescriptor(arr[i], classDescriptor, true))
 			{
-				DEBUG_MSG("InitializeItemsClassData: Item class descriptor has some syntax errors! Entry index: " + Z((int)i));
+				DEBUG_MSG("InitializeItemsClassData: Item class descriptor has some syntax errors! Entry index: " + Z((int)i) + " | Name: '" + classDescriptor.Name + "'");
 				continue;
 			}
 
@@ -284,14 +321,10 @@ namespace Gothic_II_Addon
 			classDescriptor.PrimaryProtectionTypesList.QuickSort();
 			classDescriptor.IncopatibleDamageTypesList.QuickSort();
 
-			classDescriptor.LowTierPrototypes.QuickSort();
-			classDescriptor.MedTierPrototypes.QuickSort();
-			classDescriptor.TopTierPrototypes.QuickSort();
-			classDescriptor.ExtraTierPrototypes.QuickSort();
-
 			RegisterItemClassData(classKey, classDescriptor);
 		}
 		DEBUG_MSG("InitializeItemsClassData: Done!");
+		DEBUG_MSG("");
 	}
 
 	bool ReadItemsGeneratorConfigs(const zSTRING& path, ItemsGeneratorConfig& config)

@@ -1,31 +1,24 @@
 #include <UnionAfx.h>
 #include <StonedExtension.h>
-//#include <string> 
-//#include <iostream>
-//#include <algorithm>
-//#include <random>
-//#include <regex>
-//#include <iomanip>
-//#include <sstream>
 
 namespace Gothic_II_Addon
 {
-    Array<ConfigPresetData> GameConfigsPresets = {};
-    Array<ModExtensionInfo> ModPluginsInfo = {};
+    Array<ConfigPresetData> GameConfigsPresets;
+    Array<ModExtensionInfo> ModPluginsInfo;
     
-    Map<int, ExtraStatData> ExtraStatsData = {};
-    Map<int, ExtraStatData> ExtraConditionStatsData = {};
-    Map<int, zSTRING> ExtraStatsNameData = {};
-    Array<ExtraMasteryData> ExtraMasteriesData = {};
-    Map<zSTRING, ExtraConfigData> ExtraConfigsData = {};
+    Map<int, ExtraStatData> ExtraStatsData;
+    Map<int, ExtraStatData> ExtraConditionStatsData;
+    Map<int, zSTRING> ExtraStatsNameData;
+    Array<ExtraMasteryData> ExtraMasteriesData;
+    StringMap<ExtraConfigData> ExtraConfigsData(256);
 
-    Map<int, oCNpc*> RegisteredNpcs = {};
-    Map<int, AuraData> AurasData = {};
-    Array<WaypointData> ProhibitedWaypoints = {};
+    Map<int, oCNpc*> RegisteredNpcs;
+    Map<int, AuraData> AurasData;
+    Array<WaypointData> ProhibitedWaypoints;
 
-    Array<MagicInfusionData> InfusionAffixes = {};
-    Array<MagicInfusionData> InfusionSuffixes = {};
-    Array<MagicInfusionData> InfusionPreffixes = {};   
+    Array<MagicInfusionData> InfusionAffixes;
+    Array<MagicInfusionData> InfusionSuffixes;
+    Array<MagicInfusionData> InfusionPreffixes;   
 
     SpellInfo CurrentSpellInfo;
     zSTRING ResultString;
@@ -52,7 +45,53 @@ namespace Gothic_II_Addon
     //							MOD FUNCTIONS
     //-----------------------------------------------------------------
 
-    //inline bool HasFlag(const unsigned long& flags, const unsigned long& bits) { return (flags & bits) != 0; }
+    static void StringArraySortImpl(Array<zSTRING>& arr, uint low, uint high) 
+    {
+        uint i = low;
+        uint j = high;
+        zSTRING pivot = arr[(low + high) / 2U];
+
+        while (i <= j) 
+        {
+            while (arr[i] < pivot) i++;
+            while (pivot < arr[j]) j--;
+            if (i <= j) 
+            {
+                if (i != j) 
+                {
+                    zSTRING tmp = arr[i];
+                    arr[i] = arr[j];
+                    arr[j] = tmp;
+                }
+                i++; j--;
+            }
+        }
+        if (low < j)  StringArraySortImpl(arr, low, j);
+        if (i < high) StringArraySortImpl(arr, i, high);
+    }
+
+    void SortZStringArray(Array<zSTRING>& arr) 
+    {
+        if (arr.GetNum() > 1U)
+            StringArraySortImpl(arr, 0U, arr.GetNum() - 1U);
+    }
+
+    uint FindZStringSorted(const Array<zSTRING>& arr, const zSTRING& key) 
+    {
+        uint l = 0;
+        uint r = arr.GetNum();
+        while (l < r) 
+        {
+            uint mid = (l + r) / 2;
+            if (arr[mid] == key) return mid;
+
+            if (arr[mid] < key) l = mid + 1;
+            else r = mid;
+        }
+        return Invalid;
+    }
+
+    //-----------------------------------------------------------------
 
     string GetSaveSlotNameByID(int ID)
     {
@@ -61,7 +100,7 @@ namespace Gothic_II_Addon
         return "current";
     }
 
-    inline const AuraData* GetAuraById(int id)
+    inline const AuraData* GetAuraById(const int id)
     {
         auto auraPair = AurasData.GetSafePair(id);
         if (!auraPair)
@@ -72,7 +111,7 @@ namespace Gothic_II_Addon
         return &auraPair->GetValue();
     }
 
-    inline const ExtraStatData* GetExtraStatDataById(int id)
+    inline const ExtraStatData* GetExtraStatDataById(const int id)
     {
         auto statPair = ExtraStatsData.GetSafePair(id);
         if (!statPair)
@@ -83,7 +122,7 @@ namespace Gothic_II_Addon
         return &statPair->GetValue();
     }
 
-    inline const zSTRING& GetExtraStatNameById(int id)
+    inline const zSTRING& GetExtraStatNameById(const int id)
     {
         auto statPair = ExtraStatsNameData.GetSafePair(id);
         if (!statPair)
@@ -94,7 +133,7 @@ namespace Gothic_II_Addon
         return statPair->GetValue();
     }
 
-    inline const ExtraStatData* GetExtraConditionDataById(int id)
+    inline const ExtraStatData* GetExtraConditionDataById(const int id)
     {
         auto statPair = ExtraConditionStatsData.GetSafePair(id);
         if (!statPair)
@@ -245,11 +284,10 @@ namespace Gothic_II_Addon
         return result;
     }
 
-    ConfigPresetData* GetConfigPreset(zSTRING &presetName)
+    inline const ConfigPresetData* GetConfigPreset(const zSTRING &presetName)
     {
         if (presetName.IsEmpty()) return Null;
 
-        NormalizeInstanceName(presetName);
         for (uint i = 0; i < GameConfigsPresets.GetNum(); ++i)
         {
             ConfigPresetData* data = &GameConfigsPresets[i];
@@ -709,7 +747,7 @@ namespace Gothic_II_Addon
             if (vob)
             {
                 auto chest = dynamic_cast<oCMobContainer*>(vob);
-                if (chest && chest->items->contents->GetNumInList() == 0)
+                if (chest && (!chest->items || !chest->items->contents || chest->items->contents->GetNumInList() == 0))
                     chests.Insert(chest);
             }
             node = node->next;
@@ -719,11 +757,14 @@ namespace Gothic_II_Addon
         {
             uint indx = StExt_Rand::Index(chests.GetNum());
             ResultString = chests[indx]->GetObjectName();
+
+            DEBUG_MSG("StExt_GetRandomEmptyChest: " + ResultString);
             par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
             par->SetReturn(ResultString);
             return False;
         }
 
+        DEBUG_MSG("StExt_GetRandomEmptyChest: Empty!");
         par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
         par->SetReturn(ResultString);
         return False;
@@ -1555,8 +1596,10 @@ namespace Gothic_II_Addon
         }
 
         oCItem* pItem = new oCItem();
-        pItem->InitByScript(instanceId, 1);
-        par->SetReturn(pItem);
+        if (par->CreateInstance(instanceId, pItem)) {
+            par->SetReturn(pItem);
+        }
+        par->SetReturn(Null);
         return True;
     }
 
@@ -1564,7 +1607,7 @@ namespace Gothic_II_Addon
     {
         zCParser* par = zCParser::GetParser();
         oCItem* pItem = (oCItem*)par->GetInstance();
-        SAFE_DELETE(pItem);
+        pItem->Release();
         return True;
     }
 
@@ -1587,7 +1630,7 @@ namespace Gothic_II_Addon
         }
         par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
         par->SetReturn(ResultString);
-        SAFE_DELETE(pItem);
+        pItem->Release();
         return True;
     }
 
@@ -1889,7 +1932,6 @@ namespace Gothic_II_Addon
         zSTRING presetInstance;
         par->GetParameter(presetInstance);
 
-        NormalizeInstanceName(presetInstance);
         int index = par->GetIndex(presetInstance);
         if (index == Invalid)
         {
@@ -1907,10 +1949,10 @@ namespace Gothic_II_Addon
             }
         }
 
-        ConfigPresetData configPreset = ConfigPresetData();
-        par->SetInstance(index, &configPreset);
-        NormalizeInstanceName(configPreset.Name);
+        ConfigPresetData configPreset;
+        par->CreateInstance(index, &configPreset);
         GameConfigsPresets.InsertEnd(configPreset);
+        DEBUG_MSG("StExt_RegistrateConfigsPreset: " + configPreset.Name);
         par->SetReturn(true);
         return TRUE;
     }
@@ -1928,8 +1970,7 @@ namespace Gothic_II_Addon
             return False;
         }
 
-        NormalizeInstanceName(presetInstance);
-        ConfigPresetData* result = GetConfigPreset(presetInstance);
+        ConfigPresetData* result = const_cast<ConfigPresetData*>(GetConfigPreset(presetInstance));
         par->SetReturn(result);
         return True;
     }
@@ -2007,7 +2048,7 @@ namespace Gothic_II_Addon
         data.IsExportable = isExportable;
         data.IsEditable = isEditable;
         data.IsVisible = isVisible;
-        data.DisplayOrder = ExtraConfigsData.GetNum();
+        data.DisplayOrder = static_cast<int>(ExtraConfigsData.Size());
 
         ExtraConfigsData.Insert(data.ValueSymbol, data);
         return True;
@@ -2020,10 +2061,10 @@ namespace Gothic_II_Addon
         zSTRING valueSymbol;
         par->GetParameter(valueSymbol);
 
-        auto pair = ExtraConfigsData.GetSafePair(valueSymbol);
+        auto pair = ExtraConfigsData.Find(valueSymbol);
         if (!pair) return False;
 
-        ExtraConfigData data = pair->GetValue();
+        ExtraConfigData& data = *pair;
         zCPar_Symbol* valueSym = par->GetSymbol(data.ValueSymbol);
 
         if (!valueSym) return False;
@@ -2055,9 +2096,8 @@ namespace Gothic_II_Addon
     int __cdecl StExt_ValidateConfigs()
     {
         zCParser* par = zCParser::GetParser();
-        for (auto configPair : ExtraConfigsData)
+        for (auto& data : ExtraConfigsData)
         {
-            ExtraConfigData data = configPair.GetValue();
             zCPar_Symbol* valueSym = par->GetSymbol(data.ValueSymbol);
 
             if (!valueSym) continue;
@@ -2100,16 +2140,15 @@ namespace Gothic_II_Addon
         do
         {
             ++configId;
-            configName = configNameTemplate + FormatNumber(configId, 3);            
+            configName = configNameTemplate + FormatNumberPad(configId, 3);
         } 
         while (GetConfigPreset(configName));
-        configText = configTextTemplate + FormatNumber(configId, 3);
+        configText = configTextTemplate + FormatNumberPad(configId, 3);
         configApplyFunc = configName + "_OnApply";
         
         DEBUG_MSG("StExt_ExportCurrentConfigs - export config '" + configName + "'...");
-        for (auto configPair : ExtraConfigsData)
+        for (auto& data : ExtraConfigsData)
         {
-            ExtraConfigData data = configPair.GetValue();
             if (!data.IsExportable) continue;
 
             zCPar_Symbol* sym = par->GetSymbol(data.ValueSymbol);

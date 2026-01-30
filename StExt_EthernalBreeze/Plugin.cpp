@@ -29,6 +29,7 @@ namespace Gothic_II_Addon
             UpdateUiStatus();
             StonedExtension_Loop();
             TimedEffectsLoop();
+            DrawModInfo();
         }
     }
 

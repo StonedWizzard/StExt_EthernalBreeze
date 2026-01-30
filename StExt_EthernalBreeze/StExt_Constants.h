@@ -7,7 +7,7 @@ namespace Gothic_II_Addon
 	//---------------------------------------------------------------------------
 
 	const int EmptyNpcUId = Invalid;
-	const zSTRING zString_Empty = "";
+	//const zSTRING zString_Empty = "";
 	const zSTRING zString_Unknown = "???";
 	const zSTRING ModSymbolPrefix = "StExt_";
 	const zSTRING ModSymbolNamePrefix = "StExt_Str_";
@@ -24,11 +24,6 @@ namespace Gothic_II_Addon
 	const int StExt_ArtifactIndex_Grimoir = 1;
 	const int StExt_ArtifactIndex_Dagger = 2;
 	const int StExt_ArtifactIndex_Max = 3;
-
-	const int StExt_AiVar_IsRandomized = 351;
-	const int StExt_AiVar_Uid = 354;
-	const int StExt_AiVar_EsCur = 322;
-	const int StExt_AiVar_EsMax = 323;
 
 	const int StatGroup_Skills = 0;
 	const int StatGroup_Protection = 1;

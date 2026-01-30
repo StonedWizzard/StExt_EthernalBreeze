@@ -588,7 +588,6 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_GetSize()
     {
-        int funcIndex;
         zSTRING arrayName;
         parser->GetParameter(arrayName);
 

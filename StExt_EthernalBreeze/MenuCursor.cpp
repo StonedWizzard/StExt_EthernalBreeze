@@ -41,7 +41,6 @@ namespace Gothic_II_Addon
 	// Low-level mouse hook callback
 	LRESULT CALLBACK MenuCursorController::MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
-		DEBUG_MSG("StExt - MouseHookProc...");
 		if (nCode >= 0 && Instance)
 		{
 			MSLLHOOKSTRUCT* p = (MSLLHOOKSTRUCT*)lParam;

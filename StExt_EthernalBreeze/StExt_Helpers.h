@@ -60,24 +60,33 @@ namespace Gothic_II_Addon
 		return Invalid;
 	}
 
-	template <typename T>
-	inline zSTRING FormatNumber(T number, int width = 0, int precision = -1)
+	inline zSTRING FormatNumberPad(int number, int width = 0)
 	{
-		zSTRING result = zString_Empty;
-		char fmt[32];
+		char buf[32];
+		int pos = sizeof(buf) - 1;
+		buf[pos] = '\0';
+		bool isNegative = number < 0;
+		uint value = isNegative ? (uint)(-number) : (uint)number;
 
-		if (std::is_integral_v<T>)
+		do
 		{
-			sprintf(fmt, "%%0%dd", width);
-			result.Sprintf(fmt, number);
-		}
-		else if (std::is_floating_point_v<T>)
+			buf[--pos] = '0' + (value % 10);
+			value /= 10;
+		} 
+		while (value > 0);
+		if (isNegative) buf[--pos] = '-';
+
+		int numLen = (int)(sizeof(buf) - pos - 1);
+		int totalLen = width > numLen ? width : numLen;
+		int padding = totalLen - numLen;
+
+		if (padding > 0)
 		{
-			if (precision < 0) precision = 2;
-			sprintf(fmt, "%%0%d.%df", width, precision);
-			result.Sprintf(fmt, number);
+			memmove(buf + padding, buf + pos, numLen + 1);
+			for (int i = 0; i < padding; ++i) buf[i] = '0';
+			pos = 0;
 		}
-		return result;
+		return zSTRING(buf + pos);
 	}
 
 	inline void AppendTag(zSTRING& line, const zSTRING& tag)
@@ -113,10 +122,10 @@ namespace Gothic_II_Addon
 
 
 	// String extensions
-	inline bool operator<(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) < 0; }
-	inline bool operator>(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) > 0; }
-	inline bool operator<=(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) <= 0; }
-	inline bool operator>=(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) >= 0; }
+	inline bool operator<(const zSTRING& a, const zSTRING& b) { return a.Compare(b.ToChar()) < 0; }
+	inline bool operator>(const zSTRING& a, const zSTRING& b) { return a.Compare(b.ToChar()) > 0; }
+	//inline bool operator<=(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) <= 0; }
+	//inline bool operator>=(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) >= 0; }
 
 
 	zSTRING GetModVersion();

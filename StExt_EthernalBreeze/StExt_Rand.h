@@ -28,17 +28,18 @@ namespace Gothic_II_Addon
         {
             if (min > max) std::swap(min, max);
             const uint outCount = arr.GetNum();
-            auto rangeCount = max - min + static_cast<U>(1);
-            // Use double to cover up all possible ranges
-            if (outCount == 0 || rangeCount <= 0 || static_cast<double>(outCount) > static_cast<double>(rangeCount)) return;
+            uint rangeCount = static_cast<uint>(max - min + 1);
 
-            Array<U> available = Array<U>();
-            for (U i = 0; i < rangeCount; ++i) available.InsertEnd(min + i);
+            if (outCount == 0 || rangeCount == 0 || outCount > rangeCount) return;
+
+            Array<U> available;
+            for (uint i = 0; i < rangeCount; ++i)
+                available.InsertEnd(static_cast<U>(min + i));
 
             uint remaining = available.GetNum();
             for (uint n = 0; n < outCount; ++n)
             {
-                unsigned int pickIndex = Next() % remaining;
+                uint pickIndex = Next() % remaining;
                 arr[n] = available[pickIndex];
                 available[pickIndex] = available[remaining - 1];
                 --remaining;

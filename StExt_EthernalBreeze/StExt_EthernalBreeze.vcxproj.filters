@@ -2982,6 +2982,9 @@
     <ClInclude Include="StExt_IO.h">
       <Filter>Plugin\Workspace\Plugin\Core</Filter>
     </ClInclude>
+    <ClInclude Include="StringCollections.h">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include=".build_settings.inl">

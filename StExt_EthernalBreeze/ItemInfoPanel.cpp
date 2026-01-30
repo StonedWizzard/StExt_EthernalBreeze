@@ -42,7 +42,7 @@ namespace Gothic_II_Addon
 		Parent = Null;
 		DisplayItem = Null;
 		Content = Array<ItemInfoLine>();
-		ContentWidthIndex = zString_Empty;
+		ContentWidthIndex = 0;
 		ContentHeightIndex = 0;
 		BaseUiElement::Init();
 		IsHiden = true;
@@ -50,13 +50,13 @@ namespace Gothic_II_Addon
 
 
 	inline void ItemInfoPanel::CreateContentLine(const zSTRING& txt, const  zCOLOR& color, const UiContentAlignEnum alignMode)	{ Content.InsertEnd(ItemInfoLine(txt, color, alignMode)); }
-	inline void ItemInfoPanel::CreateContentSeparatorLine() { Content.InsertEnd(ItemInfoLine(zString_Empty, TextColor_Regular_Default)); }
+	inline void ItemInfoPanel::CreateContentSeparatorLine() { Content.InsertEnd(ItemInfoLine("", TextColor_Regular_Default)); }
 	inline void ItemInfoPanel::CreateContentStatLine(const int statId, const int statValue, const int statDuration, const zCOLOR& color)
 	{
 		const ExtraStatData* statData = GetExtraStatDataById(statId);
 		if (!statData) return;
 
-		zSTRING valueStr = zString_Empty;
+		zSTRING valueStr = "";
 		const UiValueDisplayType displayType = (UiValueDisplayType)statData->ValueType;
 		switch (displayType)
 		{
@@ -160,7 +160,7 @@ namespace Gothic_II_Addon
 	inline zSTRING ItemInfoPanel::GetExtraDamageTypeString(const int damageTypes)
 	{
 		zCPar_Symbol* namesArray = parser->GetSymbol("StExt_Str_ExtraDamageType");
-		zSTRING result = zString_Empty;
+		zSTRING result;
 		for (uint i = 0; i < namesArray->ele; ++i)
 		{
 			const int flag = 1 << i;
@@ -173,7 +173,7 @@ namespace Gothic_II_Addon
 	inline zSTRING ItemInfoPanel::GetExtraDamageFlagString(const int damageFlags)
 	{
 		zCPar_Symbol* namesArray = parser->GetSymbol("StExt_Str_ExtraDamageFlags");
-		zSTRING result = zString_Empty;
+		zSTRING result;
 		for (uint i = 0; i < namesArray->ele; ++i)
 		{
 			const int flag = 1 << i;
@@ -351,7 +351,7 @@ namespace Gothic_II_Addon
 	void ItemInfoPanel::BuildItemDescription()
 	{
 		Content.Clear();
-		ContentWidthIndex = zString_Empty;
+		ContentWidthIndex = 0;
 		ContentHeightIndex = 0;
 
 		if (!DisplayItem) return;		
@@ -363,13 +363,14 @@ namespace Gothic_II_Addon
 		else if (HasFlag(DisplayItem->mainflag, item_kat_rune))
 			BuildSpellDescription(itemExtension);
 		else if (itemExtension)
+		{
+			UpdateItemDescriptionText(const_cast<oCItem*>(DisplayItem), itemExtension);
 			BuildExtensionDescription(itemExtension);
-
+		}
 		for (uint i = 0; i < Content.GetNum(); ++i)
 		{
-			const auto& contentLine = Content[i];
-			if (ContentWidthIndex.Length() < contentLine.Text.Length())
-				ContentWidthIndex = contentLine.Text;
+			const int width = screen->FontSize(Content[i].Text);
+			if (width > ContentWidthIndex) ContentWidthIndex = width;
 			++ContentHeightIndex;
 		}
 		Resize();
@@ -377,7 +378,7 @@ namespace Gothic_II_Addon
 
 	void ItemInfoPanel::SetDisplayItem(const oCItem* item)
 	{
-		ItemSwitched = DisplayItem != item;
+		ItemSwitched = DisplayItem != item || !item;
 		DisplayItem = item;
 	}
 
@@ -395,12 +396,12 @@ namespace Gothic_II_Addon
 
 		if (View)
 		{
-			const int contentHeightFix = Content.IsEmpty() ? 0 : 2;
-			LocalSizeY = View->FontY() * (ContentHeightIndex + contentHeightFix);
+			const int contentHeightFix = Content.IsEmpty() ? 1 : 2;
+			LocalSizeY = screen->FontY() * (ContentHeightIndex + contentHeightFix);
 			SizeY = static_cast<float>(LocalSizeY * ScreenToRelativePixDelta);
 
 			const float contentWidthFix = Content.IsEmpty() ? 0.00f : 0.02f;
-			LocalSizeX = View->FontSize(ContentWidthIndex) + static_cast<int>(contentWidthFix * ScreenVBufferSize);
+			LocalSizeX = ContentWidthIndex + static_cast<int>(contentWidthFix * ScreenVBufferSize);
 			SizeX = static_cast<float>(LocalSizeX * ScreenToRelativePixDelta);
 
 			View->SetSize(LocalSizeX, LocalSizeY);
@@ -418,32 +419,35 @@ namespace Gothic_II_Addon
 		if (!screen) return;
 		if (!View)
 		{
-			View = zNEW(zCView)(0, 0, ScreenVBufferSize, ScreenVBufferSize);
-			Resize();
+			View = zNEW(zCView)(0, 0, ScreenVBufferSize, ScreenVBufferSize);			
 			View->InsertBack(BgTexture);
 			View->SetAlphaBlendFunc(zRND_ALPHA_FUNC_BLEND);
-			View->SetTransparency(180);
+			View->SetTransparency(240);
+			Resize();
 		}
 
 		View->ClrPrintwin();
-		View->Blit();
-		screen->RemoveItem(View);
-		if (!IsVisible || IsHiden) return;
+		if (!IsVisible || IsHiden)
+		{
+			if(screen->childs.IsIn(View))
+				screen->RemoveItem(View);
+			return;
+		}
 
 		const uint contentSize = Content.GetNum();
-		const int startY = View->FontY();
+		const int yOffset = View->FontY();
 		const int startX = static_cast<int>(ScreenVBufferSize * 0.01f);
-		int y = startY, x = 0;
+		int y = yOffset, x = 0;
 		for (uint i = 0; i < Content.GetNum(); ++i)
 		{
-			const auto& contentLine = Content[i];
+			auto& contentLine = Content[i];
 			if (contentLine.Text.IsEmpty())
 			{
-				y += View->FontY();
+				y += yOffset;
 				continue;
 			}
 
-			const int textWidth = View->font ? View->font->GetFontX(contentLine.Text) : LocalSizeX;
+			const int textWidth = View->FontSize(contentLine.Text);
 			View->SetFontColor(contentLine.TextColor);
 
 			if (contentLine.TextAllignMode == UiContentAlignEnum::Begin) x = startX;
@@ -451,10 +455,11 @@ namespace Gothic_II_Addon
 			else x = static_cast<int>(ScreenHalfVBufferSize - (textWidth * 0.5f));
 
 			View->Print(x, y, contentLine.Text);
-			y += View->FontY();
+			y += yOffset;
 		}
 
-		screen->InsertItem(View);
+		if (!screen->childs.IsIn(View)) 
+			screen->InsertItem(View);
 		if (OnDraw) OnDraw(this);
 	}
 
@@ -463,10 +468,10 @@ namespace Gothic_II_Addon
 		if (ItemSwitched)
 		{
 			BuildItemDescription();
-			IsHiden = !DisplayItem || Content.IsEmpty();
 			ItemSwitched = false;
 		}
 		BaseUiElement::Update();
+		IsHiden = !DisplayItem || Content.IsEmpty();
 	}
 
 	ItemInfoPanel::~ItemInfoPanel() 

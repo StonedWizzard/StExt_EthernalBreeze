@@ -42,7 +42,7 @@ namespace Gothic_II_Addon
 		int DisplayOrder;
 	};
 
-	extern Map<zSTRING, ExtraConfigData> ExtraConfigsData;
+	extern StringMap<ExtraConfigData> ExtraConfigsData;
 	extern Array<ExtraMasteryData> ExtraMasteriesData;
 
 	const zSTRING UiElement_EmptyName = "NO_NAME";
@@ -108,6 +108,7 @@ namespace Gothic_II_Addon
 
 	extern int MsgTrayPosX_SymIndex;
 	extern int MsgTrayPosY_SymIndex;
+	extern float ModMenuItem_EmdedPanelsScaleMult;
 
 	enum class UiElementBehaviorFlags : uint
 	{
@@ -652,7 +653,7 @@ namespace Gothic_II_Addon
 		bool ItemSwitched;
 		const oCItem* DisplayItem;
 		Array<ItemInfoLine> Content;
-		zSTRING ContentWidthIndex;
+		int ContentWidthIndex;
 		int ContentHeightIndex;
 
 		inline void CreateContentLine(const zSTRING& txt, const zCOLOR& color = TextColor_Regular_Default, const UiContentAlignEnum alignMode = UiContentAlignEnum::Center);
@@ -711,16 +712,13 @@ namespace Gothic_II_Addon
 	void UpdateCheckButtonStyle(MenuItem* button, zSTRING& valueSym);
 
 	void UpdateUiStatus();
-
 	int HandleModKey(const int key);
 	bool OpenMenuWindow(const zSTRING& name);
 	void CloseMenuWindow();
-
+	extern bool IsMenuWindowOpen();
 	void DrawModInfo();
 
-
 	void MsgTray_AddEntry(zSTRING text, zSTRING color);
-
 	void MsgTray_Clear();
 
 	extern void ParseHexColor(const zSTRING& stringColor, zCOLOR& color);

@@ -8,7 +8,7 @@ namespace Gothic_II_Addon
 		DEBUG_MSG("");
 		DEBUG_MSG("InitItemGeneratorConfigs: start (re)initialization item generator configs...");
 		ItemsGeneratorConfigs = ItemsGeneratorConfig();
-		const zSTRING path = zoptions->GetDirString(zTOptionPaths::DIR_SYSTEM) + "\\Autorun\\EthernalBreezeItemConfigs\\StExt_ItemGeneratorConfigs.json";
+		const zSTRING path = zoptions->GetDirString(zTOptionPaths::DIR_EXECUTABLE) + "Autorun\\EthernalBreezeConfigs\\ItemGeneratorConfigs.json";
 
 		if (!ReadItemsGeneratorConfigs(path, ItemsGeneratorConfigs))
 		{
@@ -25,7 +25,7 @@ namespace Gothic_II_Addon
 	{
 		DEBUG_MSG("");
 		DEBUG_MSG("SelectItemGeneratorConfigs: start change item generator configs. New configs name: '" + fileName + "'...");
-		const zSTRING path = zoptions->GetDirString(zTOptionPaths::DIR_SYSTEM) + "\\Autorun\\EthernalBreezeItemConfigs\\" + fileName;
+		const zSTRING path = zoptions->GetDirString(zTOptionPaths::DIR_EXECUTABLE) + "Autorun\\EthernalBreezeConfigs\\" + fileName;
 		ItemsGeneratorConfig newConfigs = ItemsGeneratorConfig();
 
 		if (!ReadItemsGeneratorConfigs(path, newConfigs))
@@ -74,6 +74,7 @@ namespace Gothic_II_Addon
 		ItemRangeString = parser->GetSymbol("StExt_Str_Item_Range")->stringdata;
 		ItemOrcWeaponTagString = parser->GetSymbol("StExt_Str_OrcWeapon")->stringdata;
 		ItemProtectionString = parser->GetSymbol("StExt_Str_Item_Protection")->stringdata;
+		ItemWeightString = parser->GetSymbol("rx_inv_descarmor_weight")->stringdata;
 	}
 
 	void InitItemsConditionsNames()

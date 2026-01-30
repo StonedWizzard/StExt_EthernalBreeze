@@ -4,7 +4,7 @@
 // Controller manage all mods windows and cursor for them
 namespace Gothic_II_Addon
 {
-	Map<zSTRING, MenuWindow*> MenuWindows;
+	StringMap<MenuWindow*> MenuWindows(16);
 	MenuWindow* CurrentMenu;
 
 	MenuCursorController* CursorController;
@@ -22,6 +22,7 @@ namespace Gothic_II_Addon
 	float ModMenuWindow_ScrollMult;
 	float ModMenuWindow_ScrollShiftMult;
 	float ExtraItemInfoPanel_PosX, ExtraItemInfoPanel_PosY;
+	float ModMenuItem_EmdedPanelsScaleMult = 1.0f;
 
 	int StatsWindowKey;
 	int CraftWindowKey;
@@ -265,10 +266,9 @@ namespace Gothic_II_Addon
 		MenuFont_Symbol_Default = parser->GetSymbol("font_prolog")->stringdata;
 		MenuFont_Symbol_Header = parser->GetSymbol("font_prologmain")->stringdata;
 		MenuFont_Sys_Header = parser->GetSymbol("text_font_20")->stringdata;
-		MenuFont_Sys_Default = parser->GetSymbol("text_font_10")->stringdata;		
+		MenuFont_Sys_Default = parser->GetSymbol("text_font_10")->stringdata;
+		ModMenuItem_EmdedPanelsScaleMult = parser->GetSymbol("StExt_Config_Ui_EmbdedPanelsScale")->single_floatdata;
 		UpdateWindowConfigs();
-
-		MenuWindows = Map<zSTRING, MenuWindow*>();
 
 		TestWindow* testWnd = new TestWindow();
 		testWnd->Init();
@@ -369,24 +369,19 @@ namespace Gothic_II_Addon
 	int HandleModKey(const int key)
 	{
 		bool isHandled = false;
-		int isModDialog = parser->GetSymbol("StExt_DisplayModMenu")->single_intdata;
 		UiKeyEventArgs desc = UiKeyEventArgs();
 		CreateKeyDescriptor(key, desc);
+		int isModDialog = parser->GetSymbol("StExt_DisplayModMenu")->single_intdata;
 
 		if (CurrentMenu) isHandled = CurrentMenu->HandleKey(desc);
 		else
 		{
-			// first check input by script handler
-			int isHandled = *(int*)parser->CallFunc(HandleKeyEventFunc, key);
-			if (isHandled) return true;
-
-			int isModDialog = parser->GetSymbol("StExt_DisplayModMenu")->single_intdata;
+			isHandled = *(int*)parser->CallFunc(HandleKeyEventFunc, desc.KeyId);
 			if (!isModDialog && !isHandled && CanShowModMenu)
 			{
 				if (desc.KeyId == StatsWindowKey && desc.IsShiftPressed) { isHandled = OpenMenuWindow("StatsWindow"); }
 				else if (desc.KeyId == CraftWindowKey && desc.IsAltPressed) { isHandled = OpenMenuWindow("CraftWindow"); }
-				else if (desc.KeyId == ConfigsWindowKey && desc.IsShiftPressed) { isHandled = OpenMenuWindow("ConfigsWindow"); }
-				
+				else if (desc.KeyId == ConfigsWindowKey && desc.IsShiftPressed) { isHandled = OpenMenuWindow("ConfigsWindow"); }				
 			}
 		}
 		return isHandled;
@@ -450,6 +445,8 @@ namespace Gothic_II_Addon
 		CheckPcInput();
 	}
 
+	inline bool IsMenuWindowOpen() { return CurrentMenu != Null; }
+
 	bool OpenMenuWindow(const zSTRING& name)
 	{
 		if (CurrentMenu)
@@ -458,8 +455,8 @@ namespace Gothic_II_Addon
 			return false;
 		}
 
-		auto it = MenuWindows.GetSafePair(name);
-		if (!it)
+		auto wnd = MenuWindows.Find(name);
+		if (!wnd)
 		{
 			DEBUG_MSG("OpenMenuWindow - such window not registered: '" + name + "!'");
 			CurrentMenu = Null;
@@ -467,7 +464,7 @@ namespace Gothic_II_Addon
 		}
 
 		UpdateWindowConfigs();
-		CurrentMenu = it->GetValue();
+		CurrentMenu = *wnd;
 		CurrentMenu->IsVisible = true;
 
 		if (Cursor)
@@ -514,14 +511,20 @@ namespace Gothic_II_Addon
 	HOOK Hook_oCItemContainer_Close PATCH(&oCItemContainer::Close, &oCItemContainer::Close_StExt);
 	void oCItemContainer::Close_StExt()
 	{
-		UpdateExtraItemInfoPanelState(Null);
 		THISCALL(Hook_oCItemContainer_Close)();
+		UpdateExtraItemInfoPanelState(Null);
+	}
+
+	HOOK Hook_oCNpcInventory_Close PATCH(&oCNpcInventory::Close, &oCNpcInventory::Close_StExt);
+	void oCNpcInventory::Close_StExt()
+	{
+		THISCALL(Hook_oCNpcInventory_Close)();
+		UpdateExtraItemInfoPanelState(Null);
 	}
 
 	HOOK ivk_oCGame_HandleEvent PATCH(&oCGame::HandleEvent, &oCGame::HandleEvent_StExt);
 	int oCGame::HandleEvent_StExt(int key) 
 	{
-		DEBUG_MSG("StExt - Initialize mod... handle event?");
 		if (IsLoading || IsLevelChanging) return true;
 		bool canProcess = ogame && player && screen && !GetWorld()->csPlayer->GetPlayingGlobalCutscene();
 
@@ -531,5 +534,18 @@ namespace Gothic_II_Addon
 			if (isHandled) return true;
 		}
 		return THISCALL(ivk_oCGame_HandleEvent) (key);
+	}
+
+	HOOK ivk_zCViewDialogChoice_HandleEvent PATCH(&zCViewDialogChoice::HandleEvent, &zCViewDialogChoice::HandleEvent_StExt);
+	int zCViewDialogChoice::HandleEvent_StExt(int key)
+	{
+		int isModMenu = parser->GetSymbol("StExt_DisplayModMenu")->single_intdata;
+		bool isDirKeys = (key == KEY_LEFTARROW || key == KEY_RIGHTARROW || key == KEY_UPARROW || key == KEY_DOWNARROW);
+		if (isModMenu && isDirKeys)
+		{
+			int isHandled = *(int*)parser->CallFunc(HandleUiButtomEventFunc, key);
+			if (isHandled) return True;
+		}
+		return THISCALL(ivk_zCViewDialogChoice_HandleEvent) (key);
 	}
 }

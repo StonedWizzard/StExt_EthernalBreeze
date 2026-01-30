@@ -71,7 +71,7 @@ namespace Gothic_II_Addon
 		{
 			int initialCondAtrId = Properties[(int)ItemProperty::InitialConditionAttributeIndex + i];
 			int initialCondValue = Properties[(int)ItemProperty::InitialConditionAttributeValueIndex + i];
-			if (initialCondAtrId != CondAtr[i]) continue;
+			if ((initialCondAtrId != CondAtr[i]) || (initialCondAtrId == 0)) continue;
 
 			const ExtraStatData* condData = GetExtraConditionDataById(initialCondAtrId);
 			if (!condData) continue;
@@ -153,7 +153,8 @@ namespace Gothic_II_Addon
 			const ExtraStatData* stat = GetExtraStatDataById(StatId[i]);
 			if (!stat) continue;
 
-			itemExtraCost += static_cast<int>((StatValue[i] * stat->CostPerStat) * ItemsGeneratorConfigs.ItemStatPriceMult);
+			const int statCost = static_cast<int>((StatValue[i] * stat->CostPerStat) * ItemsGeneratorConfigs.ItemStatPriceMult);
+			itemExtraCost += statCost <= 0 ? 1 : statCost;
 		}
 
 		for (int i = 0; i < ItemExtension_OwnStats_Max; ++i)
@@ -162,12 +163,13 @@ namespace Gothic_II_Addon
 			const ExtraStatData* stat = GetExtraStatDataById(StatId[i]);
 			if (!stat) continue;
 
-			itemExtraCost += static_cast<int>((OwnStatValue[i] * stat->CostPerStat) * ItemsGeneratorConfigs.ItemStatPriceMult);
+			const int statCost = static_cast<int>((OwnStatValue[i] * stat->CostPerStat) * ItemsGeneratorConfigs.ItemStatPriceMult);
+			itemExtraCost += statCost <= 0 ? 1 : statCost;
 		}
 
 		// TODO - count abilities
 
-		Cost = ValidateValueMin(static_cast<int>(((Properties[(int)ItemProperty::InitialCost] + itemExtraCost) * priceMult) * ItemClassData->PriceMult), 1);
+		Cost = ValidateValueMin(static_cast<int>(((Properties[(int)ItemProperty::InitialCost] + itemExtraCost) * priceMult) * ItemClassData->PriceMult), 1);		
 	}
 
 	int ItemExtension::GetProperty(const int propertyId) { return (IsIndexInBounds(propertyId, ItemExtension_Props_Max)) ? Properties[propertyId] : 0; }
@@ -176,10 +178,11 @@ namespace Gothic_II_Addon
 
 	void ItemExtension::AddDamage(const int damage, const int damType)
 	{
+		if (!IsIndexInBounds(damType, (int)oEDamageIndex_MAX)) return;
 		int dam = damage;
-		DamageTypes |= damType;
+		DamageTypes |= 1 << damType;
 		DamageTotal += damage;
-		AddDamages(damType, Damage, dam);
+		Damage[damType] += damage;
 	}
 
 	void ItemExtension::AddProtection(const int protection, const int protType)
@@ -289,6 +292,7 @@ namespace Gothic_II_Addon
 	}
 	void ItemExtension::AddCondition(const int conditionId, const int value)
 	{
+		if (conditionId == 0) return;
 		const ExtraStatData* conditionData = GetExtraConditionDataById(conditionId);
 		AddCondition(conditionData, value);
 	}

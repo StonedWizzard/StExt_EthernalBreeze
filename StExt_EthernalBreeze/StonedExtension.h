@@ -12,6 +12,7 @@
 #include <StExt_Classes.h>
 #include <StExt_Helpers.h>
 #include <StExt_Rand.h>
+#include <StringCollections.h>
 
 #include <ItemAbilities.h>
 #include <ItemExtensions.h>
@@ -65,6 +66,7 @@ namespace Gothic_II_Addon
 	extern int UpdateFocusNpcInfoFunc;
 	extern int IsHeroMovLockedFunc;
 	extern int HandleKeyEventFunc;
+	extern int HandleUiButtomEventFunc;
 	extern int HandlePcStatChangeFunc;
 	extern int CanCallModMenuFunc;
 	extern int SaveParserVarsFunc;
@@ -88,6 +90,11 @@ namespace Gothic_II_Addon
 	extern int ItemCondSpecialSeparator;
 	extern int MaxStatId;
 
+	extern int StExt_AiVar_IsRandomized;
+	extern int StExt_AiVar_Uid;
+	extern int StExt_AiVar_EsCur;
+	extern int StExt_AiVar_EsMax;
+
 	extern int StExt_Config_NpcStats_TopOffset;
 	extern int StExt_Config_NpcStats_HideTags;
 
@@ -105,6 +112,8 @@ namespace Gothic_II_Addon
 	extern zSTRING PcEsCurStr;
 	extern zSTRING StExt_EsText;
 	extern zSTRING SecondsSuffixString;
+	extern zSTRING CurrentDiffPresetStr;
+	extern zSTRING CurrentItemsPresetStr;
 
 
 	//-----------------------------------------------------------------
@@ -118,6 +127,9 @@ namespace Gothic_II_Addon
 	void LoadModState();
 	void SaveModState();
 	void ResetModState();	
+
+	void SortZStringArray(Array<zSTRING>& arr);
+	uint FindZStringSorted(const Array<zSTRING>& arr, const zSTRING& key);
 
 	// Npc UId subsystem
 	int GetNextNpcUid();
@@ -135,13 +147,13 @@ namespace Gothic_II_Addon
 	void StatsUncaperLoop();
 	void inline UpdateUncapedStat(int indx);
 
-	extern const AuraData* GetAuraById(int id);
-	extern const ExtraStatData* GetExtraStatDataById(int id);
-	extern const ExtraStatData* GetExtraConditionDataById(int id);
-	extern const zSTRING& GetExtraStatNameById(int id);
+	extern const AuraData* GetAuraById(const int id);
+	extern const ExtraStatData* GetExtraStatDataById(const int id);
+	extern const ExtraStatData* GetExtraConditionDataById(const int id);
+	extern const zSTRING& GetExtraStatNameById(const int id);
 	MagicInfusionData* CreateInfusion(int tier);
 	extern const MagicInfusionData* GetRandomInfusion(int type, int tier, int grantInfusion);
-	ConfigPresetData* GetConfigPreset(zSTRING &presetName);
+	extern const ConfigPresetData* GetConfigPreset(const zSTRING& presetName);
 
 	bool InitVoiceController();
 

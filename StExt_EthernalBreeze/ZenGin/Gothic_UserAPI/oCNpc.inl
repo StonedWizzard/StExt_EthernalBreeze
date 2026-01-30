@@ -6,11 +6,9 @@
 // HOOKS
 void oCNpc::OnDamage_StExt(oSDamageDescriptor& desc);
 
-//void oCNpc::OnDamage_Hit_StExt(oSDamageDescriptor& desc);
+void oCNpc::OnDamage_Sound_StExt(oSDamageDescriptor& desc);
 
-//void oCNpc::OnDamage_Events_StExt(oSDamageDescriptor& desc);
-
-//void oCNpc::OnDamage_Anim_StExt(oSDamageDescriptor& desc);
+void oCNpc::DisplayCannotUse_StExt();
 
 void oCNpc::ChangeAttribute_StExt(int attribute, int value);
 
@@ -30,9 +28,6 @@ void oCNpc::EquipArmor_StExt(oCItem* item);
 
 int oCNpc::CanUse_StExt(oCItem* item);
 
-
-// EXTENDED ARMORS
-
 bool oCNpc::CanEquipAdditionalArmor(oCItem* item);
 
 void oCNpc::GetEquippedArmors(Array<oCItem*>& array);
@@ -47,12 +42,12 @@ void oCNpc::PutAdditionalArmorItemToSlot(oCItem* item);
 
 void oCNpc::RemoveAdditionalArmorItemFromSlot(oCItem* item);
 
-//void oCNpc::InitModel_StExt();
-
 void oCNpc::StopAllVoices_StExt();
 
 int oCNpc::UpdateNextVoice_StExt();
 
 int oCNpc::EV_PlaySound_StExt(oCMsgConversation*);
+
+int oCNpc::EV_OutputSVM_StExt(oCMsgConversation*);
 
 void oCNpc::OpenInventory_StExt(int mode);

@@ -7,7 +7,7 @@ namespace Gothic_II_Addon
 	ExtraDamageInfo ReflectDamage;
 	IncomingDamageInfo IncomingDamage;
 
-	Array<zSTRING> SpellFxNames;
+	StringMap<int> SpellFxNames;
 	
 	int MaxSpellId;
 	int StExt_AbilityPrefix;
@@ -52,7 +52,7 @@ namespace Gothic_II_Addon
 		}
 
 		if (total <= 0) total = 5;
-		if (dam < 1.0) 
+		if (dam < 1.0f) 
 		{ 
 			damage[dam_index_barrier] = total;
 			return; 
@@ -76,7 +76,7 @@ namespace Gothic_II_Addon
 		}
 
 		if (total <= 0) total = 5;
-		if (dam < 1.0)
+		if (dam < 1.0f)
 		{
 			damage[dam_index_barrier] = total;
 			return;
@@ -335,7 +335,9 @@ namespace Gothic_II_Addon
 			return result;
 		}
 
-		result = static_cast<int>(SpellFxNames.SearchEqualSorted(fxName));
+		auto pair = SpellFxNames.Find(fxName);
+		if (pair)
+			result = *pair;
 		return result;
 	}
 
@@ -551,7 +553,7 @@ namespace Gothic_II_Addon
 		if (desc.pFXHit)
 		{
 			spellId = static_cast<int>(desc.nSpellID);
-			if (spellId <= 0) spellId = GetFxSpellId(desc.pFXHit->fxName);
+			if (spellId <= 0) spellId = GetFxSpellId(desc.pFXHit->fxName.Upper());
 
 			if ((desc.nSpellCat == 0UL) && (desc.nSpellID == 0UL) && (spellId > 0))
 			{
@@ -727,24 +729,6 @@ namespace Gothic_II_Addon
 			value = (value * (-1) > this->attribute[0] + preserveHp) ? -(this->attribute[0] + preserveHp) : value;
 		}
 		THISCALL(ivk_oCNpc_ChangeAttribute)(attrIndex, value);
-		if (attrIndex == NPC_ATR_HITPOINTS)
-			DEBUG_MSG("Apply damage to '" + Z this->name[0] + "' Done. Hp after: " + Z this->attribute[0]);
+		//DEBUG_MSG_IF((attrIndex == NPC_ATR_HITPOINTS),"Apply damage to '" + Z this->name[0] + "' Done. Hp after: " + Z this->attribute[0]);
 	}
-
-	/*
-	HOOK Hook_oCNpc_OnDamage_Hit PATCH (&oCNpc::OnDamage_Hit, &oCNpc::OnDamage_Hit_StExt);
-	void oCNpc::OnDamage_Hit_StExt(oSDamageDescriptor& desc)
-	{
-		THISCALL(Hook_oCNpc_OnDamage_Hit)(desc);
-	}
-	
-
-	HOOK Hook_oCNpc_OnDamage_Anim PATCH(&oCNpc::OnDamage_Anim, &oCNpc::OnDamage_Anim_StExt);
-	void oCNpc::OnDamage_Anim_StExt(oSDamageDescriptor& desc)
-	{
-		if (HasFlag(desc.dwFieldsValid, DamageDescFlag_ExtraDamage) || HasFlag(desc.dwFieldsValid, DamageDescFlag_DotDamage) ||
-			HasFlag(desc.dwFieldsValid, DamageDescFlag_ReflectDamage) || HasFlag(desc.dwFieldsValid, DamageDescFlag_IsAbilityDamage)) return;			
-		THISCALL(Hook_oCNpc_OnDamage_Anim)(desc);
-	}
-	*/
 }

@@ -3,7 +3,16 @@
 
 namespace Gothic_II_Addon
 {
-	Map<zSTRING, zSTRING> FemVoiceOverrides = {};
+	StringMap<zSTRING> FemVoiceOverrides;
+	StringMap<zSTRING> VoiceSVMKeys;
+	zSTRING FemHitSounds[] =
+	{
+		"",
+		"SVM_17_AARGH_1.WAV",
+		"SVM_17_AARGH_2.WAV",
+		"SVM_17_AARGH_3.WAV",
+	};
+	zSTRING FemDeadSound = "SVM_17_DEAD.WAV";
 
 	bool VoiceControllerInitialized = false;
 	int VoiceControllerShouldRead = false;
@@ -13,8 +22,8 @@ namespace Gothic_II_Addon
 	int VoiceVolume = -1;
 	int Language = 1;
 	uint32 CodePage;
-	bool IsFemale = false;	
-	wstring LanguageID;	
+	bool IsFemale = false;
+	wstring LanguageID;
 	wstring Gender = L"Female";
 
 	ISpVoice* Voice;
@@ -37,51 +46,51 @@ namespace Gothic_II_Addon
 
 		if (VoiceVolume < 0)
 			VoiceVolume = static_cast<int>(zoptions->ReadReal("SOUND", "soundVolume", 1.0f) * 200.0f);
-		
+
 		switch (Language)
 		{
-			case Lang_Rus:			
-				LanguageID = L"419";
-				CodePage = ANSI_CODEPAGE_CYRILLIC;
-				break;
-			case Lang_Ger:			
-				LanguageID = L"407";
-				CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
-				break;
-			case Lang_Pol:
-				LanguageID = L"415";
-				CodePage = ANSI_COPEDAGE_CENTRALOREASTERN_EUROPEAN;
-				break;
-			case Lang_Rou:
-				LanguageID = L"418";
-				CodePage = ANSI_COPEDAGE_CENTRALOREASTERN_EUROPEAN;
-				break;
-			case Lang_Ita:
-				LanguageID = L"410";
-				CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
-				break;
-			case Lang_Cze:
-				LanguageID = L"405";
-				CodePage = ANSI_COPEDAGE_CENTRALOREASTERN_EUROPEAN;
-				break;
-			case Lang_Esp:
-				LanguageID = L"C0A";
-				CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
-				break;
-			case Lang_Other:
-				LanguageID = string(langId.Length() > 0 ? langId : "409").AToW();
-				break;
-			case Lang_Eng:
-			default:
-				LanguageID = L"409";
-				CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
-				break;
+		case Lang_Rus:
+			LanguageID = L"419";
+			CodePage = ANSI_CODEPAGE_CYRILLIC;
+			break;
+		case Lang_Ger:
+			LanguageID = L"407";
+			CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
+			break;
+		case Lang_Pol:
+			LanguageID = L"415";
+			CodePage = ANSI_COPEDAGE_CENTRALOREASTERN_EUROPEAN;
+			break;
+		case Lang_Rou:
+			LanguageID = L"418";
+			CodePage = ANSI_COPEDAGE_CENTRALOREASTERN_EUROPEAN;
+			break;
+		case Lang_Ita:
+			LanguageID = L"410";
+			CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
+			break;
+		case Lang_Cze:
+			LanguageID = L"405";
+			CodePage = ANSI_COPEDAGE_CENTRALOREASTERN_EUROPEAN;
+			break;
+		case Lang_Esp:
+			LanguageID = L"C0A";
+			CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
+			break;
+		case Lang_Other:
+			LanguageID = string(langId.Length() > 0 ? langId : "409").AToW();
+			break;
+		case Lang_Eng:
+		default:
+			LanguageID = L"409";
+			CodePage = ANSI_COPEDAGE_NORTHORWESTERN_EUROPEAN;
+			break;
 		}
 
 		DEBUG_MSG("InitVoiceControllerConfigs - init configs DONE!");
 	}
 
-	inline void ReleaseVoice() 
+	inline void ReleaseVoice()
 	{
 		if (Voice)
 		{
@@ -100,7 +109,7 @@ namespace Gothic_II_Addon
 		}
 		return true;
 	}
-	
+
 	void VoiceControllerReloadVoiceSettings()
 	{
 		if (!VoiceControllerInitialized) return;
@@ -125,7 +134,6 @@ namespace Gothic_II_Addon
 
 	void InitializeVoiceOverrides()
 	{
-		ExtraStatsNameData = Map<int, zSTRING>();
 		zCPar_Symbol* soundOverrideArray = parser->GetSymbol("StExt_FemaleVoiceReplacementIndexArray");
 		if (!soundOverrideArray)
 		{
@@ -133,23 +141,43 @@ namespace Gothic_II_Addon
 			return;
 		}
 
-		FemVoiceOverrides = Map<zSTRING, zSTRING>();
 		for (unsigned int i = 0; i < soundOverrideArray->ele; ++i)
 		{
 			zSTRING strIndx = soundOverrideArray->stringdata[i];
 			const int index = parser->GetIndex(strIndx);
 			if (index == Invalid)
 			{
-				DEBUG_MSG("InitializeVoiceOverrides - Can't load infusion instance '" + strIndx + "'!");
+				DEBUG_MSG("InitializeVoiceOverrides - Can't load instance '" + strIndx + "'!");
 				continue;
 			}
 			SoundOverrideData overrideData = SoundOverrideData();
 			parser->CreateInstance(index, &overrideData);
 			FemVoiceOverrides.Insert(overrideData.OrigSound, overrideData.NewSound);
 		}
+
+		auto SVMManager = ogame->GetSVMManager();
+		if (!SVMManager && SVMManager->svm_max > 15)
+		{
+			DEBUG_MSG("InitializeVoiceOverrides - SVMManager is null!");
+			return;
+		}
+
+		oCSVM& voiceModule = SVMManager->sv_module[15];
+		for (int i = 0; i < voiceModule.number; i++)
+		{
+			zCPar_Symbol* ps = parser->GetSymbol(voiceModule.classindex + i + 1);
+			if (!ps || voiceModule.entry[i].IsEmpty()) continue;
+
+			zSTRING key = ps->name; key.Upper();
+			zSTRING value = voiceModule.entry[i]; value.Upper();
+			key.Delete("C_SVM.", zTSTR_KIND::zSTR_ONLY);
+			key = "$" + key;
+
+			VoiceSVMKeys.Insert(key, value);
+		}
 	}
 
-	bool InitVoiceController() 
+	bool InitVoiceController()
 	{
 		InitializeVoiceOverrides();
 		if (!InitVoice())
@@ -164,7 +192,7 @@ namespace Gothic_II_Addon
 	}
 
 
-	bool VoiceControllerIsDoneReading() 
+	bool VoiceControllerIsDoneReading()
 	{
 		if (!Voice)
 			return true;
@@ -180,7 +208,7 @@ namespace Gothic_II_Addon
 	oCNpc* VoiceControllerGetCurrentSpeaker() { return CurrentSpeaker; }
 	int VoiceControllerGetCurrentHandle() { return CurrentHandle; }
 
-	void VoiceControllerRead(const string& str, oCNpc* speaker, int handle) 
+	void VoiceControllerRead(const string& str, oCNpc* speaker, int handle)
 	{
 		VoiceControllerReloadVoiceSettings();
 
@@ -190,67 +218,16 @@ namespace Gothic_II_Addon
 		Voice->Speak(str.AToW(CodePage), flags, NULL);
 	}
 
-	void VoiceControllerStopReading() 
+	void VoiceControllerStopReading()
 	{
 		ReleaseVoice();
 		CurrentSpeaker = Null;
 		CurrentHandle = 0;
 	}
 
-	inline bool RequireHookFemSound(const zSTRING& nameSFX, zSTRING& newNameSFX)
-	{
-		if (!parser || !StExt_ModReady) return false;
-
-		const int isFem = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
-		if (isFem)
-		{
-			const auto& pair = FemVoiceOverrides.GetSafePair(nameSFX);
-			if (!pair) return false;			
-			newNameSFX = pair->GetValue();
-			return true;			
-		}
-		return false;
-	}
-
 	//-------------------------------------------------------------------
 	//						        Hooks
 	//-------------------------------------------------------------------
-
-	HOOK Ivk_zCSndSys_MSS_LoadSoundFXScript PATCH(&zCSndSys_MSS::LoadSoundFXScript, &zCSndSys_MSS::LoadSoundFXScript_StExt);
-	zCSoundFX* zCSndSys_MSS::LoadSoundFXScript_StExt(zSTRING const& nameSFX)
-	{
-		zSTRING newNameSFX = zString_Empty;
-		if (RequireHookFemSound(nameSFX, newNameSFX))
-			return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFXScript)(newNameSFX);
-		return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFXScript)(nameSFX);
-	}
-
-	HOOK Ivk_zCSndSys_MSS_LoadSoundFX PATCH(&zCSndSys_MSS::LoadSoundFX, &zCSndSys_MSS::LoadSoundFX_StExt);
-	zCSoundFX* zCSndSys_MSS::LoadSoundFX_StExt(zSTRING const& nameSFX)
-	{
-		zSTRING newNameSFX = zString_Empty;
-		if (RequireHookFemSound(nameSFX, newNameSFX))
-			return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFX)(newNameSFX);
-		return THISCALL(Ivk_zCSndSys_MSS_LoadSoundFX)(nameSFX);
-	}
-
-	HOOK Ivk_zCSoundSystem_LoadSoundFXScript PATCH(&zCSoundSystem::LoadSoundFXScript, &zCSoundSystem::LoadSoundFXScript_StExt);
-	zCSoundFX* zCSoundSystem::LoadSoundFXScript_StExt(zSTRING const& nameSFX)
-	{
-		zSTRING newNameSFX = zString_Empty;
-		if(RequireHookFemSound(nameSFX, newNameSFX))
-			return THISCALL(Ivk_zCSoundSystem_LoadSoundFXScript)(newNameSFX);
-		return THISCALL(Ivk_zCSoundSystem_LoadSoundFXScript)(nameSFX);
-	}
-
-	HOOK Ivk_zCSoundSystem_LoadSoundFX PATCH(&zCSoundSystem::LoadSoundFX, &zCSoundSystem::LoadSoundFX_StExt);
-	zCSoundFX* zCSoundSystem::LoadSoundFX_StExt(zSTRING const& nameSFX)
-	{
-		zSTRING newNameSFX = zString_Empty;
-		if (RequireHookFemSound(nameSFX, newNameSFX))
-			return THISCALL(Ivk_zCSoundSystem_LoadSoundFX)(newNameSFX);
-		return THISCALL(Ivk_zCSoundSystem_LoadSoundFX)(nameSFX);
-	}
 
 	HOOK Ivk_zCView_DialogMessageCXY PATCH(&zCView::DialogMessageCXY, &zCView::DialogMessageCXY_StExt);
 	void zCView::DialogMessageCXY_StExt(zSTRING const& name, zSTRING const& text, float time, zCOLOR& color)
@@ -263,7 +240,7 @@ namespace Gothic_II_Addon
 	void oCNpc::StopAllVoices_StExt()
 	{
 		THISCALL(Ivk_oCNpc_StopAllVoices)();
-		if (this == VoiceControllerGetCurrentSpeaker()) 
+		if (this == VoiceControllerGetCurrentSpeaker())
 			VoiceControllerStopReading();
 	}
 
@@ -294,18 +271,23 @@ namespace Gothic_II_Addon
 		if ((this != player) && (this != oCInformationManager::GetInformationManager().Npc))
 			return THISCALL(Ivk_oCNpc_EV_PlaySound)(msg);
 
-		if (msg->handle == 0)
+		if ((msg->handle == 0) && (this == player))
 		{
-			VoiceControllerEnabled = parser->GetSymbol("StExt_Config_FemaleVoice_Enable")->single_intdata;
 			IsFemale = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
-			VoiceControllerShouldRead = IsFemale && VoiceControllerEnabled && (this == player);
+			if (IsFemale)
+			{
+				const auto altSound = FemVoiceOverrides.Find(msg->name);
+				VoiceControllerShouldRead = !altSound && VoiceControllerEnabled;
+				if (altSound)
+					msg->name = *altSound;
+			}
 		}
 
 		int result = THISCALL(Ivk_oCNpc_EV_PlaySound)(msg);
 		if (zsound->IsSoundActive(msg->handle) && VoiceControllerShouldRead)
 			zsound->StopSound(msg->handle);
 
-		if (VoiceControllerShouldRead) 
+		if (VoiceControllerShouldRead)
 		{
 			msg->f_no = msg->text.Length() * 125;
 			VoiceControllerRead(string(msg->text), this, msg->handle);
@@ -318,5 +300,87 @@ namespace Gothic_II_Addon
 			VoiceControllerStopReading();
 		}
 		return result;
+	}
+
+	HOOK Ivk_oCNpc_EV_OutputSVM PATCH(&oCNpc::EV_OutputSVM, &oCNpc::EV_OutputSVM_StExt);
+	int oCNpc::EV_OutputSVM_StExt(oCMsgConversation* msg)
+	{
+		if ((msg->handle == 0) && (this == player))
+		{
+			bool isFemale = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
+			if (isFemale && VoiceSVMKeys.HasKey(msg->name))
+			{
+				zSTRING trackName = VoiceSVMKeys.Find(msg->name);
+				auto altSound = FemVoiceOverrides.Find(trackName);
+				if (!altSound) altSound = FemVoiceOverrides.Find(trackName + ".WAV");
+
+				if (altSound)
+				{
+					trackName = *altSound;
+					zCSoundFX* pSfx = zsound->LoadSoundFX(trackName);
+					if (!pSfx) pSfx = zsound->LoadSoundFX(trackName + ".WAV");
+
+					if (pSfx)
+					{
+						zsound->PlaySound3D(pSfx, this, False, Null);
+						pSfx->Release();
+						return True;
+					}
+				}
+			}
+		}
+		return THISCALL(Ivk_oCNpc_EV_OutputSVM)(msg);
+	}
+
+	HOOK Hook_oCNpc_OnDamage_Sound PATCH(&oCNpc::OnDamage_Sound, &oCNpc::OnDamage_Sound_StExt);
+	void oCNpc::OnDamage_Sound_StExt(oSDamageDescriptor& desc)
+	{
+		if (this && this == player)
+		{
+			bool isFemale = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
+			if (isFemale)
+			{
+				zSTRING trackName;
+				if (desc.bIsDead) trackName = FemDeadSound;
+				else trackName = FemHitSounds[StExt_Rand::Index(4U)];
+
+				zCSoundFX* pSfx = zsound->LoadSoundFX(trackName);
+				if (pSfx)
+				{
+					int handle = zsound->PlaySound3D(pSfx, this, False, Null);
+					this->listOfVoiceHandles.Insert(handle);
+					pSfx->Release();
+				}
+				return;
+			}
+		}
+		THISCALL(Hook_oCNpc_OnDamage_Sound)(desc);
+	}
+
+	HOOK Hook_oCNpc_DisplayCannotUse PATCH(&oCNpc::DisplayCannotUse, &oCNpc::DisplayCannotUse_StExt);
+	void oCNpc::DisplayCannotUse_StExt()
+	{
+		if (this && this == player){
+			bool isFemale = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
+			if (isFemale)
+			{
+				this->GetEM(FALSE)->OnMessage(new oCMsgConversation(oCMsgConversation::EV_OUTPUTSVM, "$IMPOSSIBLEFORME"), this);
+				return;
+			}
+		}
+		THISCALL(Hook_oCNpc_DisplayCannotUse)();
+	}
+
+	HOOK Ivk_zCSndSys_MSS_PlaySound3D PATCH(&zCSndSys_MSS::PlaySound3D, &zCSndSys_MSS::PlaySound3D_StExt); 
+	int zCSndSys_MSS::PlaySound3D_StExt(zCSoundFX* pSfx, zCVob* pVob, int replace, zCSoundSystem::zTSound3DParams* pParams) 
+	{
+		// Crude fix, to prevent hero original phrase, wich appears from nowhere...
+		if (parser && StExt_ModReady && player && pSfx && pVob && pVob == player) 
+		{ 
+			bool isFemale = parser->GetSymbol("StExt_Config_EnableFemaleSkin")->single_intdata;
+			if (isFemale && (pSfx->objectName == "%SVM_15_IMPOSSIBLEFORME.WAV"))
+				return False;			
+		} 
+		return THISCALL(Ivk_zCSndSys_MSS_PlaySound3D)(pSfx, pVob, replace, pParams); 
 	}
 }

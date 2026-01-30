@@ -15,11 +15,12 @@ namespace Gothic_II_Addon
         zCOLOR(255, 32, 32)
     };
 
+    zCView* esBarText = Null;
     oCViewStatusBar* esBar = Null;
     oCViewStatusBar* npcEsBar = Null;
     oCNpc* FocusNpc = Null;
     oCNpcEx* FocusNpcEx = Null;
-    Array<zSTRING> abilitiesLines = Array<zSTRING>();
+    Array<zSTRING> abilitiesLines;
 
     zSTRING EsText;
     int PcEsPosX_SymIndex = Invalid, PcEsPosY_SymIndex = Invalid; 
@@ -34,6 +35,9 @@ namespace Gothic_II_Addon
     int CanShowModMenu;
     int BlockMovement;
 
+    inline const zCOLOR& GetNpcRankColor(const int rank) { return IsIndexInBounds(rank, 6) ? NpcRankColor[rank] : NpcRankColor[0]; }
+
+    // -----------------------------------------------------------------------------------------
 
     void UpdateUiStatus()
     {
@@ -106,7 +110,17 @@ namespace Gothic_II_Addon
         screen->InsertItem(esBar);
         esBar->Render();
 
-        PcEsCurStr = zString_Empty;
+        if (esBarText)
+        {
+            screen->RemoveItem(esBarText);
+            SAFE_DELETE(esBarText);
+        }
+        esBarText = zNEW(zCView)(0, 0, ScreenVBufferSize, ScreenVBufferSize);
+        esBarText->SetSize(ScreenVBufferSize, ScreenVBufferSize);
+        esBarText->SetPos(0, 0);
+        screen->InsertItem(esBarText);
+
+        PcEsCurStr = "";
     }
 
     void InitNpcEsBar()
@@ -126,9 +140,6 @@ namespace Gothic_II_Addon
     }
 
 
-    inline const zCOLOR& GetNpcRankColor(const int rank) { return IsIndexInBounds(rank, 6) ? NpcRankColor[rank] : NpcRankColor[0]; }
-    inline int GetScreenLineWidth(const zSTRING& txt) { return (screen && screen->font) ? screen->font->GetFontX(txt) : 0; }
-
     inline void PrintScreenTextContent(const int x, const int y, const zSTRING& txt, const zCOLOR& color)
     {
         if (!screen) return;
@@ -137,10 +148,10 @@ namespace Gothic_II_Addon
         screen->SetFontColor(TextColor_Default);
     }
 
-    inline void PrintScreenTextContent(const int y, const zSTRING& txt, const zCOLOR& color)
+    inline void PrintScreenTextContent(const int y, zSTRING& txt, const zCOLOR& color)
     {
         if (!screen) return;
-        const int x = static_cast<int>((ScreenVBufferSize - GetScreenLineWidth(txt)) * 0.5f);
+        const int x = static_cast<int>((ScreenVBufferSize - screen->FontSize(txt)) * 0.5f);
         PrintScreenTextContent(x, y, txt, color);
     }
 
@@ -152,14 +163,18 @@ namespace Gothic_II_Addon
 
         if (!screen || !ShowPcEs)
         {
-            if (esBar)
-                screen->RemoveItem(esBar);
+            if (screen)
+            {
+                if (esBar) screen->RemoveItem(esBar);
+                if (esBarText) screen->RemoveItem(esBarText);
+            }
             return;
         }
 
         if (!esBar)
             InitHeroEsBar();
         screen->RemoveItem(esBar);
+        screen->RemoveItem(esBarText);
 
         heroEx = dynamic_cast<oCNpcEx*>(player); 
         if (heroEx)
@@ -190,16 +205,20 @@ namespace Gothic_II_Addon
             esBar->SetPos(x, y);
             screen->InsertItem(esBar);
 
-            PcEsCurStr = StExt_EsText + ": " + Z(esCur) + "/" + Z(esMax);
-            PrintScreenTextContent(x, y - sy + 3, PcEsCurStr, TextColor_Default);
-
             esBar->SetMaxRange(0.0f, static_cast<float>(esMax));
             esBar->SetRange(0.0f, static_cast<float>(esMax));
             esBar->SetValue(static_cast<float>(esCur));
+            
+            screen->InsertItem(esBarText);
+            esBarText->ClrPrintwin();
+            esBarText->SetFontColor(TextColor_Default);
+            PcEsCurStr = StExt_EsText + ": " + Z(esCur) + "/" + Z(esMax);
+            esBarText->Print(x, y - sy + 3, PcEsCurStr);
         }
         else
         {
-            screen->RemoveItem(esBar);
+            if (esBar) screen->RemoveItem(esBar);
+            if (esBarText) screen->RemoveItem(esBarText);
             return;
         }
     }
@@ -223,18 +242,18 @@ namespace Gothic_II_Addon
             esMax = *(int*)parser->CallFunc(NpcGetBarMaxEsFunc);            
         }
 
-        if ((esMax <= 0) || (FocusNpc && FocusNpc->IsDead()))
+        if ((esMax <= 0) || (FocusNpc && FocusNpc->IsDead()) || !ShowPcEs)
         {
             npcEsBar->ondesk = false;
             if(npcEsBar) screen->RemoveItem(npcEsBar);
             return;
-        }                
+        }
         screen->InsertItem(npcEsBar);
         npcEsBar->SetMaxRange(0.0, static_cast<float>(esMax));
         npcEsBar->SetRange(0.0, static_cast<float>(esMax));
         npcEsBar->SetValue(static_cast<float>(esCur));
 
-        const zSTRING esText = StExt_EsText + ": " + Z(esCur) + "/" + Z(esMax);
+        zSTRING esText = StExt_EsText + ": " + Z(esCur) + "/" + Z(esMax);
         const int startPos = npcEsBar->pposy + npcEsBar->psizey;
         const int fontY = screen->FontY();
 
@@ -247,7 +266,7 @@ namespace Gothic_II_Addon
     inline zSTRING MakeSegmentFromRange(const char* begin, const char* end)
     {
         const size_t len = end - begin;
-        if (len == 0) return zString_Empty;
+        if (len == 0) return "";
 
         if (len <= 1023)
         {
@@ -284,7 +303,7 @@ namespace Gothic_II_Addon
                     if (!testLine.IsEmpty()) testLine += tagSeparator;                    
                     testLine += segment;
 
-                    if (GetScreenLineWidth(testLine) > MaxTextWidth)
+                    if (screen->FontSize(testLine) > MaxTextWidth)
                     {
                         if (!currentLine.IsEmpty()) 
                             lines.InsertEnd(currentLine);
@@ -315,29 +334,28 @@ namespace Gothic_II_Addon
             else focusRank = parser->GetSymbol(FocusNpcRank_SymIndex)->single_intdata;
 
             zCPar_Symbol* infoArray = parser->GetSymbol(FocusNpcInfo_SymIndex);
-            const zSTRING& focusRankName = infoArray->stringdata[0];
-            const zSTRING& focusFlags = infoArray->stringdata[1];
-            const zSTRING& focusAbilities = infoArray->stringdata[2];
-            const zSTRING& focusStats = infoArray->stringdata[3];
-            const zSTRING& focusExtraStats = infoArray->stringdata[4];
+            zSTRING& focusRankName = infoArray->stringdata[0];
+            zSTRING& focusFlags = infoArray->stringdata[1];
+            zSTRING& focusAbilities = infoArray->stringdata[2];
+            zSTRING& focusStats = infoArray->stringdata[3];
+            zSTRING& focusExtraStats = infoArray->stringdata[4];
 
             const int fontY = screen->FontY();
-
             if (focusRank > 0)
             {
                 const zCOLOR& rankColor = GetNpcRankColor(focusRank);
-                const zSTRING summLine = focusRankName + " " + focusFlags;
+                zSTRING summLine = focusRankName + " " + focusFlags;
                 const int y = fontY + focusYOffset;
-                const int x = static_cast<int>((ScreenVBufferSize - GetScreenLineWidth(summLine)) * 0.5f);
+                const int x = static_cast<int>((ScreenVBufferSize - screen->FontSize(summLine)) * 0.5f);
 
                 PrintScreenTextContent(x, y, focusRankName, rankColor);
-                PrintScreenTextContent(x + GetScreenLineWidth(focusRankName + " "), y, focusFlags, TextColor_Default);
+                PrintScreenTextContent(x + screen->FontSize(focusRankName + " "), y, focusFlags, TextColor_Default);
                 focusYOffset += fontY;
             }
 
             if (!focusAbilities.IsEmpty())
             {
-                const int abilitiesWidth = GetScreenLineWidth(focusAbilities);
+                const int abilitiesWidth = screen->FontSize(focusAbilities);
                 if (abilitiesWidth > MaxTextScreenWidth)
                 {
                     abilitiesLines.Clear();
@@ -371,7 +389,7 @@ namespace Gothic_II_Addon
             #if DebugEnabled
             if (parser->GetSymbol("StExt_Config_DebugEnabled")->single_intdata)
             {
-                const zSTRING debugStr = "'" + FocusName + "' [" + Z(GetNpcUid(FocusNpc)) + "]";
+                zSTRING debugStr = "'" + FocusName + "' [" + Z(GetNpcUid(FocusNpc)) + "]";
                 PrintScreenTextContent(fontY + focusYOffset, debugStr, TextColor_Warn);
                 focusYOffset += fontY;
             }
@@ -384,16 +402,16 @@ namespace Gothic_II_Addon
     {
         FocusNpc = Null;
         FocusNpcEx = Null;
-        FocusName = zString_Empty;
+        FocusName = "";
         if (npcEsBar)
             screen->RemoveItem(npcEsBar);
+        parser->SetInstance("STEXT_FOCUSNPC", Null);
     }
 
     void StonedExtension_Loop_Ui()
     {
         StonedExtension_Loop_MenuController();
         StonedExtension_Loop_MsgTray();
-        PrintHeroEsBar();
     }
 
     HOOK Hook_oCGame_UpdatePlayerStatus PATCH(&oCGame::UpdatePlayerStatus, &oCGame::UpdatePlayerStatus_StExt);
@@ -402,21 +420,27 @@ namespace Gothic_II_Addon
         THISCALL(Hook_oCGame_UpdatePlayerStatus)();
         if (!ogame || !screen || !player) return;
 
+        PrintHeroEsBar();
         if (player->focus_vob)
         {
             focusYOffset = screen->FontY() * (1 + StExt_Config_NpcStats_TopOffset);
             FocusNpc = dynamic_cast<oCNpc*>(player->focus_vob);
             if (FocusNpc)
             {
+                if (FocusNpc->IsDead())
+                {
+                    ClearFocusNpc();
+                    return;
+                }
+
                 FocusNpcEx = dynamic_cast<oCNpcEx*>(FocusNpc);
                 FocusName = FocusNpc->name;
                 parser->SetInstance("STEXT_FOCUSNPC", FocusNpc);
                 PrintNpcEs();
                 PrintNpcInfo();
-                if (FocusNpc->IsDead()) ClearFocusNpc();
+                return;
             }
-            else { ClearFocusNpc(); }
         }
-        else { ClearFocusNpc(); }        
+        ClearFocusNpc();         
     }
 }

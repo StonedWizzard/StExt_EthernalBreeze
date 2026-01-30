@@ -64,7 +64,7 @@ namespace Gothic_II_Addon
 
 	void BaseUiElement::Draw()
 	{
-		//DEBUG_MSG("StExt - Mod Ui::Draw() '" + Z(Name.c_str()) + "'...");
+		//DEBUG_MSG("StExt - Mod Ui::Draw() '" + Name + "'...");
 
 		if (!Parent) return;
 		if (!View)
@@ -91,7 +91,7 @@ namespace Gothic_II_Addon
 
 	void BaseUiElement::Update() 
 	{
-		//DEBUG_MSG("StExt - Mod Ui::Update() '" + Z(Name.c_str()) + "'...");
+		//DEBUG_MSG("StExt - Mod Ui::Update() '" + Name + "'...");
 		if (OnUpdate) OnUpdate(this);
 	}
 

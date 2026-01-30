@@ -3,7 +3,7 @@
 namespace Gothic_II_Addon
 {
 	Map<int, ReceiptInfo*> ReceiptsData;
-    Map<zSTRING, const ReceiptInfo*> ReceiptsIndexer;
+    StringMap<const ReceiptInfo*> ReceiptsIndexer;
     CraftContext* CurrentCraftContext;
 
 
@@ -48,8 +48,8 @@ namespace Gothic_II_Addon
     }
     inline const ReceiptInfo* GetReceiptByName(const zSTRING& name)
     {
-        auto it = ReceiptsIndexer.GetSafePair(name);
-        if (it) return it->GetValue();
+        auto it = ReceiptsIndexer.Find(name);
+        if (it) return *it;
         return Null;
     }
 
@@ -366,7 +366,6 @@ namespace Gothic_II_Addon
         DEBUG_MSG("InitializeReceipts: start initialization...");
 
         ReceiptsData = Map<int, ReceiptInfo*>();
-        ReceiptsIndexer = Map<zSTRING, const ReceiptInfo*>();
 
         const zCPar_Symbol* receiptsIndxArray = parser->GetSymbol("StExt_ReceiptsIndexArray");
         if (!receiptsIndxArray)

@@ -48,15 +48,14 @@ namespace Gothic_II_Addon
 		DEBUG_MSG_IF((index == Invalid), "Copy symbol - Symbol '" + virtualSymName + "' not created in table!");
 
 		if (isNewSym && (index == Invalid)) SAFE_DELETE(sym);
-		return index == Invalid;
+		return index != Invalid;
 	}
 
 
-	ItemExtensionDataStorage::ItemExtensionDataStorage() 
+	ItemExtensionDataStorage::ItemExtensionDataStorage() : Indexer_InstanceName(4096)
 	{
 		Data = Map<unsigned int, ItemExtension*>();
 		Indexer = Array<ItemExtensionIndexer>();
-		Indexer_InstanceName = Map<zSTRING, const ItemExtension*>();
 		ItemsCount = Data.GetNum();
 	}
 
@@ -93,8 +92,8 @@ namespace Gothic_II_Addon
 	}
 	ItemExtension* ItemExtensionDataStorage::Get(const zSTRING& instanceName)
 	{
-		auto* pair = Indexer_InstanceName.GetSafePair(instanceName);
-		if (pair) return const_cast<ItemExtension*>(pair->GetValue());
+		auto pair = Indexer_InstanceName.Find(instanceName);
+		if (pair) return const_cast<ItemExtension*>(*pair);
 		return Null;
 	}
 	ItemExtension* ItemExtensionDataStorage::Get(const ItemExtensionIndexer& indexer)
@@ -165,7 +164,7 @@ namespace Gothic_II_Addon
 		int parserId = Invalid;
 		if (!CreateVirtualSymbol(itemExtension->BaseInstanceName, itemExtension->InstanceName, parserId))
 		{
-			DEBUG_MSG("ItemExtensionDataStorage::Insert: fail to create virtual symbol!");
+			DEBUG_MSG("ItemExtensionDataStorage::Insert: fail to create virtual symbol from prototype '" + itemExtension->BaseInstanceName + "'!");
 			return false;
 		}
 

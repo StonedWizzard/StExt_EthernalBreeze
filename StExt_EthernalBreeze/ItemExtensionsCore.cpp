@@ -22,7 +22,7 @@ namespace Gothic_II_Addon
     Map<byte, zSTRING> ItemSubClassesText;
 
     Map<ItemClassKey, ItemClassDescriptor> ItemsClassData;
-    Map<zSTRING, ItemClassKey> ItemsClassDataIndexer_InstanceName;
+    StringMap<ItemClassKey> ItemsClassDataIndexer_InstanceName(1024);
 
     zSTRING ItemNameValueString;
     zSTRING ItemDamageString;
@@ -30,6 +30,7 @@ namespace Gothic_II_Addon
     zSTRING ItemRangeString;
     zSTRING ItemOrcWeaponTagString;
     zSTRING ItemProtectionString;
+    zSTRING ItemWeightString;
     int ItemCondSpecialSeparator;
 
     inline void UpdateItemExtensionsCoreState()
@@ -77,8 +78,8 @@ namespace Gothic_II_Addon
                 return itmExt->ItemClassID;
         }
 
-        auto pair = ItemsClassDataIndexer_InstanceName.GetSafePair(instanceName);
-        if (pair) return pair->GetValue();
+        auto pair = ItemsClassDataIndexer_InstanceName.Find(instanceName);
+        if (pair) return *pair;
 
         const ItemClassKey key = ParseItemClassKey(item);
         ItemsClassDataIndexer_InstanceName.Insert(instanceName, key);
@@ -94,8 +95,8 @@ namespace Gothic_II_Addon
             if (itmExt) return itmExt->ItemClassID;
         }
 
-        auto pair = ItemsClassDataIndexer_InstanceName.GetSafePair(instanceName);
-        if (pair) return pair->GetValue();
+        auto pair = ItemsClassDataIndexer_InstanceName.Find(instanceName);
+        if (pair) return *pair;
 
         ItemClassKey key = ItemClassKey_Empty;
         oCItem* pItem = new oCItem();
@@ -111,7 +112,11 @@ namespace Gothic_II_Addon
     inline const ItemClassDescriptor* GetItemClassDescriptor(const ItemClassKey key)
     {
         auto pair = ItemsClassData.GetSafePair(key);
-        if (!pair) return Null;
+        if (!pair)
+        {
+            DEBUG_MSG("GetItemClassDescriptor: item class descriptor with key: " + Z(static_cast<int>(key) + " not found!"));
+            return Null;
+        }
         return &pair->GetValue();
     }
     inline const ItemClassDescriptor* GetItemClassDescriptor(const zSTRING& instanceName)
@@ -179,24 +184,25 @@ namespace Gothic_II_Addon
     {
         zSTRING tagLine = zSTRING();
         auto ConcatProtectionLine = [&](const int index) { AppendTag(tagLine, Z(item->protection[index]) + " " + ItemDamageTypesList[index]); };
-
+        
         tagLine.Clear();
         ConcatProtectionLine(1);
         ConcatProtectionLine(2);
         ConcatProtectionLine(6);
-        item->text[1] = ItemProtectionString + tagLine;
+        item->text[0] = ItemProtectionString + tagLine;
 
         tagLine.Clear();
         ConcatProtectionLine(3);
         ConcatProtectionLine(5);
-        item->text[2] = ItemProtectionString + tagLine;
+        item->text[1] = ItemProtectionString + tagLine;
 
         tagLine.Clear();
         ConcatProtectionLine(4);
         ConcatProtectionLine(7);
-        item->text[3] = ItemProtectionString + tagLine;
+        item->text[2] = ItemProtectionString + tagLine;
 
-        BuildItemRequirementsString(item->text[4], item);
+        item->text[3] = ItemWeightString + Z(item->weight);
+        BuildItemRequirementsString(item->text[4], item);        
     }
 
     inline void BuildItemDescriptionText_Weapon(oCItem* item, const ItemExtension* extension)
@@ -211,7 +217,7 @@ namespace Gothic_II_Addon
             if (item->damage[i] > 0)
                 AppendTag(damageTags, Z(item->damage[i]) + " " + ItemDamageTypesList[i]);
         }
-        damageString += damageTags.IsEmpty() ? zString_Empty : " (" + damageTags + ")";
+        if (!damageTags.IsEmpty())damageString += " (" + damageTags + ")";
 
         auto classPair = ItemClassesText.GetSafePair(extension->Class);
         auto subClassPair = ItemSubClassesText.GetSafePair(extension->SubClass);
@@ -219,10 +225,10 @@ namespace Gothic_II_Addon
         if (classPair && subClassPair) itemTypeString = classPair->GetValue() + ", " + subClassPair->GetValue();
         else if (subClassPair) itemTypeString = subClassPair->GetValue();
         else if (classPair) itemTypeString = classPair->GetValue();
-        else itemTypeString = zString_Empty;
+        else itemTypeString = "";
 
-        if (HasFlag(item->hitp, bit_item_orc_weapon)) AppendTag(itemTypeString, ItemOrcWeaponTagString);
-        if (extension->Class == (byte)ItemClass::MeeleWeapon) AppendTag(itemTypeString, ItemRangeString + " " + Z(item->range));
+        if (HasFlag(item->hitp, bit_item_orc_weapon) || extension->SubClass == (byte)ItemSubClass::OrcWeapon) AppendTag(itemTypeString, ItemOrcWeaponTagString);
+        if (extension->Class == (byte)ItemClass::MeeleWeapon) AppendTag(itemTypeString, ItemRangeString + Z(item->range));
 
         zSTRING protectionTags = new zSTRING();
         for (int i = 0; i < oEDamageIndex_MAX; ++i)
@@ -232,6 +238,7 @@ namespace Gothic_II_Addon
         }
         if (!protectionTags.IsEmpty()) protectionString = ItemProtectionString + protectionTags;
 
+        item->text[0] = "";
         item->text[1] = damageString;
         item->text[2] = itemTypeString;
         item->text[3] = protectionString;
@@ -269,9 +276,9 @@ namespace Gothic_II_Addon
             return;
         }
 
-        DEBUG_MSG("UpdateItemDescriptionText: build item text for '" + item->name + "' ...");
+        //ToDo: fix zero-value display text...
         item->count[5] = item->value;
-        item->text[5] = ItemRanksList[ValidateValue(extension->Rank, 0, ItemsGeneratorConfigs.ItemMaxRank)] + " | " + ItemNameValueString;
+        item->text[5] = ItemRanksList[ValidateValue(extension->Rank, 0, ItemsGeneratorConfigs.ItemMaxRank)] + " | " + ItemNameValueString + " " + Z(item->value);
 
         switch (static_cast<ItemType>(extension->Type))
         {
@@ -296,11 +303,11 @@ namespace Gothic_II_Addon
             DEBUG_MSG_IF(!extension, "ApplyItemExtension: item extension is null");
             return false; 
         }
-        DEBUG_MSG("ApplyItemExtension: apply item extension for '" + item->name + "' ...");
+        DEBUG_MSG("ApplyItemExtension: apply item extension for '" + item->GetInstanceName() + "' ...");
 
-        zSTRING affix = (extension->Affix.IsEmpty() ? zString_Empty : " - ") + extension->Affix;
-        zSTRING preffix = extension->Preffix + (extension->Preffix.IsEmpty() ? zString_Empty : " ");
-        zSTRING suffix = (extension->Suffix.IsEmpty() ? zString_Empty : " ") + extension->Suffix;
+        zSTRING affix = (extension->Affix.IsEmpty() ? "" : " - ") + extension->Affix;
+        zSTRING preffix = extension->Preffix + (extension->Preffix.IsEmpty() ? "" : " ");
+        zSTRING suffix = (extension->Suffix.IsEmpty() ? "" : " ") + extension->Suffix;
 
         item->description = extension->OwnName.IsEmpty() ? preffix + item->description + affix + suffix : extension->OwnName;
         item->name = item->description;
@@ -619,13 +626,14 @@ namespace Gothic_II_Addon
         const ItemClassKey itemClass = static_cast<ItemClassKey>(itemClassId);
         int itemInstnceId = Invalid;
 
-        if ((ItemsExtensionData->ItemsCount > ItemsGeneratorConfigs.LookupGeneratedItemCountThreshold) && StExt_Rand::Permille(ItemsGeneratorConfigs.LookupGeneratedItemChance))
+        if ((ItemsExtensionData->ItemsCount > static_cast<uint>(ItemsGeneratorConfigs.LookupGeneratedItemCountThreshold)) && 
+            StExt_Rand::Permille(ItemsGeneratorConfigs.LookupGeneratedItemChance))
         {
             itemInstnceId = FindGeneratedItem(itemClass, power, ItemsGeneratorConfigs.ItemMaxRank);
             if(itemInstnceId != Invalid) return itemInstnceId;
         }
 
-        DEBUG_MSG("GenerateNewItem: start generation...");
+        DEBUG_MSG("GenerateNewMagicItem: start generation [classId: " + Z(itemClassId) + "] ...");
         ItemExtension* extension = RollSpecificMagicItem(power, itemClass);
         itemInstnceId = FinalizeItemGeneration(extension);
         return itemInstnceId;
@@ -651,13 +659,14 @@ namespace Gothic_II_Addon
             }
         }
 
-        if ((ItemsExtensionData->ItemsCount > ItemsGeneratorConfigs.LookupGeneratedItemCountThreshold) && StExt_Rand::Permille(ItemsGeneratorConfigs.LookupGeneratedItemChance))
+        if ((ItemsExtensionData->ItemsCount > static_cast<uint>(ItemsGeneratorConfigs.LookupGeneratedItemCountThreshold)) && 
+            StExt_Rand::Permille(ItemsGeneratorConfigs.LookupGeneratedItemChance))
         {
             itemInstnceId = FindGeneratedItem(itemClass, power, 0);
             if (itemInstnceId != Invalid) return itemInstnceId;
         }
 
-        DEBUG_MSG("GenerateNewItem: start generation...");
+        DEBUG_MSG("GenerateNewRegularItem: start generation [classId: " + Z(itemClassId) + "] ...");
         ItemExtension* extension = RollSpecificSimpleItem(power, itemClass);
         itemInstnceId = FinalizeItemGeneration(extension);
         return itemInstnceId;
@@ -687,7 +696,9 @@ namespace Gothic_II_Addon
         if ((instance != Invalid) && this)
         {
             const ItemExtension* extension = GetItemExtension(this);
-            if (extension && !ApplyItemExtension(this, extension)) {
+            if (!extension) return;
+
+            if (!ApplyItemExtension(this, extension)) {
                 DEBUG_MSG("oCItem::InitByScript_StExt: fail apply item extension for '" + this->GetInstanceName() + "'!");
             }
 

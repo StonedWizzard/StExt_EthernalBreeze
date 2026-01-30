@@ -173,7 +173,7 @@ namespace Gothic_II_Addon
     extern ExtraDamageInfo ReflectDamage;
     extern IncomingDamageInfo IncomingDamage;
 
-    extern Array<zSTRING> SpellFxNames;
+    extern StringMap<int> SpellFxNames;
 
     //-----------------------------------------------------------------
     //							DAMAGE

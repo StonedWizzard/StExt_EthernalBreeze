@@ -18,7 +18,7 @@ namespace Gothic_II_Addon
 
     inline const zSTRING CreateExtendedItemInstanceName(const int extensionId)
     {
-        zSTRING result = GenerateItemPrefix + FormatNumber(extensionId, 10) + StExt_Rand::RandomString(5);
+        zSTRING result = GenerateItemPrefix + FormatNumberPad(extensionId, 10) + "_" + StExt_Rand::RandomString(5);
         return NormalizeInstanceName(result);
     }
 
@@ -244,14 +244,13 @@ namespace Gothic_II_Addon
         oCItem* item = new oCItem();
         if (item && parser->SetInstance(parser->GetIndex(instanceName), item))
             result = ParseItemClassKey(item);
-
-        SAFE_DELETE(item);
+        item->Release();
         return result;
     }
 
     zSTRING RollPrototypeInstanceName(const int tier, const ItemClassDescriptor* itemClassDescriptor)
     {
-        if (!itemClassDescriptor) return zString_Empty;
+        if (!itemClassDescriptor) return "";
 
         const Array<zSTRING>* arrayRef = Null;
         if (tier >= 3 && itemClassDescriptor->HasExtraTier) arrayRef = &itemClassDescriptor->ExtraTierPrototypes;
@@ -259,7 +258,7 @@ namespace Gothic_II_Addon
         else if (tier >= 1) arrayRef = &itemClassDescriptor->MedTierPrototypes;
         else arrayRef = &itemClassDescriptor->LowTierPrototypes;
 
-        if (!arrayRef || arrayRef->GetNum() == 0) return zString_Empty;
+        if (!arrayRef || arrayRef->GetNum() == 0) return "";
         return (*arrayRef)[StExt_Rand::Index(arrayRef->GetNum())];
     }
 
@@ -301,10 +300,10 @@ namespace Gothic_II_Addon
         if (power <= 0) return 0;
 
         const int minCap = static_cast<int>(power * ItemsGeneratorConfigs.ItemQualityPowerRatio);
-        const int maxCap = rank >= ItemsGeneratorConfigs.ItemRankForExtraQualityThreshold ?
-            ItemsGeneratorConfigs.ItemQualityHardCap : ItemsGeneratorConfigs.ItemQualitySoftCap;
+        const int maxCap = static_cast<int>(minCap * 2.0f);
 
-        return ValidateValue(StExt_Rand::Range(minCap, maxCap), 0, maxCap);
+        return ValidateValue(StExt_Rand::Range(minCap, maxCap), 0, rank >= ItemsGeneratorConfigs.ItemRankForExtraQualityThreshold ?
+            ItemsGeneratorConfigs.ItemQualityHardCap : ItemsGeneratorConfigs.ItemQualitySoftCap);
     }
 
     inline int RollItemMaxSockets(const int level, const int rank, const int quality, const int extraSocket, const ItemClassDescriptor* itemClassDescriptor)
@@ -374,6 +373,7 @@ namespace Gothic_II_Addon
     }
     inline int RollItemExtraConditionValueById(const int condDataId, const int power, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
     {
+        if (condDataId == 0) return 0;
         const ExtraStatData* condData = GetExtraConditionDataById(condDataId);
         return RollItemExtraConditionValue(condData, power, level, rank, quality, itemClassDescriptor);
     }
@@ -469,22 +469,20 @@ namespace Gothic_II_Addon
         return ValidateValue(StExt_Rand::Range(valueMin, valueMax), 0, valueMax);
     }
 
-
     inline int RollItemStatsCount(int& minStatsCount, int& maxStatsCount, const int extraStatsCount, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
     {
         if (!itemClassDescriptor) return 0;
 
         const float classBonusMax = (level * itemClassDescriptor->StatsCountMaxLevelBonus) + (rank * itemClassDescriptor->StatsCountMaxRankBonus) + (quality * itemClassDescriptor->StatsCountMaxQualityBonus);
-        maxStatsCount = static_cast<int>(itemClassDescriptor->StatsCountMax + extraStatsCount + classBonusMax);
-        maxStatsCount = static_cast<int>(maxStatsCount * ItemsGeneratorConfigs.ItemStatsCountMult);
-
         const float classBonusMin = (level * itemClassDescriptor->StatsCountMinLevelBonus) + (rank * itemClassDescriptor->StatsCountMinRankBonus) + (quality * itemClassDescriptor->StatsCountMinQualityBonus);
-        minStatsCount = static_cast<int>(itemClassDescriptor->StatsCountMin + extraStatsCount + classBonusMin);
-        minStatsCount = static_cast<int>(minStatsCount * ItemsGeneratorConfigs.ItemStatsCountMult);
 
-        minStatsCount = ValidateValue(minStatsCount, itemClassDescriptor->StatsCountMin, itemClassDescriptor->StatsCountCap);
+        maxStatsCount = static_cast<int>(itemClassDescriptor->StatsCountMax + classBonusMax);
+        minStatsCount = static_cast<int>(itemClassDescriptor->StatsCountMin + classBonusMin);
+        minStatsCount = ValidateValue(minStatsCount, itemClassDescriptor->StatsCountMin, static_cast<int>(itemClassDescriptor->StatsCountCap * 0.5f));
         maxStatsCount = ValidateValue(maxStatsCount, minStatsCount, itemClassDescriptor->StatsCountCap);
-        return ValidateValue(StExt_Rand::Range(minStatsCount, maxStatsCount), 0, itemClassDescriptor->StatsCountCap);
+
+        int result = static_cast<int>((StExt_Rand::Range(minStatsCount, maxStatsCount) + extraStatsCount) * ItemsGeneratorConfigs.ItemStatsCountMult);
+        return ValidateValue(result, extraStatsCount, itemClassDescriptor->StatsCountCap);
     }
 
     inline void RollItemStatsChunk(Array<int>& statsBuffer, const Array<int>& currentStats, const int statsCount, const ItemClassDescriptor* itemClassDescriptor)
@@ -534,22 +532,23 @@ namespace Gothic_II_Addon
         statsBuffer.QuickSort();
     }
 
-    inline int RollItemStatValue(const ExtraStatData* statData, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
+    inline int RollItemStatValue(const ExtraStatData* statData, const int power, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
     {
         if (!itemClassDescriptor || !statData) return 0;
         const float classBonus = (level * itemClassDescriptor->StatsPowerLevelBonus) + (rank * itemClassDescriptor->StatsPowerRankBonus) + (quality * itemClassDescriptor->StatsPowerQualityBonus);
         const float classMult = (itemClassDescriptor->PrimaryStatsList.HasEqualSorted(statData->Id)) ?
             (itemClassDescriptor->PrimaryStatsPowerBonus + itemClassDescriptor->StatsPowerMult) * ItemsGeneratorConfigs.ItemPrimaryStatPowerMult :
             itemClassDescriptor->StatsPowerMult;
-        
-        const int valueMin = static_cast<int>(((statData->RollMinPower * classBonus) * classMult) * ItemsGeneratorConfigs.ItemStatPowerMult);
-        const int valueMax = static_cast<int>(((statData->RollMaxPower * classBonus) * classMult) * ItemsGeneratorConfigs.ItemStatPowerMult);
-        return ValidateValue(StExt_Rand::Range(valueMin, valueMax), statData->RollMinCap, statData->RollMaxCap);
+
+        const float valueMin = statData->RollMinPower * power;
+        const float valueMax = statData->RollMaxPower * power;
+        const int result = static_cast<int>(((StExt_Rand::Range(valueMin, valueMax) * (1.0f + classBonus)) * classMult) * ItemsGeneratorConfigs.ItemStatPowerMult);
+        return ValidateValue(result, statData->RollMinCap, statData->RollMaxCap);
     }
-    inline int RollItemStatValue(const int statDataId, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
+    inline int RollItemStatValue(const int statDataId, const int power, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
     {
         const ExtraStatData* statData = GetExtraStatDataById(statDataId);
-        return RollItemStatValue(statData, level, rank, quality, itemClassDescriptor);
+        return RollItemStatValue(statData, power, level, rank, quality, itemClassDescriptor);
     }
 
     inline int RollItemStatDuration(const int statDataId, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor)
@@ -682,7 +681,7 @@ namespace Gothic_II_Addon
             affix = (*sourceArray)[StExt_Rand::Index(sourceArray->GetNum())];
             return true;
         }
-        affix = zString_Empty;
+        affix = "";
         return false;
     }
 
@@ -701,12 +700,33 @@ namespace Gothic_II_Addon
         return ValidateValue(StExt_Rand::Range(itemClassDescriptor->WeightMin, itemClassDescriptor->WeightMax), 0, 10);
     }
 
+    inline void CalcItemDamages(oCItem* item)
+    {
+        float dam = 0.0f;
+        unsigned long mask = item->damageTypes;
+        for (int i = 0; i < oEDamageIndex_MAX; ++i)
+        {
+            if (mask & 1) { dam += 1.0f; }
+            mask >>= 1;
+        }
 
-    void SetItemExtensionInitialProps(ItemExtension* itemExtension, const oCItem* item, const int power)
+        if (item->damageTotal < 5) item->damageTotal = 5;
+        if (dam < 1.0f)
+        {
+            item->damage[dam_index_barrier] = item->damageTotal;
+            return;
+        }
+
+        dam = item->damageTotal / dam + 0.5f;
+        if (dam < 5.0f) dam = 5.0f;
+        for (int i = 0; i < oEDamageIndex_MAX; i++)
+            item->damage[i] = item->damageTypes & (1 << i) ? static_cast<int>(dam) : 0;
+    }
+
+    void SetItemExtensionInitialProps(ItemExtension* itemExtension, const oCItem* item)
     {
         if (!item || !itemExtension) return;
-
-        itemExtension->Properties[(int)ItemProperty::InitialPower] = power;
+        
         itemExtension->ExtraFlags_Main = itemExtension->Properties[(int)ItemProperty::InitialMainExtraFlags] = item->mainflag;
         itemExtension->ExtraFlags_Base = itemExtension->Properties[(int)ItemProperty::InitialBaseFlags] = item->flags;
         itemExtension->ExtraFlags_Additional = itemExtension->Properties[(int)ItemProperty::InitialAdditionalFlags] = item->hitp;
@@ -723,11 +743,21 @@ namespace Gothic_II_Addon
         }
 
         itemExtension->DamageTotal = itemExtension->Properties[(int)ItemProperty::InitialDamageTotal] = item->damageTotal;
-        itemExtension->DamageTypes = itemExtension->Properties[(int)ItemProperty::InitialDamageTypes] = item->damageTypes;
+        itemExtension->DamageTypes = itemExtension->Properties[(int)ItemProperty::InitialDamageTypes] = static_cast<int>(item->damageTypes);
+
+        int damTotal = 0;
         for (int i = 0; i < oEDamageIndex_MAX; ++i)
         {
+            damTotal += item->damage[i];
             itemExtension->Damage[i] = itemExtension->Properties[(int)ItemProperty::InitialDamageIndex + i] = item->damage[i];
             itemExtension->Protection[i] = itemExtension->Properties[(int)ItemProperty::InitialProtectionIndex + i] = item->protection[i];
+        }
+
+        if (damTotal == 0)
+        {
+            CalcItemDamages(const_cast<oCItem*>(item));
+            for (int i = 0; i < oEDamageIndex_MAX; ++i)
+                itemExtension->Damage[i] = itemExtension->Properties[(int)ItemProperty::InitialDamageIndex + i] = item->damage[i];            
         }
     }
 
@@ -752,7 +782,8 @@ namespace Gothic_II_Addon
         result->SubClass = ItemClassKey_GetSubClass(result->ItemClassID);
         result->ItemClassData = itemClassDescriptor;
         
-        SetItemExtensionInitialProps(result, item, power);
+        result->Properties[(int)ItemProperty::InitialPower] = power;
+        SetItemExtensionInitialProps(result, item);
         return result;
     }
 
@@ -764,17 +795,18 @@ namespace Gothic_II_Addon
         int instanceId = parser->GetIndex(instanceName);
         if (instanceId == Invalid)
         {
-            DEBUG_MSG("CreateItemExtension() - symbol '" + instanceName + "' not found!");
+            DEBUG_MSG("CreateItemExtension: symbol '" + instanceName + "' not found!");
             return Null;
         }
 
-        oCItem* item = new oCItem();        
+        oCItem* item = new oCItem();
         ItemExtension* result = Null;
-        parser->SetInstance(instanceId, item);
-        if (item)
+        const bool itemCreated = parser->CreateInstance(instanceId, item);
+        if (itemCreated)
             result = CreateItemExtension(power, item, itemClassDescriptor);
 
-        SAFE_DELETE(item);
+        DEBUG_MSG_IF(!itemCreated, "CreateItemExtension: fail to create original item instance from script! Instance name: '" + instanceName + "'");
+        if (item) item->Release();
         return result;       
     }
 }

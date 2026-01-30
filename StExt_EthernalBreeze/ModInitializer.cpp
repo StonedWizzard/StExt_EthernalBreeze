@@ -27,6 +27,7 @@ namespace Gothic_II_Addon
 	int UpdateFocusNpcInfoFunc = Invalid;
 	int IsHeroMovLockedFunc = Invalid;
 	int HandleKeyEventFunc = Invalid;
+	int HandleUiButtomEventFunc = Invalid;
 	int HandlePcStatChangeFunc = Invalid;
 	int CanCallModMenuFunc = Invalid;
 	int SaveParserVarsFunc = Invalid;
@@ -48,8 +49,15 @@ namespace Gothic_II_Addon
 	int StExt_CurrentDayPart;
 	int MaxStatId;
 
+	int StExt_AiVar_IsRandomized;
+	int StExt_AiVar_Uid;
+	int StExt_AiVar_EsCur;
+	int StExt_AiVar_EsMax;
+
 	zSTRING SecondsSuffixString;
 	zSTRING StExt_EsText;
+	zSTRING CurrentDiffPresetStr;
+	zSTRING CurrentItemsPresetStr;
 	float ItemBasePriceMult;
 	float ItemSellPriceMult;
 	bool IsLevelChanging;
@@ -163,7 +171,6 @@ namespace Gothic_II_Addon
 
 	void InitExtraMasteriesData()
 	{
-		ExtraMasteriesData = Array<ExtraMasteryData>();
 		DEBUG_MSG("Initialize masteries data...");
 
 		const int corruptionMaxIndex = parser->GetSymbol("StExt_Corruption_Max")->single_intdata;
@@ -243,7 +250,7 @@ namespace Gothic_II_Addon
 		DEBUG_MSG("Masteries data was initialized!");
 	}
 
-	void InitExtraStatsData(Map<int, ExtraStatData> &statsData, zSTRING initArray)
+	void InitExtraStatsData(Map<int, ExtraStatData> &statsData, const zSTRING& initArray)
 	{
 		zCParser* par = zCParser::GetParser();
 		zCPar_Symbol* statsIndxArray = par->GetSymbol(initArray);
@@ -253,7 +260,6 @@ namespace Gothic_II_Addon
 			return;
 		}
 
-		statsData = Map<int, ExtraStatData>();
 		DEBUG_MSG("Initialize " + Z((int)statsIndxArray->ele) + " stat instances...");
 		for (unsigned int i = 0; i < statsIndxArray->ele; ++i)
 		{
@@ -286,7 +292,7 @@ namespace Gothic_II_Addon
 			return;
 		}
 
-		for (unsigned int i = 0; i < statsNamesArray->ele; ++i)
+		for (uint i = 0; i < statsNamesArray->ele; ++i)
 			ExtraStatsNameData.Insert(static_cast<int>(i), statsNamesArray->stringdata[i]);
 	}
 
@@ -398,6 +404,10 @@ namespace Gothic_II_Addon
 		HandleKeyEventFunc = parser->GetIndex("StExt_HandleKeyEvent");
 		DEBUG_MSG_IF(HandleKeyEventFunc == Invalid, "HandleKeyEventFunc is null!");
 
+		//HandleUiButtomEventFunc
+		HandleUiButtomEventFunc = parser->GetIndex("StExt_HandleUiButtom");
+		DEBUG_MSG_IF(HandleUiButtomEventFunc == Invalid, "HandleUiButtomEventFunc is null!");
+
 		HandlePcStatChangeFunc = parser->GetIndex("StExt_HandlePcStatChange");
 		DEBUG_MSG_IF(HandlePcStatChangeFunc == Invalid, "HandlePcStatChangeFunc is null!");
 
@@ -445,17 +455,23 @@ namespace Gothic_II_Addon
 		SecondsSuffixString = parser->GetSymbol("StExt_Str_Seconds")->stringdata;
 		ItemCondSpecialSeparator = parser->GetSymbol("StExt_Item_Cond_Separator")->single_intdata;
 		StExt_AbilityPrefix = parser->GetSymbol("StExt_AbilityPrefix")->single_intdata;
+		CurrentDiffPresetStr = parser->GetSymbol("StExt_Str_ModMenu_CurrentDiffPreset")->stringdata;
+		CurrentItemsPresetStr = parser->GetSymbol("StExt_Str_ModMenu_CurrentItemsPreset")->stringdata;
 
 		MaxSpellId = parser->GetSymbol("max_spell")->single_intdata;
 		DEBUG_MSG("StExt - MaxSpellId: " + Z MaxSpellId);
 
 		zCPar_Symbol* spellfxinstancenamesSym = parser->GetSymbol("spellfxinstancenames");
 		for (int i = 0; i < MaxSpellId; ++i)
-			SpellFxNames.InsertEnd(spellfxinstancenamesSym->stringdata[i]);
-		SpellFxNames.QuickSort();
+			SpellFxNames.Insert(spellfxinstancenamesSym->stringdata[i].Upper(), i);
 
 		StExt_Config_NpcStats_TopOffset = parser->GetSymbol("StExt_Config_NpcStatsUi_TopOffset")->single_intdata;
 		StExt_Config_NpcStats_HideTags = parser->GetSymbol("StExt_Config_NpcStatsUi_HideTags")->single_intdata;
+
+		StExt_AiVar_IsRandomized = parser->GetSymbol("StExt_AiVar_IsRandomized")->single_intdata;
+		StExt_AiVar_Uid = parser->GetSymbol("StExt_AiVar_Uid")->single_intdata;
+		StExt_AiVar_EsCur = parser->GetSymbol("StExt_AiVar_EsCur")->single_intdata;
+		StExt_AiVar_EsMax = parser->GetSymbol("StExt_AiVar_EsMax")->single_intdata;
 
 		ItemBasePriceMult = parser->GetSymbol("StExt_ItemBasicPriceMult")->single_floatdata;
 		if (ItemBasePriceMult < 0.1f) ItemBasePriceMult = 0.1f;
@@ -473,7 +489,6 @@ namespace Gothic_II_Addon
 		InitItemAbilitiesData();
 
 		ProhibitedWaypoints = Array<WaypointData>();
-		ExtraConfigsData = Map<zSTRING, ExtraConfigData>();
 		parser->CallFunc(parser->GetIndex("StExt_OnModLoaded"));
 	}
 

@@ -738,7 +738,7 @@ namespace Gothic_II_Addon
 	private:
 		Map<unsigned int, ItemExtension*> Data;
 		Array<ItemExtensionIndexer> Indexer;
-		Map<zSTRING, const ItemExtension*> Indexer_InstanceName;
+		StringMap<const ItemExtension*> Indexer_InstanceName;
 
 		inline void InsertIndex(const ItemExtension* itemExtension);
 
@@ -798,7 +798,7 @@ namespace Gothic_II_Addon
 	extern Map<byte, zSTRING> ItemSubClassesText;
 
 	extern Map<ItemClassKey, ItemClassDescriptor> ItemsClassData;
-	extern Map<zSTRING, ItemClassKey> ItemsClassDataIndexer_InstanceName;
+	extern StringMap<ItemClassKey> ItemsClassDataIndexer_InstanceName;
 
 	extern zSTRING ItemNameValueString;
 	extern zSTRING ItemDamageString;
@@ -806,6 +806,7 @@ namespace Gothic_II_Addon
 	extern zSTRING ItemRangeString;
 	extern zSTRING ItemProtectionString;
 	extern zSTRING ItemOrcWeaponTagString;
+	extern zSTRING ItemWeightString;
 
 
 	//-----------------------------------------------------------------
@@ -876,8 +877,8 @@ namespace Gothic_II_Addon
 
 	extern int RollItemStatsCount(int& minStatsCount, int& maxStatsCount, const int extraStatsCount, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
 	extern void RollItemStatsChunk(Array<int>& statsBuffer, const Array<int>& currentStats, const int statsCount, const ItemClassDescriptor* itemClassDescriptor);
-	extern int RollItemStatValue(const ExtraStatData* statData, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
-	extern int RollItemStatValue(const int statDataId, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
+	extern int RollItemStatValue(const ExtraStatData* statData, const int power, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
+	extern int RollItemStatValue(const int statDataId, const int power, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
 	extern int RollItemStatDuration(const int statDataId, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
 
 	extern int RollItemAbilitiesCount(const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
@@ -886,7 +887,6 @@ namespace Gothic_II_Addon
 	extern int RollItemAbilitiesDuration(const ItemAbility* abilityData, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
 	extern int RollItemAbilitiesChance(const ItemAbility* abilityData, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
 	extern int RollItemAbilitiesRange(const ItemAbility* abilityData, const int level, const int rank, const int quality, const ItemClassDescriptor* itemClassDescriptor);
-
 
 	zSTRING RollPrototypeInstanceName(const int tier, const ItemClassDescriptor* itemClassDescriptor);
 	extern bool RollItemAffix(const int rollChance, const int sourceId, zSTRING& affix);
@@ -906,8 +906,8 @@ namespace Gothic_II_Addon
 	void FindPlayerItems(const Array<int>& itemClassIds, Array<const oCItem*>& foundItems);
 	void FindPlayerUndefinedItems(Array<const oCItem*>& foundItems);
 
+	void UpdateItemDescriptionText(oCItem* item, const ItemExtension* extension);
 	bool SelectItemGeneratorConfigs(const zSTRING& fileName);
-
 	void IdentifyItem(const oCItem* item);
 
 	/*

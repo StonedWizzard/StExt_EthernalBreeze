@@ -46,13 +46,11 @@ namespace Gothic_II_Addon
 		SlotParserExpression(const SlotParserToken* token) :Token(token) { Values = Array<zSTRING>(); }
 	};
 
-	Map<zSTRING, SlotParserToken*> SlotParserTokens;
+	StringMap<SlotParserToken*> SlotParserTokens(256);
 
 
 	void InitReceiptSlotParser()
 	{
-		SlotParserTokens = Map<zSTRING, SlotParserToken*>();
-
 		SlotParserTokens.Insert("COUNT", new SlotParserToken("COUNT", offsetof(ReceiptSlotInfo, ItemsCount), SlotParserValueType::Int, SlotParserValueMode::Single, FilterFlags::ItemsCount));
 		SlotParserTokens.Insert("ITEM", new SlotParserToken("ITEM", offsetof(ReceiptSlotInfo, ItemInstances), SlotParserValueType::String, SlotParserValueMode::Array, FilterFlags::ItemInstances));
 		SlotParserTokens.Insert("PROTOTYPE", new SlotParserToken("PROTOTYPE", offsetof(ReceiptSlotInfo, BaseItemInstances), SlotParserValueType::String, SlotParserValueMode::Array, FilterFlags::BaseItemInstances));
@@ -75,14 +73,14 @@ namespace Gothic_II_Addon
 
 	inline const SlotParserToken* FindToken(const zSTRING& name)
 	{
-		auto it = SlotParserTokens.GetSafePair(name);
-		if (it) return it->GetValue();
+		auto it = SlotParserTokens.Find(name);
+		if (it) return *it;
 		return Null;
 	}
 
 	inline zSTRING NormalizePattern(zSTRING& pattern) 
 	{ 
-		zSTRING result = zString_Empty;
+		zSTRING result;
 		for (uint i = 0; i < (uint)pattern.Length(); ++i)
 		{
 			const char c = pattern[i];
@@ -94,7 +92,7 @@ namespace Gothic_II_Addon
 
 	inline zSTRING NormalizeValue(const zSTRING& pattern)
 	{
-		zSTRING result = zString_Empty;
+		zSTRING result;
 		for (uint i = 0; i < (uint)pattern.Length(); ++i)
 		{
 			const char c = pattern[i];
@@ -128,7 +126,7 @@ namespace Gothic_II_Addon
 			if (rawExpression.IsEmpty()) continue;
 
 			int eq = rawExpression.Search("=", 0U);
-			zSTRING tokenKey, tokenValues = zString_Empty;
+			zSTRING tokenKey, tokenValues;
 			if (eq == Invalid) { tokenKey = rawExpression; }
 			else 
 			{
@@ -147,7 +145,7 @@ namespace Gothic_II_Addon
 			SlotParserExpression expr = SlotParserExpression(tokenPtr);
 			if (tokenValues.IsEmpty())
 			{
-				expr.Values.Insert(zString_Empty);
+				expr.Values.Insert("");
 				expressions.Insert(expr);
 				continue;
 			}
@@ -295,8 +293,8 @@ namespace Gothic_II_Addon
 	{
 		if (expr.Values.GetNum() == 0) return;
 		const SlotParserToken& token = *expr.Token;
-		zSTRING rawValueMin = zString_Empty;
-		zSTRING rawValueMax = zString_Empty;
+		zSTRING rawValueMin;
+		zSTRING rawValueMax;
 
 		if (expr.Values.GetNum() == 1)
 		{

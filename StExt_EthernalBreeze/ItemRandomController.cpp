@@ -54,7 +54,7 @@ namespace Gothic_II_Addon
 	{
 		if (!desc.ItemClassData)
 		{
-			DEBUG_MSG("RollBasicRandomItem - item class descriptor: " + Z ((int)desc.ItemFullClass) + " not found!");
+			DEBUG_MSG("InitializeRandomItemRoll - item class descriptor: " + Z ((int)desc.ItemFullClass) + " not found!");
 			desc.IsValid = false;
 			return;
 		}
@@ -64,10 +64,11 @@ namespace Gothic_II_Addon
 		desc.ItemExtensionData = CreateItemExtension(desc.ItemPower, desc.ItemBaseInstance, desc.ItemClassData);
 		if (!desc.ItemExtensionData)
 		{
-			DEBUG_MSG("RollBasicRandomItem - Fail to create ItemExtension data! Item class descriptor: " + Z((int)desc.ItemFullClass) + ". Item prototype: '" + desc.ItemBaseInstance + "'");
+			DEBUG_MSG("InitializeRandomItemRoll - Fail to create ItemExtension data! Item class descriptor: " + Z((int)desc.ItemFullClass) + ". Item prototype: '" + desc.ItemBaseInstance + "'");
 			desc.IsValid = false;
 			return;
 		}
+		desc.ItemExtensionData->BaseInstanceName = desc.ItemBaseInstance;
 
 		desc.ItemLevel = RollItemLevel(desc.ItemPower);
 		desc.ItemRank = desc.IsMagic ? RollItemRank(desc.ItemPower) : 0;
@@ -77,7 +78,6 @@ namespace Gothic_II_Addon
 		desc.ItemExtraCondCount = desc.ItemClassData->ExtraConditionAllowed ? RollItemExtraConditionsCount(desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData) : 0;
 		desc.ExtraProtectionsCount = desc.ItemClassData->ExtraProtectionAllowed ? RollItemExtraProtectionsCount(desc.ItemQuality, desc.ItemClassData) : 0;
 		desc.ExtraDamagesCount = desc.ItemClassData->ExtraDamageAllowed ? RollItemExtraDamagesCount(desc.ItemQuality, desc.ItemClassData) : 0;
-
 		desc.ItemWeight = desc.ItemClassData->ModWeight ? RollItemWeight(desc.ItemClassData) : Invalid;
 		
 		if (desc.IsMagic)
@@ -85,6 +85,7 @@ namespace Gothic_II_Addon
 			const int affixRollChance = static_cast<int>
 				((desc.ItemClassData->AffixRollChance + desc.ItemPower) * ItemsGeneratorConfigs.ItemAffixesRollChanceMult);
 
+			desc.ItemAffixesCount = 0;
 			for (int i = 0; i < 3; ++i) {
 				if (RollItemAffix(affixRollChance, i, desc.ItemAffixesList[i]))
 					++desc.ItemAffixesCount;
@@ -99,7 +100,7 @@ namespace Gothic_II_Addon
 			desc.SpecialProtectionsCount = (desc.ItemClassData->SpecialProtectionAllowed && (desc.ItemRank >= ItemsGeneratorConfigs.ItemRankForSpecialProtectionThreshold)) ?
 				RollItemSpecialProtectionsCount(desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData) : 0;
 
-			desc.SpecialDamagesCount = (desc.ItemClassData->SpecialProtectionAllowed && (desc.ItemRank >= ItemsGeneratorConfigs.ItemRankForSpecialDamageThreshold)) ?
+			desc.SpecialDamagesCount = (desc.ItemClassData->SpecialDamageAllowed && (desc.ItemRank >= ItemsGeneratorConfigs.ItemRankForSpecialDamageThreshold)) ?
 				RollItemSpecialDamagesCount(desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData) : 0;
 
 			desc.ItemStatsCount = desc.ItemClassData->StatsAllowed ?
@@ -122,7 +123,7 @@ namespace Gothic_II_Addon
 	{
 		if (desc.ItemExtraCondCount <= 0 || !desc.ItemClassData->ExtraConditionAllowed) return;
 		
-		Array<int> baseConditions = Array<int>();
+		Array<int> baseConditions;
 		const int baseConditionsCount = desc.ItemExtensionData->GetConditions(baseConditions);
 		if (baseConditionsCount >= ItemExtension_Conditions_Max) return;
 
@@ -150,22 +151,36 @@ namespace Gothic_II_Addon
 			}
 			--emptySlotsCount;
 		}
+
+		//if none found
+		baseConditions.Clear();
+		int conditionsCount = desc.ItemExtensionData->GetConditions(baseConditions);
+		if (!conditionsCount && !desc.ItemClassData->ConditionsList.IsEmpty())
+		{
+			const int condId = desc.ItemClassData->ConditionsList[StExt_Rand::Index(desc.ItemClassData->ConditionsList.GetNum())];
+			const ExtraStatData* condData = GetExtraConditionDataById(condId);
+			if (condData)
+			{
+				const int condValue = RollItemExtraConditionValue(condData, desc.ItemPower, desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData);
+				desc.ItemExtensionData->AddCondition(condData, condValue);
+			}
+		}
 	}
 
 	void RollItemExtraProtection(ItemRandomRollDescriptor& desc)
 	{
 		if ((desc.ExtraProtectionsCount <= 0) || (desc.ItemQuality <= 0) || (!desc.ItemClassData->ExtraProtectionAllowed)) return;
 		
-		Array<int> protections = Array<int>();
-		for (int i = 0; i < desc.ExtraProtectionsCount; ++i) protections.Insert(Invalid);
-		StExt_Rand::RandomSequence(protections, 1, 6);
+		Array<int> protections;
+		for (int i = 0; i < 7; ++i) protections.Insert(Invalid);
+		StExt_Rand::RandomSequence(protections, 1, 7);
 
 		for (int i = 0; i < desc.ExtraProtectionsCount; ++i)
 		{
 			if (!protections.GetSafe(i)) continue;
 			if ((protections[i] != 0) && (protections[i] != Invalid))
 			{
-				int value = RollItemExtraProtectionValue(desc.ItemQuality, desc.ItemClassData);
+				int value = RollItemExtraProtectionValue(desc.ItemQuality + desc.ItemLevel, desc.ItemClassData);
 				if (value > 0)
 					desc.ItemExtensionData->AddProtection(value, protections[i]);
 			}
@@ -192,8 +207,8 @@ namespace Gothic_II_Addon
 	{
 		if ((desc.ExtraDamagesCount <= 0) || (desc.ItemQuality <= 0) || (!desc.ItemClassData->ExtraDamageAllowed)) return;
 
-		Array<int> damages = Array<int>();
-		for (int i = 0; i < desc.ExtraDamagesCount; ++i) damages.Insert(Invalid);
+		Array<int> damages;
+		for (int i = 0; i < 6; ++i) damages.Insert(Invalid);
 		StExt_Rand::RandomSequence(damages, 1, 6);
 
 		for (int i = 0; i < desc.ExtraDamagesCount; ++i)
@@ -202,10 +217,9 @@ namespace Gothic_II_Addon
 			if ((damages[i] != 0) && (damages[i] != Invalid))
 			{
 				if (desc.ItemClassData->IncopatibleDamageTypesList.HasEqualSorted(damages[i])) continue;
-
-				int value = RollItemExtraDamageValue(desc.ItemQuality, desc.ItemClassData);
+				int value = RollItemExtraDamageValue(desc.ItemQuality + desc.ItemLevel, desc.ItemClassData);
 				if (value > 0)
-					desc.ItemExtensionData->AddProtection(value, damages[i]);
+					desc.ItemExtensionData->AddDamage(value, damages[i]);
 			}
 		}
 	}
@@ -247,7 +261,7 @@ namespace Gothic_II_Addon
 			const ExtraStatData* statData = GetExtraStatDataById(rolledStats[i]);
 			if (!statData) continue;
 
-			const int statValue = RollItemStatValue(statData, desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData);
+			const int statValue = RollItemStatValue(statData, desc.ItemPower, desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData);
 			const int statDuration = desc.ItemClassData->StatsDurationAllowed ? 
 				RollItemStatDuration(statData->Id, desc.ItemLevel, desc.ItemRank, desc.ItemQuality, desc.ItemClassData) : 0;
 			desc.ItemExtensionData->AddStat(statData->Id, statValue, statDuration);
@@ -334,7 +348,6 @@ namespace Gothic_II_Addon
 	}
 
 
-
 	ItemExtension* RollSpecificMagicItem(const int power, const ItemClassKey classKey)
 	{
 		ItemRandomRollDescriptor rollDescriptor = ItemRandomRollDescriptor(power, classKey);
@@ -358,7 +371,6 @@ namespace Gothic_II_Addon
 	{
 		ItemRandomRollDescriptor rollDescriptor = ItemRandomRollDescriptor(power, classKey);
 		if (!rollDescriptor.IsValid) return Null;
-
 		InitializeRandomItemRoll(rollDescriptor);
 		if (!rollDescriptor.IsValid)
 		{
@@ -366,9 +378,7 @@ namespace Gothic_II_Addon
 			SAFE_DELETE(rollDescriptor.ItemExtensionData);
 			return Null;
 		}
-
 		RollItemBaseStats(rollDescriptor);
-
 		FinalizeRandomItemRoll(rollDescriptor);
 		return rollDescriptor.ItemExtensionData;
 	}
