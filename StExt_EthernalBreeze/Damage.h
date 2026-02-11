@@ -67,11 +67,14 @@ namespace Gothic_II_Addon
     const int StExt_DamageFlag_Freeze = 8388608;
     const int StExt_DamageFlag_Stun = 16777216;
     const int StExt_DamageFlag_Roots = 33554432;
+    const int StExt_DamageFlag_Chain = 67108864;
+    const int StExt_DamageFlag_Stream = 134217728;
 
     const int DamageDescFlag_ExtraDamage = 65536;
     const int DamageDescFlag_DotDamage = 131072;
     const int DamageDescFlag_ReflectDamage = 262144;
     const int DamageDescFlag_IsAbilityDamage = 524288;
+    const int DamageDescFlag_AoeDamage = 1048576;
 
     const int ThrowableVelocity = 2000;
 
@@ -79,22 +82,21 @@ namespace Gothic_II_Addon
     const int StExt_DamageMessageType_Dot = 2;
     const int StExt_DamageMessageType_Reflect = 4;
 
-    const int StExt_IncomingDamageFlag_Index_None = 0;
-    const int StExt_IncomingDamageFlag_Index_Processed = 1;
-    const int StExt_IncomingDamageFlag_Index_HasAttacker = 2;
-    const int StExt_IncomingDamageFlag_Index_HasWeapon = 4;
-    const int StExt_IncomingDamageFlag_Index_ExtraDamage = 8;
-    const int StExt_IncomingDamageFlag_Index_DontKill = 16;
-    const int StExt_IncomingDamageFlag_Index_DotDamage = 32;
-    const int StExt_IncomingDamageFlag_Index_ReflectDamage = 64;
+    const int StExt_IncomingDamageFlag_Index_HasAttacker = 1 << 0;
+    const int StExt_IncomingDamageFlag_Index_HasWeapon = 1 << 1;
+    const int StExt_IncomingDamageFlag_Index_ExtraDamage = 1 << 2;
+    const int StExt_IncomingDamageFlag_Index_DontKill = 1 << 3;
+    const int StExt_IncomingDamageFlag_Index_DotDamage = 1 << 4;
+    const int StExt_IncomingDamageFlag_Index_ReflectDamage = 1 << 5;
+    const int StExt_IncomingDamageFlag_Index_AoeDamage = 1 << 6;
+    const int StExt_IncomingDamageFlag_Index_Contextual = 1 << 7;
 
     struct DamageInfo
     {
-        int SpellId;
         int Damage[8];
-        int DamageEffective[8];
         int TotalDamage;
         int RealDamage;
+        int SpellId;
         int DamageEnum;
         int WeaponEnum;
         int DamageType;
@@ -102,6 +104,16 @@ namespace Gothic_II_Addon
         int BlockDamage;
         int StopProcess;
         int IsInitial;
+    };
+
+    struct IncomingDamageInfo
+    {
+        int Flags;
+        int DamageType;
+        int DamageFlags;
+        int Damage[8];
+        int DamageTotal;
+        int SpellId;
     };
 
     struct ExtraDamageInfo
@@ -113,34 +125,7 @@ namespace Gothic_II_Addon
         int DamageType;
         int DamageFlags;
         int MaxTargets;
-    };
-
-    struct DotDamageInfo
-    {
-        int Damage[8];
-        int Ticks[8];
-        int TotalDamage;
-        int DamageType;
-        int DamageFlags;
-    };
-
-    struct IncomingDamageInfo
-    {
-        struct
-        {
-            int Flags;
-            int Damage[8];
-            int DamageTotal;
-            int DamageType;
-            int DamageFlags;
-            int Processed;
-            int SpellId;
-        }ScriptInstance;
-
-        oCNpc* Attacker;
-        oCNpc* Target;
-        oCItem* Weapon;
-        oCNpc::oSDamageDescriptor* Desc;
+        int IsProcessed;
     };
     
     struct ThrowItemDescriptor
@@ -152,24 +137,8 @@ namespace Gothic_II_Addon
         int damageType;
     };
 
-    struct DamageMetaData
-    {
-        unsigned long DescriptorFlags;
-        bool IsInitial;
-        bool IsExtraDamage;
-        bool IsDot;
-        bool IsAbility;
-        bool IsDamageInfo;
-        bool IsConditionValid;
-        int FightMode;
-        int AbilityId;
-        int SpellId;
-        int DamageType;
-        int DamageFlags;
-    };
-
     extern ExtraDamageInfo ExtraDamage;
-    extern DotDamageInfo DotDamage;
+    extern ExtraDamageInfo DotDamage;
     extern ExtraDamageInfo ReflectDamage;
     extern IncomingDamageInfo IncomingDamage;
 
@@ -179,14 +148,14 @@ namespace Gothic_II_Addon
     //							DAMAGE
     //-----------------------------------------------------------------
 
-    void ApplyDamages(ULONG type, ULONG* damage, int& total);
+    void ApplyDamages(ulong type, ulong* damage, int& total);
     void ApplyDamages(int type, int* damage, int& total);
-    void AddDamages(int type, int* damage, int& total);
 
     void ApplyExtraDamage(Gothic_II_Addon::oCNpc* atk, Gothic_II_Addon::oCNpc* target);
     void ApplyDotDamage(Gothic_II_Addon::oCNpc* atk, Gothic_II_Addon::oCNpc* target);
     void ApplyReflectDamage(Gothic_II_Addon::oCNpc* atk, Gothic_II_Addon::oCNpc* target);
+    void ApplySingleDamage(oCNpc* atk, oCNpc* target, const int damType, const int damTotal, const int damageType, const int damageFlags);
 
-    void ClearDamageMeta();
+    extern void ClearDamageMeta();
     void ThrowItem(ThrowItemDescriptor& itemDescriptor);
 }

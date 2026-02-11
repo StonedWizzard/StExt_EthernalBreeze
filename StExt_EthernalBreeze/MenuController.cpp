@@ -435,11 +435,6 @@ namespace Gothic_II_Addon
 				Cursor->IsHiden = true;
 		}
 
-		if (ExtraItemInfoPanel)
-		{
-			
-		}
-
 		// draw cursor
 		if (hasCursor) { Cursor->Draw(); }
 		CheckPcInput();
@@ -466,6 +461,8 @@ namespace Gothic_II_Addon
 		UpdateWindowConfigs();
 		CurrentMenu = *wnd;
 		CurrentMenu->IsVisible = true;
+		if (CurrentMenu->OnOpen)
+			CurrentMenu->OnOpen(CurrentMenu);
 
 		if (Cursor)
 		{
@@ -479,6 +476,8 @@ namespace Gothic_II_Addon
 	void CloseMenuWindow() 
 	{
 		if (!CurrentMenu) return;
+		if (CurrentMenu->OnClose)
+			CurrentMenu->OnClose(CurrentMenu);
 
 		CurrentMenu->IsVisible = false;
 		CurrentMenu->Draw();

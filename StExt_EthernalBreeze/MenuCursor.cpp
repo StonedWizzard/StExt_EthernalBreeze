@@ -6,9 +6,6 @@ namespace Gothic_II_Addon
 	//				Cursor controller
 	// -----------------------------------------------
 
-	MenuCursorController* MenuCursorController::Instance = Null;
-	HHOOK MenuCursorController::MouseHook = Null;
-
 	inline void ClampCoords(float& x, float& y)
 	{
 		if (x < 0.0f) x = 0.0f;
@@ -16,14 +13,6 @@ namespace Gothic_II_Addon
 
 		if (y < 0.0f) y = 0.0f;
 		else if (y > 1.0f) y = 1.0f;
-	}
-	inline void ClampCoords(long& x, long& y)
-	{
-		if (x < 0) x = 0;
-		else if (x > ScreenVBufferSize) x = ScreenVBufferSize;
-
-		if (y < 0) y = 0;
-		else if (y > ScreenVBufferSize) y = ScreenVBufferSize;
 	}
 	inline void ClampCoords(int& x, int& y)
 	{
@@ -34,115 +23,17 @@ namespace Gothic_II_Addon
 		else if (y > ScreenVBufferSize) y = ScreenVBufferSize;
 	}
 
-	// -----------------------------------------------
-	//					Cursor HOOKS
-	// -----------------------------------------------
-
-	// Low-level mouse hook callback
-	LRESULT CALLBACK MenuCursorController::MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam)
-	{
-		if (nCode >= 0 && Instance)
-		{
-			MSLLHOOKSTRUCT* p = (MSLLHOOKSTRUCT*)lParam;
-			auto& st = Instance->MouseState;
-
-			switch (wParam)
-			{
-				case WM_MOUSEMOVE:
-				{
-					st.X = static_cast<int>((long)p->pt.x * Instance->ScreenRatioX);
-					st.Y = static_cast<int>((long)p->pt.y * Instance->ScreenRatioY);
-					ClampCoords(st.X, st.Y);
-					break;
-				}
-
-				case WM_LBUTTONDOWN:
-					Instance->LeftBtnPressed = true;
-					break;
-				case WM_LBUTTONUP:
-					if (Instance->LeftBtnPressed) {
-						Instance->LeftBtnReleased = true;
-						st.Action = UiMouseEnum::LeftClick;
-						Instance->HasEvent = true;
-					}
-					break;
-
-				case WM_RBUTTONDOWN:
-					Instance->RightBtnPressed = true;
-					break;
-				case WM_RBUTTONUP:
-					if (Instance->RightBtnPressed) {
-						Instance->RightBtnReleased = true;
-						st.Action = UiMouseEnum::RightClick;
-						Instance->HasEvent = true;
-					}
-					break;
-
-				case WM_MBUTTONDOWN:
-					Instance->MiddleBtnPressed = true;
-					break;
-				case WM_MBUTTONUP:
-					if (Instance->MiddleBtnPressed) {
-						Instance->MiddleBtnReleased = true;
-						st.Action = UiMouseEnum::MiddleClick;
-						Instance->HasEvent = true;
-					}
-					break;
-
-				case WM_MOUSEWHEEL:
-				{
-					short delta = GET_WHEEL_DELTA_WPARAM(p->mouseData);
-					st.ScrollDelta = delta;
-					st.Action = UiMouseEnum::Scroll;
-					Instance->HasEvent = true;
-					break;
-				}
-			}
-		}
-
-		//DEBUG_MSG("MouseState (Hook) = [X: " + Z(Instance->MouseState.X) + "; Y: " + Z(Instance->MouseState.Y) + "]");
-		return CallNextHookEx(MenuCursorController::MouseHook, nCode, wParam, lParam);
-	}
-
 	void MenuCursorController::Init()
 	{
 		DEBUG_MSG("StExt - MenuCursorController::Init...");
-		HWND hwnd = hWndApp;
-		if (!hwnd || !IsWindow(hwnd))
-		{
-			DEBUG_MSG("StExt - Initialize mod Ui: menu framework - Fail to initialize mouse handler (window handler not found)!...");
-			return;
-		}
-
-		RAWINPUTDEVICE rid;
-		rid.usUsagePage = 0x01;
-		rid.usUsage = 0x02;
-		rid.dwFlags = RIDEV_INPUTSINK;
-		rid.hwndTarget = hwnd;
-
-		if (!RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE))) {
-			DEBUG_MSG("StExt - Initialize mod Ui: menu framework -  Fail to initialize window mouse handler (fail to register raw input device)");
-			return;
-		}
-
-		if (!MouseHook)
-		{
-			HINSTANCE hInst = GetModuleHandle(NULL);
-			//MouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, hInst, 0);
-			MouseHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
-			if (!MouseHook)
-			{
-				DEBUG_MSG("StExt - Initialize mod Ui: menu framework - Fail to set global mouse hook!");
-				return;
-			}
-		}
-		Instance = this;		
 
 		ScreenWidth = GetSystemMetrics(SM_CXSCREEN);
 		ScreenHeight = GetSystemMetrics(SM_CYSCREEN);
 		ScreenRatioX = static_cast<float>(ScreenVBufferSize) / (float)ScreenWidth;
 		ScreenRatioY = static_cast<float>(ScreenVBufferSize) / (float)ScreenHeight;
-		DEBUG_MSG("StExt - Initialize mod Ui: menu framework - Screen size: " + Z(ScreenWidth) + "x" + Z(ScreenHeight));
+
+		MouseSensitivity = parser->GetSymbol("StExt_Config_Ui_Mouse_MoveSensitivity")->single_floatdata;
+		ScrollSensitivity = parser->GetSymbol("StExt_Config_Ui_Mouse_ScrollSensitivity")->single_floatdata;
 
 		MouseState = UiMouseEventArgs();
 		MouseState.X = ScreenHalfVBufferSize;
@@ -155,22 +46,45 @@ namespace Gothic_II_Addon
 
 	void MenuCursorController::Update()	
 	{
-		if (!IsHookChecked || !MouseHook)
-		{
-			if (MouseHook)
-			{
-				UnhookWindowsHookEx(MouseHook);
-				MouseHook = NULL;
-			}
+		if (!zinput) return;
 
-			HHOOK newHook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, NULL, 0);
-			if (newHook)
-			{
-				MouseHook = newHook;
-				IsHookChecked = true;
-				DEBUG_MSG("MenuCursorController - Mouse hook (re)initialized successfully.");
-			}
-			else { DEBUG_MSG("MenuCursorController - Mouse hook (re)initialization failed."); }
+		float fx = 0.0f, fy = 0.0f, fz = 0.0f;
+		POINT pt; ::GetCursorPos(&pt);
+		zinput->GetMousePos(fx, fy, fz);
+
+		MouseState.X = static_cast<int>(pt.x * ScreenRatioX);
+		MouseState.Y = static_cast<int>(pt.y * ScreenRatioY);
+		ClampCoords(MouseState.X, MouseState.Y);
+
+		bool lDown = zKeyPressed(MOUSE_BUTTONLEFT);
+		if (lDown && !LeftBtnPressed) LeftBtnPressed = true;		
+		else if (!lDown && LeftBtnPressed)
+		{
+			LeftBtnPressed = false;
+			MouseState.Action = UiMouseEnum::LeftClick;
+			HasEvent = true;
+		}
+
+		bool rDown = zKeyPressed(MOUSE_BUTTONRIGHT);
+		if (rDown && !RightBtnPressed) RightBtnPressed = true;
+		else if (!rDown && RightBtnPressed)
+		{
+			RightBtnPressed = false;
+			MouseState.Action = UiMouseEnum::RightClick;
+			HasEvent = true;
+		}
+
+		if (zKeyPressed(MOUSE_WHEELUP))
+		{
+			MouseState.ScrollDelta = static_cast<int>(fz * ScrollSensitivity);
+			MouseState.Action = UiMouseEnum::Scroll;
+			HasEvent = true;
+		}
+		if (zKeyPressed(MOUSE_WHEELDOWN))
+		{
+			MouseState.ScrollDelta = static_cast<int>(fz * ScrollSensitivity);
+			MouseState.Action = UiMouseEnum::Scroll;
+			HasEvent = true;
 		}
 	}
 
@@ -183,8 +97,16 @@ namespace Gothic_II_Addon
 		desc.X = MouseState.X;
 		desc.Y = MouseState.Y;
 		desc.ScrollDelta = MouseState.ScrollDelta;
-		desc.IsShiftPressed = zinput ? (zKeyPressed(KEY_LSHIFT) || zKeyPressed(KEY_RSHIFT)) : false;
-		desc.IsAltPressed = zinput ? (zKeyPressed(KEY_LALT) || zKeyPressed(KEY_RALT)) : false;
+		if (zinput)
+		{
+			desc.IsShiftPressed = (zKeyPressed(KEY_LSHIFT) || zKeyPressed(KEY_RSHIFT));
+			desc.IsAltPressed = (zKeyPressed(KEY_LALT) || zKeyPressed(KEY_RALT));
+		}
+		else
+		{
+			desc.IsShiftPressed = false;
+			desc.IsAltPressed = false;
+		}
 		desc.Action = MouseState.Action;
 
 		if (HasEvent)
@@ -198,17 +120,7 @@ namespace Gothic_II_Addon
 		}
 	}
 
-	MenuCursorController::~MenuCursorController()
-	{
-		if (MouseHook)
-		{
-			UnhookWindowsHookEx(MouseHook);
-			MouseHook = Null;
-		}
-
-		if (Instance == this)
-			Instance = Null;
-	}
+	MenuCursorController::~MenuCursorController() { }
 
 	// -----------------------------------------------
 	//					Cursor view

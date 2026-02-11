@@ -292,6 +292,14 @@ namespace Gothic_II_Addon
 		}
 	}
 
+	void ConfigsWindow_OnClose(MenuWindow* wnd)
+	{
+		if (!wnd || !Instance) return;
+		auto skinSym = parser->GetSymbol("StExt_UpdateSkin");
+		if (skinSym)
+			skinSym->SetValue(true, 0);
+	}
+
 	//----------------------------------------------------------------------
 	//								TABS PANEL
 	//----------------------------------------------------------------------
@@ -774,6 +782,7 @@ namespace Gothic_II_Addon
 			item->Resize();
 		};
 		MenuWindow::Init();
+		OnClose = ConfigsWindow_OnClose;
 
 		InitTabs();
 		InitConfigsTab();

@@ -5,11 +5,11 @@ namespace Gothic_II_Addon
 	// This function created to support generated items by game and scripts.
 	bool CreateVirtualSymbol(const zSTRING& prototypeSymName, const zSTRING& virtualSymName, int& index)
 	{
-		DEBUG_MSG("Copy symbol - '" + prototypeSymName + "' to '" + virtualSymName + "' ...");
+		//DEBUG_MSG("Copy symbol - '" + prototypeSymName + "' to '" + virtualSymName + "' ...");
 		zCPar_Symbol* ps = parser->GetSymbol(prototypeSymName);
 		if (!ps)
 		{
-			DEBUG_MSG("Copy symbol - Original symbol '" + prototypeSymName + "' not found!");
+			//DEBUG_MSG("Copy symbol - Original symbol '" + prototypeSymName + "' not found!");
 			return false;
 		}
 
@@ -37,7 +37,7 @@ namespace Gothic_II_Addon
 
 		if (index != Invalid)
 		{
-			DEBUG_MSG("Copy symbol - '" + virtualSymName + "' already in symbols table. Just update it...");
+			//DEBUG_MSG("Copy symbol - '" + virtualSymName + "' already in symbols table. Just update it...");
 			return true;
 		}
 
@@ -174,6 +174,25 @@ namespace Gothic_II_Addon
 		return true;
 	}
 
+	bool ItemExtensionDataStorage::InsertFromSave(ItemExtension* itemExtension)
+	{
+		if (!itemExtension) return false;
+		itemExtension->InstanceName = NormalizeInstanceName(itemExtension->InstanceName);
+
+		int parserId = Invalid;
+		if (!CreateVirtualSymbol(itemExtension->BaseInstanceName, itemExtension->InstanceName, parserId))
+		{
+			DEBUG_MSG("InsertFromSave: fail to create virtual symbol '" + itemExtension->InstanceName + "'");
+			SAFE_DELETE(itemExtension);
+			return false;
+		}
+
+		Data.Insert(itemExtension->UId, itemExtension);
+		InsertIndex(itemExtension);
+		ItemsCount = Data.GetNum();
+		return true;
+	}
+
 	void ItemExtensionDataStorage::Clear() 
 	{
 		DEBUG_MSG("ItemExtensionDataStorage::Clear: clear items storage...");
@@ -210,17 +229,23 @@ namespace Gothic_II_Addon
 	void ItemExtensionDataStorage::UnArchive(zCArchiver& arc) 
 	{
 		DEBUG_MSG("ItemExtensionDataStorage::UnArchive: start read ItemsExtension storage...");
-		uint readTotal = 0U;
 
+		uint readTotal = 0U;	
 		arc.ReadRaw("ItemExtensionsCount", &ItemsCount, sizeof(uint));
-		for (uint i = 0; i < ItemsCount; ++i)
+		const uint expectedItemsCount = ItemsCount;
+		for (uint i = 0; i < expectedItemsCount; ++i)
 		{
 			ItemExtension* extension = new ItemExtension();
 			extension->UnArchive(arc);
-			if (Insert(extension))
+			if (!InsertFromSave(extension))
+			{
+				DEBUG_MSG_IF(extension,"ItemExtensionDataStorage::UnArchive: fail to load '" + extension->InstanceName + "'!");
+				SAFE_DELETE(extension);
+			}
+			else
 				++readTotal;
 		}
-		DEBUG_MSG_IF(readTotal != ItemsCount, "ItemExtensionDataStorage::UnArchive: readed " + Z(static_cast<int>(readTotal)) + "/" + Z(static_cast<int>(ItemsCount)) + "items!");
+		DEBUG_MSG_IF(readTotal != ItemsCount, "ItemExtensionDataStorage::UnArchive: Not all entities loaded! Readed " + Z(static_cast<int>(readTotal)) + "/" + Z(static_cast<int>(expectedItemsCount)) + " items!");
 	}
 
 	ItemExtensionDataStorage::~ItemExtensionDataStorage() { Clear(); }

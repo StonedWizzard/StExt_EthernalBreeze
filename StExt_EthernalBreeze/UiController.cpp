@@ -179,8 +179,8 @@ namespace Gothic_II_Addon
         heroEx = dynamic_cast<oCNpcEx*>(player); 
         if (heroEx)
         {
-            int esCur = heroEx->m_pVARS[StExt_AiVar_EsCur];
-            int esMax = heroEx->m_pVARS[StExt_AiVar_EsMax];
+            int esCur; GetNpcExtensionVar(heroEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_EsCur, esCur);
+            int esMax; GetNpcExtensionVar(heroEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_EsMax, esMax);
             int defaultPos = parser->GetSymbol(EsBarDefaultPos_SymIndex)->single_intdata;
 
             if (esMax <= 0)
@@ -233,8 +233,8 @@ namespace Gothic_II_Addon
         int esMax;
         if (FocusNpcEx)
         {
-            esCur = FocusNpcEx->m_pVARS[StExt_AiVar_EsCur];
-            esMax = FocusNpcEx->m_pVARS[StExt_AiVar_EsMax];
+            GetNpcExtensionVar(FocusNpcEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_EsCur, esCur);
+            GetNpcExtensionVar(FocusNpcEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_EsMax, esMax);
         }
         else
         {
@@ -330,7 +330,7 @@ namespace Gothic_II_Addon
         if (FocusNpc)
         {
             parser->CallFunc(UpdateFocusNpcInfoFunc);
-            if (FocusNpcEx) focusRank = FocusNpcEx->m_pVARS[StExt_AiVar_IsRandomized];
+            if (FocusNpcEx) GetNpcExtensionVar(FocusNpcEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_IsRandomized, focusRank);
             else focusRank = parser->GetSymbol(FocusNpcRank_SymIndex)->single_intdata;
 
             zCPar_Symbol* infoArray = parser->GetSymbol(FocusNpcInfo_SymIndex);
@@ -405,7 +405,7 @@ namespace Gothic_II_Addon
         FocusName = "";
         if (npcEsBar)
             screen->RemoveItem(npcEsBar);
-        parser->SetInstance("STEXT_FOCUSNPC", Null);
+        parser->SetInstance(StExt_FocusNpc_SymId, Null);
     }
 
     void StonedExtension_Loop_Ui()
@@ -435,7 +435,7 @@ namespace Gothic_II_Addon
 
                 FocusNpcEx = dynamic_cast<oCNpcEx*>(FocusNpc);
                 FocusName = FocusNpc->name;
-                parser->SetInstance("STEXT_FOCUSNPC", FocusNpc);
+                parser->SetInstance(StExt_FocusNpc_SymId, FocusNpc);
                 PrintNpcEs();
                 PrintNpcInfo();
                 return;

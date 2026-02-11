@@ -3,9 +3,11 @@
 // User API for oCItemContainer
 // Add your methods here
 
+//void oCItemContainer::Draw_StExt();
+
 void oCItemContainer::DrawItemInfo_StExt(oCItem* item, zCWorld* world);
 
-void oCItemContainer::OpenPassive_StExt(int x, int y, int mode);
+//void oCItemContainer::OpenPassive_StExt(int x, int y, int mode);
 
 void oCItemContainer::Close_StExt();
 

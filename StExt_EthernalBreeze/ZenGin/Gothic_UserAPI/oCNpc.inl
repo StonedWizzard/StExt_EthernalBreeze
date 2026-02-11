@@ -12,9 +12,11 @@ void oCNpc::DisplayCannotUse_StExt();
 
 void oCNpc::ChangeAttribute_StExt(int attribute, int value);
 
-void oCNpc::Archive_StExt(zCArchiver& ar);
+//void oCNpc::Archive_StExt(zCArchiver& ar);
 
 void oCNpc::Unarchive_StExt(zCArchiver& ar);
+
+void oCNpc::InitByScript_StExt(int instance, int inSaveGame);
 
 void oCNpc::RemoveItemEffects_StExt(oCItem* item);
 
@@ -36,7 +38,7 @@ TNpcSlot* oCNpc::CreateAdditionalItemSlot(const zSTRING& name);
 
 void oCNpc::EquipAdditionalArmorItem(oCItem* item);
 
-void oCNpc::UnequipAdditionalArmorItem(int wear);
+void oCNpc::UnequipAdditionalArmorItem(const int wear);
 
 void oCNpc::PutAdditionalArmorItemToSlot(oCItem* item);
 

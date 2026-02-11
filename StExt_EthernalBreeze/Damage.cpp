@@ -1,337 +1,118 @@
-#include <StonedExtension.h>
+﻿#include <StonedExtension.h>
 
 namespace Gothic_II_Addon
 {
-	ExtraDamageInfo ExtraDamage;
-	DotDamageInfo DotDamage;
-	ExtraDamageInfo ReflectDamage;
-	IncomingDamageInfo IncomingDamage;
+	struct DamageMeta
+	{
+		oCNpc* Target;
+		oCNpc* Attacker;
+		oCItem* Weapon;
 
-	StringMap<int> SpellFxNames;
-	
+		oCNpc* TargetBefore;
+		oCNpc* AttackerBefore;
+		oCItem* WeaponBefore;
+		oCNpc::oSDamageDescriptor* Desc;
+
+		bool IsExtraDamage;
+		bool IsDotDamage;
+		bool IsAoeDamage;
+		bool IsReflectDamage;
+		bool IsAbility;
+		bool IsOverlayDamage;
+		bool IsInitialDamage;
+		bool TargetIsImmortal;
+
+		DamageInfo DamageInfo;
+	};
+
+	struct ExtraDamageParams
+	{
+		bool HasPendingExtraParams;
+		int DamageType;
+		int DamageFlags;
+	};
+
+	ExtraDamageInfo ExtraDamage;
+	ExtraDamageInfo DotDamage;
+	ExtraDamageInfo ReflectDamage;
+
+	ExtraDamageParams DamageExtraParams;
+	Array<DamageMeta> DamageMetaData;
+
 	int MaxSpellId;
 	int StExt_AbilityPrefix;
-	oCNpc::oSDamageDescriptor* CurrentDescriptor = Null;
-	DamageMetaData* DamageMeta = Null;
+	StringMap<int> SpellFxNames;
 
-	inline void SetDamageMeta(oCNpc::oSDamageDescriptor* desc, DamageMetaData* meta, oCNpc* target)
-	{
-		CurrentDescriptor = desc;
-		DamageMeta = meta;
-		if (CurrentDescriptor)
-		{
-			parser->SetInstance("STEXT_TARGETNPC", target);
-			parser->SetInstance("STEXT_ATTACKNPC", CurrentDescriptor->pNpcAttacker);
-			parser->SetInstance("STEXT_ATTACKWEAPON", CurrentDescriptor->pItemWeapon);
-		}
-		else
-		{
-			IncomingDamage = IncomingDamageInfo();
-			memset(&IncomingDamage, 0, sizeof(IncomingDamageInfo));
-			IncomingDamage.ScriptInstance.Processed = true;
-
-			parser->SetInstance("STEXT_INCOMINGDAMAGEINFO", Null);
-			parser->SetInstance("STEXT_TARGETNPC", Null);
-			parser->SetInstance("STEXT_ATTACKNPC", Null);
-			parser->SetInstance("STEXT_ATTACKWEAPON", Null);
-		}
-	}
 	
-	void ClearDamageMeta() { SetDamageMeta(Null, Null, Null); }
+#if DebugEnabled 
+	#define DEBUG_MSG_DAMDESC(desc, msg, target) PrintDamageDescriptorDebug(desc, msg, target)
+#else
+	#define DEBUG_MSG_DAMDESC(desc, msg, target) ((void)0)
+#endif
 
-	void ApplyDamages(ULONG type, ULONG* damage, int& total)
+	//-----------------------------------------------------------------
+	//						UTIL FUNCTIONS
+	//-----------------------------------------------------------------
+
+	inline void PrintDamageDescriptorDebug(oCNpc::oSDamageDescriptor& desc, zSTRING msg, oCNpc* target)
 	{
-		float dam = 0.0f;
-		unsigned long mask = type;
-		for (int i = 0; i < oEDamageIndex_MAX; ++i) 
-		{
-			if (mask & 1) {
-				dam += 1.0f;
-			}
-			mask >>= 1;
-		}
+		DEBUG_MSG("");
+		DEBUG_MSG("-------------------------------------------------------------");
+		DEBUG_MSG_DAM("PrintDamageDescriptorDebug", msg, desc.pNpcAttacker, target);
+		DEBUG_MSG("DescriptorFlags: " + Z(desc.dwFieldsValid) + " | DamageFlags: " + Z(desc.enuModeDamage) + " | WeaponFlags: " + Z(desc.enuModeWeapon));
+		DEBUG_MSG("DamageReal: " + Z((int)desc.fDamageTotal) + " | DamageTotal: " + Z((int)desc.fDamageReal) + " | DamageEffective: " + Z((int)desc.fDamageEffective));
 
-		if (total <= 0) total = 5;
-		if (dam < 1.0f) 
-		{ 
-			damage[dam_index_barrier] = total;
-			return; 
-		}
+		bool bFinished = desc.bFinished ? true : false;
+		bool bIsDead = desc.bIsDead ? true : false;
+		bool bIsUnconscious = desc.bIsUnconscious ? true : false;
+		DEBUG_MSG("IsFinished: " + Z((int)bFinished) + " | IsDead: " + Z((int)bIsDead) + " | IsUnconscious: " + Z((int)bIsUnconscious));
 
-		if (dam < 5.0f) dam = 5.0f;
-		dam = total / dam + 0.5f;
-		for (int i = 0; i < oEDamageIndex_MAX; i++)
-			damage[i] = type & (1 << i) ? static_cast<unsigned long>(dam) : 0UL;
-	}
-	void ApplyDamages(int type, int* damage, int& total)
-	{
-		float dam = 0.0f;
-		int mask = type;
+		zSTRING damage = "Damage[] = ";
+		zSTRING effectiveDamage = Z"EffectiveDamage[] = ";
 		for (int i = 0; i < oEDamageIndex_MAX; ++i)
 		{
-			if (mask & 1) {
-				dam += 1.0f;
-			}
-			mask >>= 1;
+			damage += Z desc.aryDamage[i] + Z" | ";
+			effectiveDamage += Z desc.aryDamageEffective[i] + Z" | ";
 		}
-
-		if (total <= 0) total = 5;
-		if (dam < 1.0f)
-		{
-			damage[dam_index_barrier] = total;
-			return;
-		}
-
-		dam = total / dam + 0.5f;
-		if (dam < 5.0f) dam = 5.0f;
-		for (int i = 0; i < oEDamageIndex_MAX; i++)
-			damage[i] = type & (1 << i) ? static_cast<int>(dam) : 0;
+		DEBUG_MSG(damage);
+		DEBUG_MSG(effectiveDamage);
+		if (desc.pFXHit)
+			DEBUG_MSG(Z"FxName: " + desc.pFXHit->fxName + " | SpellId: " + Z((int)desc.nSpellID) + " | SpellLevel: " + Z((int)desc.nSpellLevel) + " | SpellCat: " + Z((int)desc.nSpellCat));
+		DEBUG_MSG("-------------------------------------------------------------");
+		DEBUG_MSG("");
 	}
 
-	void AddDamages(int type, int* damage, int& total)
+	template<typename D>
+	inline void ApplyDamagesGeneric(const ulong type, D* damage, int& total)
 	{
-		float dam = 0.0f;
-		int mask = type;
-		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+		if (total <= 0)
 		{
-			if (mask & 1) {
-				dam += 1.0f;
-			}
-			mask >>= 1;
-		}
-
-		if (total <= 0) total = 5;
-		if (dam < 1.0)
-		{
-			damage[dam_index_barrier] = total;
+			DEBUG_MSG("ApplyDamagesGeneric - total damage is less then 0!");
 			return;
 		}
 
-		dam = total / dam + 0.5f;
-		for (int i = 0; i < dam_index_max; i++) {
-			if (type & (1 << i)) {
-				damage[i] = ValidateValueMin(damage[i] + static_cast<int>(dam), 0);
-			}
-		}			
-	}
-
-	inline void* GetDamageStruct(zSTRING structName)
-	{
-		zCPar_Symbol* psDam = parser->GetSymbol(structName);
-		if (!psDam) return Null;
-		return psDam->GetInstanceAdr();		
-	}
-
-	inline oCNpc::oSDamageDescriptor BuildDescriptor(oCNpc* atk, oCNpc* target, int* damage, int& totalDamage)
-	{
-		oCNpc::oSDamageDescriptor desc;
-		memset(&desc, 0, sizeof oCNpc::oSDamageDescriptor);
-
-		for (int i = 0; i < oEDamageIndex_MAX; i++)
-		{
-			if (damage[i] > 0)
-			{
-				totalDamage += damage[i];
-				desc.aryDamage[i] = static_cast<unsigned long>(damage[i]);
-				desc.enuModeDamage |= (1 << i);
-			}
+		float damTypesCount = 0.0f;
+		for (ulong i = 0; i < oEDamageIndex_MAX; ++i) {
+			if (type & (1 << i))
+				++damTypesCount; 
 		}
-		desc.fDamageTotal = static_cast<float>(totalDamage);
-		desc.fDamageMultiplier = 1.0f;
-		desc.vecLocationHit = target->GetPositionWorld();
-		desc.pNpcAttacker = atk;
-		desc.pVobAttacker = atk;
-		desc.pVobHit = target;
-		desc.bOnce = true;
-		return desc;
-#pragma region DescriptorFields
-		/*
-		desc.dwFieldsValid = 0;
-		desc.pVobAttacker = Null;
-		desc.pNpcAttacker = Null;
-		desc.pVobHit = Null;
-		desc.pFXHit = Null;
-		desc.pItemWeapon = 0;
-		desc.nSpellID = 0;
-		desc.nSpellCat = 0;
-		desc.nSpellLevel = 0;
-		desc.enuModeDamage = 0;
-		desc.enuModeWeapon = 0;
-		for (int i = 0; i < 8; i++)
-			desc.aryDamage[i] = 0;
-		desc.fDamageTotal = 0;
-		desc.fDamageMultiplier = 0;
-		desc.vecLocationHit = zVEC3();
-		desc.vecDirectionFly = zVEC3();
-		desc.strVisualFX = "";
-		desc.fTimeDuration = 0;
-		desc.fTimeInterval = 0;
-		desc.fDamagePerInterval = 0;
-		desc.bDamageDontKill = 0;
-		desc.bOnce = 0;
-		desc.bFinished = 0;
-		desc.bIsDead = 0;
-		desc.bIsUnconscious = 0;
-		desc.lReserved = 0;
-		desc.fAzimuth = 0;
-		desc.fElevation = 0;
-		desc.fTimeCurrent = 0;
-		desc.fDamageReal = 0;
-		desc.fDamageEffective = 0;
-		for (int i = 0; i < 8; i++)
-			desc.aryDamageEffective[i] = 0;
-		desc.pVobParticleFX = Null;
-		desc.pParticleFX = Null;
-		desc.pVisualFX = Null;
-		*/
-#pragma endregion	
-	}
-
-	void ApplyExtraDamage(oCNpc* atk, oCNpc* target)
-	{
-		oCNpc* pTarget = zDYNAMIC_CAST<oCNpc>(target);
-		oCNpc* pAttaker = zDYNAMIC_CAST<oCNpc>(atk);
-		if ((!pAttaker) || (!pTarget))
-		{
-			DEBUG_MSG("ApplyExtraDamage - some actor is null!");
-			return;
-		}
-		DEBUG_MSG(pTarget->name + zSTRING(" ApplyExtraDamage - Create damage descriptor..."));
-
-		void* damStructpointer = GetDamageStruct("StExt_ExtraDamageInfo");
-		if (!damStructpointer)
-		{
-			DEBUG_MSG(pTarget->name + zSTRING(" ApplyExtraDamage - Create damage descriptor - damage struct symbol is not found!"));
-			return;
-		}
-		ExtraDamage = *dynamic_cast<ExtraDamageInfo*>((ExtraDamageInfo*)damStructpointer);
-
-		int totalDamage = 0;
-		oCNpc::oSDamageDescriptor desc = BuildDescriptor(pAttaker, pTarget, ExtraDamage.Damage, totalDamage);
-		desc.dwFieldsValid |= DamageDescFlag_ExtraDamage;
-
-		if (totalDamage < 1)
-		{
-			DEBUG_MSG(pTarget->name + zSTRING(" ApplyExtraDamage - Damage is 0. Skipped!"));
-			return;
-		}
-
-		DEBUG_MSG(pTarget->name + zSTRING(" ApplyExtraDamage - damage descriptor applied!"));
-		pTarget->OnDamage(desc);
-		return;
-	}
-
-	void ApplyDotDamage(oCNpc* atk, oCNpc* target)
-	{		
-		oCNpc* pTarget = zDYNAMIC_CAST<oCNpc>(target);
-		oCNpc* pAttaker = zDYNAMIC_CAST<oCNpc>(atk);
-		if ((!pAttaker) || (!pTarget))
-		{
-			DEBUG_MSG("ApplyDotDamage - some actor is null!");
-			return;
-		}
-		DEBUG_MSG(pTarget->name + zSTRING(" ApplyDotDamage - Create damage descriptor..."));
+		if ((type == 0UL) || (damTypesCount <= 0.5f)) { damage[dam_index_barrier] = static_cast<D>(total); return; }
 		
-		void* damStructpointer = GetDamageStruct("StExt_DotDamageInfo");
-		if (!damStructpointer)
-		{
-			DEBUG_MSG(pTarget->name + zSTRING(" ApplyDotDamage - Create damage descriptor - damage struct symbol is not found!"));
-			return;
-		}
-		DotDamage = *dynamic_cast<DotDamageInfo*>((DotDamageInfo*)damStructpointer);
-		int totalDamage = 0;
-		oCNpc::oSDamageDescriptor desc = BuildDescriptor(pAttaker, pTarget, DotDamage.Damage, totalDamage);
-		desc.dwFieldsValid |= DamageDescFlag_ExtraDamage | DamageDescFlag_DotDamage;
-		
-		if (totalDamage < 1)
-		{
-			DEBUG_MSG(pTarget->name + zSTRING(" ApplyDotDamage - Damage is 0. Skipped!"));
-			return;
-		}
-
-		DEBUG_MSG(pTarget->name + zSTRING(" ApplyDotDamage - damage descriptor applied!"));
-		pTarget->OnDamage(desc);
-		return;
+		float dam = (float)total / (damTypesCount + 0.5f);
+		if (dam < 1.0f) dam = 1.0f;
+		for (ulong i = 0; i < oEDamageIndex_MAX; ++i) 
+			damage[i] = type & (1 << i) ? static_cast<D>(dam) : D{};
 	}
-
-	void ApplyReflectDamage(oCNpc* atk, oCNpc* target)
-	{
-		oCNpc* pTarget = zDYNAMIC_CAST<oCNpc>(target);
-		oCNpc* pAttaker = zDYNAMIC_CAST<oCNpc>(atk);
-		if ((!pAttaker) || (!pTarget))
-		{
-			DEBUG_MSG("ApplyReflectDamage - some actor is null!");
-			return;
-		}
-		DEBUG_MSG(pTarget->name + zSTRING(" ApplyReflectDamage - Create damage descriptor..."));
-
-		void* damStructpointer = GetDamageStruct("StExt_ReflectDamageInfo");
-		if (!damStructpointer)
-		{
-			DEBUG_MSG(pTarget->name + zSTRING(" ApplyReflectDamage - Create damage descriptor - damage struct symbol is not found!"));
-			return;
-		}
-		ReflectDamage = *dynamic_cast<ExtraDamageInfo*>((ExtraDamageInfo*)damStructpointer);
-
-		int totalDamage = 0;
-		oCNpc::oSDamageDescriptor desc = BuildDescriptor(pAttaker, pTarget, ReflectDamage.Damage, totalDamage);
-		desc.dwFieldsValid |= DamageDescFlag_ExtraDamage | DamageDescFlag_ReflectDamage;
-
-		if (totalDamage < 1)
-		{
-			DEBUG_MSG(pTarget->name + zSTRING(" ApplyReflectDamage - Damage is 0. Skipped!"));
-			return;
-		}
-
-		DEBUG_MSG(pTarget->name + zSTRING(" ApplyReflectDamage - damage descriptor applied!"));
-		pTarget->OnDamage(desc);
-		return;
-	}
-
-	inline DamageInfo BuildDamageInfo(oCNpc::oSDamageDescriptor& desc)
-	{
-		DamageInfo result = DamageInfo();
-		result.SpellId = static_cast<int>(desc.nSpellID);
-		int totalDamage = 0;
-		for (int i = 0; i < oEDamageIndex_MAX; i++)
-		{
-			unsigned long dam = desc.aryDamage[i] >= desc.aryDamageEffective[i] ? desc.aryDamage[i] : desc.aryDamageEffective[i];
-			result.Damage[i] = static_cast<int>(dam);
-			result.DamageEffective[i] = static_cast<int>(desc.aryDamageEffective[i]);
-			totalDamage += result.Damage[i];
-			if (result.Damage[i] > 0)
-				desc.enuModeDamage |= (1 << i);
-		}
-		result.TotalDamage = desc.fDamageTotal > 0.0f ? static_cast<int>(desc.fDamageTotal) : totalDamage;
-		result.RealDamage = static_cast<int>(desc.fDamageReal);
-		result.DamageEnum = static_cast<int>(desc.enuModeDamage);
-		result.WeaponEnum = static_cast<int>(desc.enuModeWeapon);
-		result.DamageType = 0;
-		result.DamageFlags = 0;
-		result.BlockDamage = 0;
-		result.StopProcess = false;
-		result.IsInitial = false;
-		return result;
-	}
-
-	inline bool IsDamageInitial(unsigned long flags) 
-	{ 
-		return (!HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayActivate) && !HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayInterval) &&
-		!HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayDuration) && !HasFlag(flags, (ulong)oCNpc::oEDamageDescFlag_OverlayDamage) &&
-		!HasFlag(flags, (ulong)DamageDescFlag_ExtraDamage) && !HasFlag(flags, (ulong)DamageDescFlag_DotDamage) && !HasFlag(flags, (ulong)DamageDescFlag_ReflectDamage));
-	}
+	void ApplyDamages(ulong type, ulong* damage, int& total) { ApplyDamagesGeneric(type, damage, total); }
+	void ApplyDamages(int type, int* damage, int& total) { ApplyDamagesGeneric(static_cast<ulong>(type), damage, total); }
 
 	inline int GetFxSpellId(zSTRING& fxName)
 	{
 		int result = Invalid;
-		if (SpellFxNames.IsEmpty())
+		if (SpellFxNames.IsEmpty() || fxName.IsEmpty())
 		{
-			DEBUG_MSG("GetFxSpellId - SpellFxNames is null!");
-			return result;
-		}
-		if (fxName.IsEmpty())
-		{
-			DEBUG_MSG("GetFxSpellId - fxName is empty!");
+			DEBUG_MSG_IF(SpellFxNames.IsEmpty(), "GetFxSpellId - SpellFxNames is null!");
+			DEBUG_MSG_IF(fxName.IsEmpty(), "GetFxSpellId - fxName is empty!");
 			return result;
 		}
 
@@ -341,369 +122,512 @@ namespace Gothic_II_Addon
 		return result;
 	}
 
-	void UpdateIncomingDamage(int damage, oCNpc* target)
+	inline int GetFxTrueId(oCNpc::oSDamageDescriptor* desc, bool& isAbility)
 	{
-		IncomingDamage = IncomingDamageInfo();
-		memset(&IncomingDamage, 0, sizeof(IncomingDamageInfo));
+		if (!desc || !desc->pFXHit) return Invalid;
 
-		IncomingDamage.Target = target;
-		IncomingDamage.Attacker = Null;
-		IncomingDamage.Desc = Null;
-		IncomingDamage.Weapon = Null;
-		IncomingDamage.ScriptInstance.DamageTotal = damage;
-		IncomingDamage.ScriptInstance.Processed = false;
-		IncomingDamage.ScriptInstance.Flags = 0;
+		int spellId = static_cast<int>(desc->nSpellID);
+		if (spellId <= 0)
+			spellId = GetFxSpellId(desc->pFXHit->fxName.Upper());
 
-		if (CurrentDescriptor && (!IsLevelChanging && !IsLoading))
+		if ((desc->nSpellCat == 0UL) && (desc->nSpellID == 0UL) && (spellId > 0))
 		{
-			IncomingDamage.Desc = CurrentDescriptor;
-			IncomingDamage.Attacker = CurrentDescriptor->pNpcAttacker;
-			IncomingDamage.Weapon = CurrentDescriptor->pItemWeapon;
-
-			if (DamageMeta)
-			{
-				IncomingDamage.ScriptInstance.SpellId = DamageMeta->IsAbility ? DamageMeta->AbilityId : DamageMeta->SpellId;
-				if(DamageMeta->IsExtraDamage)
-					IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ExtraDamage;
-			}
-			else
-			{
-				unsigned long descriptorFlags = CurrentDescriptor->dwFieldsValid;
-				bool isExtraDamage = HasFlag(descriptorFlags, (ulong)DamageDescFlag_ExtraDamage) || HasFlag(descriptorFlags, (ulong)DamageDescFlag_DotDamage) ||
-					HasFlag(descriptorFlags, (ulong)DamageDescFlag_ReflectDamage) || HasFlag(descriptorFlags, (ulong)DamageDescFlag_IsAbilityDamage);
-
-				if (isExtraDamage) 
-					IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ExtraDamage;
-				IncomingDamage.ScriptInstance.SpellId = static_cast<int>(CurrentDescriptor->nSpellID);
-			}
-
-			if (HasFlag(CurrentDescriptor->dwFieldsValid, (ulong)DamageDescFlag_DotDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_DotDamage;
-			if (HasFlag(CurrentDescriptor->dwFieldsValid, (ulong)DamageDescFlag_ReflectDamage)) IncomingDamage.ScriptInstance.Flags |= StExt_IncomingDamageFlag_Index_ReflectDamage;
-
-			unsigned long damTotal = 0UL;
-			for (int i = 0; i < oEDamageIndex_MAX; i++)
-			{
-				unsigned long dam = 0UL;
-				dam = CurrentDescriptor->aryDamageEffective[i];
-				if(dam <= 0) dam = CurrentDescriptor->aryDamage[i];
-				IncomingDamage.ScriptInstance.Damage[i] = static_cast<int>(dam);
-				damTotal += dam;
-			}
-
-			if ((damTotal == 0UL) && (damage > 0))
-			{
-				unsigned long damageArray[oEDamageIndex_MAX];
-				int damageTemp = damage;
-				ApplyDamages(CurrentDescriptor->enuModeDamage, damageArray, damageTemp);
-				for (int i = 0; i < oEDamageIndex_MAX; i++)
-					IncomingDamage.ScriptInstance.Damage[i] = static_cast<int>(damageArray[i]);
-			}
+			isAbility = true;
+			return spellId + StExt_AbilityPrefix;
 		}
-
-		parser->SetInstance("STEXT_INCOMINGDAMAGEINFO", &IncomingDamage.ScriptInstance);
-		parser->SetInstance("STEXT_TARGETNPC", IncomingDamage.Target);
-		parser->SetInstance("STEXT_ATTACKNPC", IncomingDamage.Attacker);
-		parser->SetInstance("STEXT_ATTACKWEAPON", IncomingDamage.Weapon);
+		return spellId;
 	}
 
-	void ProcessExtraDamage(oCNpc::oSDamageDescriptor& desc, DamageMetaData* damageMeta, oCNpc* target)
+	inline void SetScriptDamageActors(oCNpc* atk, oCNpc* target, oCItem* weap)
 	{
-		DEBUG_MSG(target->name + Z(" ProcessExtraDamage - ENTER"));
+		parser->SetInstance(StExt_TargetNpc_SymId, target);
+		parser->SetInstance(StExt_AttackNpc_SymId, atk);
+		parser->SetInstance(StExt_AttackWeapon_SymId, weap);
+	}
+
+
+	inline void BuildDescriptor(oCNpc::oSDamageDescriptor& desc)
+	{
+		desc.bOnce = 1;
+		desc.bFinished = 0;
+		desc.bIsDead = 0;
+		desc.bIsUnconscious = 0;
+		desc.bDamageDontKill = 0;
+
+		for (int i = 0; i < oEDamageIndex_MAX; ++i) {
+			desc.aryDamage[i] = 0UL;
+			desc.aryDamageEffective[i] = 0UL;
+		}
+
+		desc.nSpellID = 0UL;
+		desc.nSpellCat = 0UL;
+		desc.nSpellLevel = 0UL;
+
+		desc.fTimeDuration = 0.0f;
+		desc.fTimeInterval = 0.0f;
+		desc.fDamagePerInterval = 0.0f;
+
+		desc.fAzimuth = 0.0f;
+		desc.fElevation = 0.0f;
+		desc.fTimeCurrent = 0.0f;
+		desc.vecLocationHit = zVEC3();
+		desc.vecDirectionFly = zVEC3();
+
+		desc.pVobParticleFX = Null;
+		desc.pParticleFX = Null;
+		desc.pVisualFX = Null;
+		desc.pFXHit = Null;
+		desc.pItemWeapon = Null;
+		desc.strVisualFX = zSTRING();
+	}
+
+	inline void BuildDescriptor(oCNpc::oSDamageDescriptor& desc, oCNpc* atk, oCNpc* target, const ExtraDamageInfo& damStruct)
+	{
+		BuildDescriptor(desc);
+
+		desc.dwFieldsValid = oCNpc::oEDamageDescFlag_Attacker | oCNpc::oEDamageDescFlag_Npc | 
+			oCNpc::oEDamageDescFlag_Inflictor | oCNpc::oEDamageDescFlag_DamageType | oCNpc::oEDamageDescFlag_Damage;
+
+		desc.enuModeDamage = 0UL;
+		desc.enuModeWeapon = oETypeWeapon_Special;
+
+		desc.pNpcAttacker = atk;
+		desc.pVobAttacker = atk;
+		desc.pVobHit = target;
+
+		int totalDamage = 0;
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+		{
+			desc.aryDamage[i] = 0UL;
+			desc.aryDamageEffective[i] = 0UL;
+			if (damStruct.Damage[i] <= 0) continue;
+
+			totalDamage += damStruct.Damage[i];
+			desc.aryDamage[i] = static_cast<ulong>(damStruct.Damage[i]);
+			desc.enuModeDamage |= static_cast<ulong>(1 << i);
+		}
+
+		desc.fDamageTotal = static_cast<float>(totalDamage);
+		desc.fDamageReal = static_cast<float>(totalDamage);
+		desc.fDamageEffective = static_cast<float>(totalDamage);
+		desc.fDamageMultiplier = 1.0f;
+
+		if (target)
+		{
+			desc.vecDirectionFly = target->GetPositionWorld();
+			desc.vecLocationHit = target->GetPositionWorld();
+		}
+	}
+
+	inline void BuildDescriptor(oCNpc::oSDamageDescriptor& desc, oCNpc* atk, oCNpc* target, int damType, int damTotal)
+	{
+		BuildDescriptor(desc);
+
+		desc.dwFieldsValid = oCNpc::oEDamageDescFlag_Attacker | oCNpc::oEDamageDescFlag_Npc |
+			oCNpc::oEDamageDescFlag_Inflictor | oCNpc::oEDamageDescFlag_DamageType | oCNpc::oEDamageDescFlag_Damage;
+
+		desc.enuModeWeapon = oETypeWeapon_Special;
+		desc.pNpcAttacker = atk;
+		desc.pVobAttacker = atk;
+		desc.pVobHit = target;
+
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+		{
+			desc.aryDamage[i] = 0UL;
+			desc.aryDamageEffective[i] = 0UL;
+		}
+		desc.enuModeDamage = static_cast<ulong>(damType);
+		ApplyDamages(desc.enuModeDamage, desc.aryDamage, damTotal);
+
+		desc.fDamageTotal = static_cast<float>(damTotal);
+		desc.fDamageReal = static_cast<float>(damTotal);
+		desc.fDamageEffective = static_cast<float>(damTotal);
+		desc.fDamageMultiplier = 1.0f;
+
+		if (target)
+		{
+			desc.vecDirectionFly = target->GetPositionWorld();
+			desc.vecLocationHit = target->GetPositionWorld();
+		}
+	}
+
+
+	inline void UpdateDamageInfo(DamageInfo& damageInfo, oCNpc::oSDamageDescriptor& desc)
+	{
+		int total = 0;
+		int real = 0;
+		ulong damageEnum = 0;
+
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+		{
+			int baseDam = static_cast<int>(desc.aryDamage[i]);
+			int effDam = static_cast<int>(desc.aryDamageEffective[i]);
+			int finalDam = (effDam > 0) ? effDam : 
+				(baseDam > 0) ? baseDam : 0;
+
+			damageInfo.Damage[i] = finalDam;
+			if (finalDam > 0) damageEnum |= (1 << i);
+			total += baseDam;
+			real += finalDam;
+		}
+
+		damageInfo.TotalDamage = static_cast<int>(desc.fDamageTotal > 0.0f ? desc.fDamageTotal : total);
+		damageInfo.RealDamage = static_cast<int>(desc.fDamageReal > 0.0f ? desc.fDamageReal : real);
+		if (damageInfo.TotalDamage <= 0) damageInfo.TotalDamage = 0;
+		if (damageInfo.RealDamage <= 0) damageInfo.RealDamage = 0;
+
+		damageInfo.DamageEnum = static_cast<int>(damageEnum);
+		damageInfo.WeaponEnum = static_cast<int>(desc.enuModeWeapon);
+
+		bool isAbility = false;
+		damageInfo.SpellId = desc.pFXHit ? GetFxTrueId(&desc, isAbility) : static_cast<int>(desc.nSpellID);
+		if (isAbility) damageInfo.DamageFlags |= StExt_DamageType_Ability;
+	}
+	inline void BuildDamageInfo(DamageInfo& damageInfo, oCNpc::oSDamageDescriptor& desc)
+	{
+		memset(&damageInfo, 0, sizeof(DamageInfo));
+		damageInfo.DamageType = 0;
+		damageInfo.DamageFlags = 0;
+		damageInfo.BlockDamage = 0;
+		damageInfo.StopProcess = false;
+		damageInfo.IsInitial = false;
+		UpdateDamageInfo(damageInfo, desc);
+	}
+
+	inline void CreateIncomingDamage(IncomingDamageInfo& damageInfo, DamageMeta* damageMeta)
+	{
+		damageInfo = IncomingDamageInfo{};
+
+		damageInfo.Flags = 0;
+		damageInfo.DamageType = damageMeta->DamageInfo.DamageType;
+		damageInfo.DamageFlags = damageMeta->DamageInfo.DamageFlags;
+		damageInfo.SpellId = damageMeta->DamageInfo.SpellId;
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+			damageInfo.Damage[i] = damageMeta->DamageInfo.Damage[i];
+		damageInfo.DamageTotal = damageMeta->DamageInfo.RealDamage;
+		
+		if (damageMeta->IsDotDamage) damageInfo.Flags |= StExt_IncomingDamageFlag_Index_DotDamage;
+		if (damageMeta->IsReflectDamage) damageInfo.Flags |= StExt_IncomingDamageFlag_Index_ReflectDamage;
+		if (damageMeta->IsExtraDamage) damageInfo.Flags |= StExt_IncomingDamageFlag_Index_ExtraDamage;
+		if (damageMeta->IsAoeDamage) damageInfo.Flags |= StExt_IncomingDamageFlag_Index_AoeDamage;
+		if (damageMeta->Attacker) damageInfo.Flags |= StExt_IncomingDamageFlag_Index_HasAttacker;
+		if (damageMeta->Weapon) damageInfo.Flags |= StExt_IncomingDamageFlag_Index_HasWeapon;
+	}
+	inline void CreateIncomingDamage(IncomingDamageInfo& damageInfo, const int damage)
+	{
+		damageInfo = IncomingDamageInfo{};
+		damageInfo.Flags = StExt_IncomingDamageFlag_Index_Contextual;
+		damageInfo.DamageType = 0;
+		damageInfo.DamageFlags = 0;
+		damageInfo.SpellId = 0;
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
+			damageInfo.Damage[i] = 0;
+
+		damageInfo.Damage[0] = damage;
+		damageInfo.DamageTotal = damage;
+	}
+
+
+	inline DamageMeta& PushDamageMeta(oCNpc* target, oCNpc::oSDamageDescriptor& desc)
+	{
+		DamageMeta damageMeta = DamageMeta{};
+		damageMeta.TargetBefore = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol(StExt_TargetNpc_SymId)->GetInstanceAdr());
+		damageMeta.AttackerBefore = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol(StExt_AttackNpc_SymId)->GetInstanceAdr());
+		damageMeta.WeaponBefore = dynamic_cast<oCItem*>((zCVob*)parser->GetSymbol(StExt_AttackWeapon_SymId)->GetInstanceAdr());
+
+		SetScriptDamageActors(desc.pNpcAttacker, target, desc.pItemWeapon);
+
+		damageMeta.Target = target;
+		damageMeta.Attacker = desc.pNpcAttacker;
+		damageMeta.Weapon = desc.pItemWeapon;
+		damageMeta.Desc = &desc;
+		const ulong descriptorFlags = desc.dwFieldsValid;
+
+		damageMeta.IsExtraDamage = HasFlag(descriptorFlags, (ulong)DamageDescFlag_ExtraDamage);
+		damageMeta.IsDotDamage = HasFlag(descriptorFlags, (ulong)DamageDescFlag_DotDamage);
+		damageMeta.IsAoeDamage = HasFlag(descriptorFlags, (ulong)DamageDescFlag_AoeDamage);
+		damageMeta.IsReflectDamage = HasFlag(descriptorFlags, (ulong)DamageDescFlag_ReflectDamage);
+		damageMeta.IsInitialDamage = !damageMeta.IsExtraDamage && !damageMeta.IsDotDamage && !damageMeta.IsAoeDamage && !damageMeta.IsReflectDamage;
+		damageMeta.IsOverlayDamage = HasFlag(descriptorFlags, (ulong)oCNpc::oEDamageDescFlag_OverlayActivate) || HasFlag(descriptorFlags, (ulong)oCNpc::oEDamageDescFlag_OverlayInterval) ||
+			HasFlag(descriptorFlags, (ulong)oCNpc::oEDamageDescFlag_OverlayDuration) || HasFlag(descriptorFlags, (ulong)oCNpc::oEDamageDescFlag_OverlayDamage);
+		damageMeta.TargetIsImmortal = *(int*)parser->CallFunc(IsNpcImmortalFunc);
+		damageMeta.IsAbility = false;
+
+		BuildDamageInfo(damageMeta.DamageInfo, desc);
+		damageMeta.DamageInfo.SpellId = desc.pFXHit ? GetFxTrueId(&desc, damageMeta.IsAbility) : static_cast<int>(desc.nSpellID);
+		damageMeta.DamageInfo.IsInitial = damageMeta.IsInitialDamage;
+
+		if (DamageExtraParams.HasPendingExtraParams)
+		{
+			damageMeta.DamageInfo.DamageType |= DamageExtraParams.DamageType;
+			damageMeta.DamageInfo.DamageFlags |= DamageExtraParams.DamageFlags;
+			DamageExtraParams.HasPendingExtraParams = false;
+		}
+
+		DEBUG_MSG("PushDamageMeta: damage meta was PUSHED to stack! Stack level: " + Z((int)DamageMetaData.GetNum() + 1));
+		DamageMeta& ref = DamageMetaData.InsertEnd(damageMeta);
+		parser->SetInstance(StExt_DamageInfo_SymId, &ref.DamageInfo);
+		return ref;
+	}
+
+	inline void PopDamageMeta()
+	{
+		if (DamageMetaData.IsEmpty())
+		{
+			DEBUG_MSG("PopDamageMeta: Stack is empty!");
+			SetScriptDamageActors(Null, Null, Null);
+			parser->SetInstance(StExt_DamageInfo_SymId, Null);
+			return;
+		}
+
+		DamageMeta& damageMeta = DamageMetaData.GetLast();
+		SetScriptDamageActors(damageMeta.AttackerBefore, damageMeta.TargetBefore, damageMeta.WeaponBefore);
+		DamageMetaData.RemoveAt(DamageMetaData.GetNum() - 1U);
+
+		if (!DamageMetaData.IsEmpty())
+			parser->SetInstance(StExt_DamageInfo_SymId, &DamageMetaData.GetLast().DamageInfo);
+		else
+			parser->SetInstance(StExt_DamageInfo_SymId, Null);
+		DEBUG_MSG("PopDamageMeta: damage meta was POPED from stack! Stack level: " + Z((int)DamageMetaData.GetNum()));
+	}
+
+	inline DamageMeta* GetDamageMeta()
+	{
+		if (DamageMetaData.IsEmpty())
+		{
+			DEBUG_MSG("GetDamageMeta: Stack is empty!");
+			return Null;
+		}
+		return &DamageMetaData.GetLast();
+	}
+
+	inline void ClearDamageMeta()
+	{
+		DEBUG_MSG_IF(DamageMetaData.GetNum() > 0, "ClearDamageMeta: there is a damageMeta left in stack!");
+		DamageExtraParams.HasPendingExtraParams = false;
+		DamageMetaData.Clear();
+	}
+
+
+	//-----------------------------------------------------------------
+	//					DAMAGE PROCESSING FUNCTIONS
+	//-----------------------------------------------------------------
+
+	inline void ApplyExtraDamageGeneric(oCNpc* atk, oCNpc* target, ExtraDamageInfo& extraDam, const ulong flags)
+	{
+		DEBUG_MSG("ApplyExtraDamageGeneric: ENTER!");
+		oCNpc* pTarget = zDYNAMIC_CAST<oCNpc>(target);
+		oCNpc* pAttaker = zDYNAMIC_CAST<oCNpc>(atk);
+		if (!pAttaker || !pTarget)
+		{
+			DEBUG_MSG_IF(!pAttaker, "ApplyExtraDamageGeneric: Attaker is null!");
+			DEBUG_MSG_IF(!pTarget, "ApplyExtraDamageGeneric: Target is null!");
+			return;
+		}
+
+		oCNpc::oSDamageDescriptor desc;
+		BuildDescriptor(desc, pAttaker, pTarget, extraDam);
+		desc.dwFieldsValid |= flags;
+		if(HasFlag(extraDam.DamageFlags, StExt_DamageFlag_Aoe) || HasFlag(extraDam.DamageFlags, StExt_DamageFlag_Chain)) desc.dwFieldsValid |= DamageDescFlag_AoeDamage;
+
+		DEBUG_MSG_DAMDESC(desc, "ApplyExtraDamageGeneric", pTarget);
+		if (desc.fDamageTotal < 1.0f) {
+			DEBUG_MSG("ApplyExtraDamageGeneric: total damage is less than 0! Skipped!");
+			return;
+		}
+
+		DEBUG_MSG_IF(DamageExtraParams.HasPendingExtraParams, "ApplyExtraDamageGeneric: DamageExtraParams wasn't readed before.");
+		DamageExtraParams.HasPendingExtraParams = true;
+		DamageExtraParams.DamageType = extraDam.DamageType;
+		DamageExtraParams.DamageFlags = extraDam.DamageFlags;
+
+		pTarget->OnDamage(desc);
+	}	
+
+	void ApplyExtraDamage(oCNpc* atk, oCNpc* target) { ApplyExtraDamageGeneric(atk, target, ExtraDamage, DamageDescFlag_ExtraDamage); }
+	void ApplyDotDamage(oCNpc* atk, oCNpc* target) { ApplyExtraDamageGeneric(atk, target, DotDamage, DamageDescFlag_DotDamage); }
+	void ApplyReflectDamage(oCNpc* atk, oCNpc* target) { ApplyExtraDamageGeneric(atk, target, ReflectDamage, DamageDescFlag_ReflectDamage); }
+
+	void ApplySingleDamage(oCNpc* atk, oCNpc* target, const int damType, const int damTotal, const int damageType, const int damageFlags)
+	{
+		DEBUG_MSG("ApplySingleDamage: ENTER!");
+		oCNpc* pTarget = zDYNAMIC_CAST<oCNpc>(target);
+		oCNpc* pAttaker = zDYNAMIC_CAST<oCNpc>(atk);
+		if (!pAttaker || !pTarget)
+		{
+			DEBUG_MSG_IF(!pAttaker, "ApplySingleDamage: Attaker is null!");
+			DEBUG_MSG_IF(!pTarget, "ApplySingleDamage: Target is null!");
+			return;
+		}
+
+		oCNpc::oSDamageDescriptor desc;
+		BuildDescriptor(desc, atk, target, damType, damTotal);
+		desc.dwFieldsValid |= DamageDescFlag_ExtraDamage;
+		if (HasFlag(damageFlags, StExt_DamageFlag_Aoe) || HasFlag(damageFlags, StExt_DamageFlag_Chain)) desc.dwFieldsValid |= DamageDescFlag_AoeDamage;
+
+		DEBUG_MSG_DAMDESC(desc, "ApplySingleDamage", pTarget);
+		if (desc.fDamageTotal < 1.0f) {
+			DEBUG_MSG("ApplySingleDamage: total damage is less than 0! Skipped!");
+			return;
+		}
+
+		DEBUG_MSG_IF(DamageExtraParams.HasPendingExtraParams, "ApplyExtraDamageGeneric: DamageExtraParams wasn't readed before.");
+		DamageExtraParams.HasPendingExtraParams = true;
+		DamageExtraParams.DamageType = damageType;
+		DamageExtraParams.DamageFlags = damageFlags;
+
+		pTarget->OnDamage(desc);
+	}
+
+
+	void ProcessExtraDamage(oCNpc::oSDamageDescriptor& desc, oCNpc* target)
+	{
+		DEBUG_MSG_DAM("ProcessExtraDamage", "ENTER", desc.pNpcAttacker, target);
+
+		if (!target) {
+			DEBUG_MSG_FUNC("ProcessExtraDamage", "Target is null!");
+			desc.bFinished = 1;
+			return;
+		}
+
+		DamageMeta* currentDamageMeta = GetDamageMeta();
+		DEBUG_MSG_IF(!currentDamageMeta, "ProcessExtraDamage: fail to get currentDamageMeta!");
+		DEBUG_MSG_IF(currentDamageMeta && currentDamageMeta->Target != target, "ProcessExtraDamage: use DamageStackMeta for incorrect character!");
 
 		int damageTotal = 0;
 		int damageReal = 0;
-		for (int i = 0; i < oEDamageIndex_MAX; i++)
+		for (int i = 0; i < oEDamageIndex_MAX; ++i)
 		{
 			int dam = static_cast<int>(desc.aryDamage[i]);
-			if (dam > 0)
-			{
-				DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - Damage[" + Z i + "] = " + Z dam));
+			if (dam <= 0) continue;
 
-				damageTotal += dam;
-				if (target->protection[i] < 0) continue;
+			damageTotal += dam;
+			if (target->protection[i] < 0) continue;
 
-				dam = dam - target->protection[i];
-				dam = dam < 5 ? 5 : dam;
-				damageReal += dam;
-				desc.aryDamageEffective[i] = static_cast<unsigned long>(dam);
-			}
+			dam = dam - target->protection[i];
+			dam = dam <= 0 ? 1 : dam;
+			damageReal += dam;
+			desc.aryDamageEffective[i] = static_cast<ulong>(dam);
 		}
 
-		if (damageReal <= 0) return;
+		if (damageReal <= 0)
+		{
+			DEBUG_MSG_FUNC("ProcessExtraDamage", "EXIT. RealDamage: " + Z(damageReal) + "!");
+			desc.bFinished = 1;
+			return;
+		}
 		desc.fDamageTotal = static_cast<float>(damageTotal);
 		desc.fDamageEffective = desc.fDamageReal = static_cast<float>(damageReal);
-		
-		int damType = StExt_DamageMessageType_Default;
-		if (HasFlag(desc.dwFieldsValid, (ulong)DamageDescFlag_DotDamage)) damType |= StExt_DamageMessageType_Dot;
-		if (HasFlag(desc.dwFieldsValid, (ulong)DamageDescFlag_ReflectDamage)) damType |= StExt_DamageMessageType_Reflect;
-		parser->CallFunc(PrintDamageFunc, damageReal, damType);
 
-		SetDamageMeta(&desc, damageMeta, target);
+		if(currentDamageMeta)
+			UpdateDamageInfo(currentDamageMeta->DamageInfo, desc);
 		target->ChangeAttribute(NPC_ATR_HITPOINTS, -damageReal);
 
-		if (desc.pNpcAttacker)
-		{
-			DEBUG_MSG(Z"attackNpc: " + Z desc.pNpcAttacker->GetName(0));
-			void* oldSelf = parser->GetSymbol("SELF")->GetInstanceAdr();
-			void* oldOther = parser->GetSymbol("OTHER")->GetInstanceAdr();
-			parser->SetInstance("SELF", target);
-			parser->SetInstance("OTHER", desc.pNpcAttacker);
+		int damMsgType = StExt_DamageMessageType_Default;
+		if (HasFlag(desc.dwFieldsValid, (ulong)DamageDescFlag_DotDamage)) damMsgType |= StExt_DamageMessageType_Dot;
+		if (HasFlag(desc.dwFieldsValid, (ulong)DamageDescFlag_ReflectDamage)) damMsgType |= StExt_DamageMessageType_Reflect;
+		parser->CallFunc(PrintDamageFunc, damageReal, damMsgType);
 
-			if (target->IsHuman() && (target->attribute[0] == 1) && !target->IsUnconscious())
-			{
-				DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - IsUnconscious!"));
-				desc.bIsUnconscious = true;
-			
-				target->DropAllInHand();
-				target->SetWeaponMode(NPC_WEAPON_NONE);
+		if (target->IsHuman() && (target->attribute[0] <= 1) && !target->IsUnconscious())
+		{
+			desc.bIsUnconscious = 1;
+			target->DropAllInHand();
+			target->SetWeaponMode(NPC_WEAPON_NONE);
+			if (target->attribute[0] <= 0)
 				target->SetAttribute(NPC_ATR_HITPOINTS, 1);
-				target->SetBodyState(BS_UNCONSCIOUS);				
-				target->state.StartAIState(-4, FALSE, 0, 0, FALSE);
-				target->AssessDefeat_S(desc.pNpcAttacker);
-			}
-			else if (target->attribute[0] <= 0)
-			{
-				DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - IsDead!"));
-				desc.bIsDead = true;			
-				target->DoDie(desc.pNpcAttacker);	
-			}
-
-			parser->SetInstance("SELF", oldSelf);
-			parser->SetInstance("OTHER", oldOther);
+			target->SetBodyState(BS_UNCONSCIOUS);
+			target->state.StartAIState(-4, FALSE, 0, 0, FALSE);
+			target->AssessDefeat_S(desc.pNpcAttacker);
 		}
-		DEBUG_MSG(target->name + zSTRING(" ProcessExtraDamage - true damage: ") + Z damageReal);
-	}
-
-	inline void PrintDamageDescriptorDebug(oCNpc::oSDamageDescriptor& desc, zSTRING msg, oCNpc* target)
-	{
-		DEBUG_MSG("");
-		DEBUG_MSG(target->name + Z": <" + msg + Z">");
-
-		if (desc.pVobAttacker) DEBUG_MSG(Z"pVobAttacker: " + Z desc.pVobAttacker->GetObjectName());
-		else DEBUG_MSG(Z"pVobAttacker: ???");
-		if (desc.pNpcAttacker) DEBUG_MSG(Z"attackNpc: " + Z desc.pNpcAttacker->GetName(0));
-		else DEBUG_MSG(Z"attackNpc: ???");
-		if (desc.pVobHit) DEBUG_MSG(Z"pVobHit: " + Z desc.pVobHit->GetObjectName());
-		else DEBUG_MSG(Z"pVobHit: ???");
-		if (desc.pItemWeapon) DEBUG_MSG(Z"pItemWeapon: " + Z desc.pItemWeapon->GetObjectName());
-		else DEBUG_MSG(Z"pItemWeapon: ???");
-
-		DEBUG_MSG(Z"flags: " + Z desc.dwFieldsValid);
-		DEBUG_MSG(Z"damage flags: " + Z desc.enuModeDamage);
-
-		DEBUG_MSG(Z"damage total: " + Z desc.fDamageTotal);
-		DEBUG_MSG(Z"damage real: " + Z desc.fDamageReal);
-		DEBUG_MSG(Z"damage effective: " + Z desc.fDamageEffective);
-		zSTRING damage = Z"damage[8] = ";
-		zSTRING effectiveDamage = Z"effective damage[8] = ";
-		for (int i = 0; i < oEDamageIndex_MAX; i++)
+		else if (target->attribute[0] <= 0)
 		{
-			damage += Z desc.aryDamage[i] + Z" | ";
-			effectiveDamage += Z desc.aryDamageEffective[i] + Z" | ";
+			desc.bIsDead = 1;
+			target->DoDie(desc.pNpcAttacker);
 		}
-		DEBUG_MSG(damage);
-		DEBUG_MSG(effectiveDamage);
-		DEBUG_MSG(Z"spellId: " + Z (int)desc.nSpellID);
-		DEBUG_MSG(Z"nSpellCat: " + Z desc.nSpellCat);
-		DEBUG_MSG(Z"nSpellLevel: " + Z desc.nSpellLevel);
-		if (desc.pFXHit) DEBUG_MSG(Z"pFxHit fxName: " + desc.pFXHit->fxName);
-		DEBUG_MSG("");
-	}
 
-	// Hooks
+		if (!desc.bIsDead && !desc.bIsUnconscious)
+			parser->CallFunc(OnPostDamageFunc);
+
+		DEBUG_MSG_DAM("ProcessExtraDamage", "EXIT. RealDamage: " + Z(damageReal), desc.pNpcAttacker, target);
+	}
+	
+
 	HOOK Hook_oCNpc_OnDamage PATCH (&oCNpc::OnDamage, &oCNpc::OnDamage_StExt);
 	void oCNpc::OnDamage_StExt(oSDamageDescriptor& desc)
 	{
-		if (IsLevelChanging || IsLoading || (this->IsSelfPlayer() && (parser->GetSymbol("StExt_ImmortalFlagTime")->intdata > 0)))
-		{
-			DEBUG_MSG_IF(IsLevelChanging, this->name + Z(" OnDamage - damage done on level changing! Stop it."));
-			desc.bFinished = true;
-			return;
-		}
-		PrintDamageDescriptorDebug(desc, "OnDamage ENTER", this);
+		if (IsLevelChanging || IsLoading || !this) { return; }
+		DEBUG_MSG_DAM("OnDamage_StExt", "ENTER", desc.pNpcAttacker, this);
+		DEBUG_MSG_DAMDESC(desc, "OnDamage_StExt - ENTER", this);
 
-		// Collect data before damage processing
-		unsigned long descriptorFlags = desc.dwFieldsValid;
-		bool isInitial = IsDamageInitial(descriptorFlags);		
-		bool isExtraDamage = HasFlag(descriptorFlags, DamageDescFlag_ExtraDamage) || HasFlag(descriptorFlags, DamageDescFlag_DotDamage) ||
-			HasFlag(descriptorFlags, DamageDescFlag_ReflectDamage) || HasFlag(descriptorFlags, DamageDescFlag_IsAbilityDamage);
-		bool isDot = HasFlag(descriptorFlags, oCNpc::oEDamageDescFlag_OverlayActivate) || HasFlag(descriptorFlags, oCNpc::oEDamageDescFlag_OverlayInterval) ||
-			HasFlag(descriptorFlags, oCNpc::oEDamageDescFlag_OverlayDuration) || HasFlag(descriptorFlags, oCNpc::oEDamageDescFlag_OverlayDamage);
-
-		int fightMode = Invalid;
-		int abilityId = Invalid;
-		int spellId = Invalid;
-		bool isAbility = false;
-		bool isDamageInfo = false;
-		bool isConditionValid = (bool)this->IsConditionValid();
+		DamageMeta& damageMeta = PushDamageMeta(this, desc);
 
 		// fix looped dot
-		if (isDot && (desc.fDamageTotal < 1.0f))
+		if (damageMeta.IsOverlayDamage && (desc.fDamageTotal < 1.0f))
 		{
-			DEBUG_MSG(this->name + Z(" OnDamage - damage seems looped dot with 0 damage... Break it."));
-			desc.bFinished = true;
+			DEBUG_MSG_DAM("OnDamage_StExt", "EXIT. Reason: looped dot detected!", desc.pNpcAttacker, this);
+			PopDamageMeta();
+			desc.bFinished = 1;
 			return;
 		}
-
-		parser->SetInstance("STEXT_TARGETNPC", this);
-		parser->SetInstance("STEXT_ATTACKNPC", desc.pNpcAttacker);
-		parser->SetInstance("STEXT_ATTACKWEAPON", desc.pItemWeapon);
-		int isImmortal = *(int*)parser->CallFunc(IsNpcImmortalFunc);
 
 		if (desc.pFXHit)
 		{
-			spellId = static_cast<int>(desc.nSpellID);
-			if (spellId <= 0) spellId = GetFxSpellId(desc.pFXHit->fxName.Upper());
-
-			if ((desc.nSpellCat == 0UL) && (desc.nSpellID == 0UL) && (spellId > 0))
+			int applyFxDamage = *(int*)parser->CallFunc(FxDamageCanBeAppliedFunc);
+			if (!applyFxDamage)
 			{
-				abilityId = spellId + StExt_AbilityPrefix;
-				isAbility = true;
-			}
-			if (isAbility)
-			{
-				int applyFxDamage = *(int*)parser->CallFunc(FxDamageCanBeAppliedFunc);
-				if (!applyFxDamage)
-				{
-					DEBUG_MSG(this->name + Z(" OnDamage - pFxHit is blocked!"));
-					desc.bFinished = true;
-					return;
-				}
+				DEBUG_MSG_DAM("OnDamage_StExt", "EXIT. Reason: pFxHit is blocked (friendly fier)", desc.pNpcAttacker, this);
+				PopDamageMeta();
+				desc.bFinished = 1;
+				return;
 			}
 		}
 
-		DamageMetaData damageMeta = DamageMetaData();
-		memset(&damageMeta, 0, sizeof(DamageMetaData));
-		damageMeta.DescriptorFlags = descriptorFlags;
-		damageMeta.IsInitial = isInitial;
-		damageMeta.IsExtraDamage = isExtraDamage;
-		damageMeta.IsDot = isDot;
-		damageMeta.IsAbility = isAbility;
-		damageMeta.IsDamageInfo = isDamageInfo;
-		damageMeta.IsConditionValid = isConditionValid;
-		damageMeta.FightMode = fightMode;
-		damageMeta.AbilityId = abilityId;
-		damageMeta.SpellId = spellId;
-		damageMeta.DamageType = 0;
-		damageMeta.DamageFlags = 0;
-
-		// Incoming damage is from my mod. Handle it separately and leave
-		if (isExtraDamage)
+		// Incoming damage is from my mod. Handle it separately and leave.
+		if (!damageMeta.IsInitialDamage)
 		{
-			int isExtraDamageProhibited = *(int*)parser->CallFunc(IsExtraDamageProhibitedFunc, spellId);
-			if (!isConditionValid || isImmortal || isExtraDamageProhibited)
-			{
-				desc.bFinished = true;
-				SetDamageMeta(Null, Null, Null);
-				DEBUG_MSG(this->name + Z(" OnDamage - ProcessExtraDamage CANCELED"));
-				return;
-			}
-			DEBUG_MSG(this->name + Z(" OnDamage - ProcessExtraDamage..."));
-			ProcessExtraDamage(desc, &damageMeta, this);
-			DEBUG_MSG(this->name + Z(" OnDamage - ProcessExtraDamage DONE"));
-			desc.bFinished = true;
-			SetDamageMeta(Null, Null, Null);
+			ProcessExtraDamage(desc, this);
+			DEBUG_MSG_DAM("OnDamage_StExt", "EXIT. Reason: Extra damage handled.", desc.pNpcAttacker, this);
+			PopDamageMeta();
+			desc.bFinished = 1;
 			return;
 		}
 
-		DamageInfo damageInfo = DamageInfo();
-		memset(&damageInfo, 0, sizeof(DamageInfo));
-		if (desc.pNpcAttacker)
+		// Call script damage pre-process
+		if (damageMeta.Attacker)
 		{
-			fightMode = desc.pNpcAttacker->GetWeaponMode();
-			if (isInitial && !isImmortal && isConditionValid)
-			{
-				damageInfo = BuildDamageInfo(desc);
-				damageInfo.IsInitial = (int)isInitial;
-				damageInfo.SpellId = isAbility ? abilityId : spellId;
-				parser->SetInstance("STEXT_DAMAGEINFO", &damageInfo);
-				isDamageInfo = true;
-				DEBUG_MSG(this->name + Z(" OnDamage - damage info builded."));
-			}
-		}
-
-		if (isDamageInfo)
-		{
-			DEBUG_MSG(this->name + Z(" OnDamage - call StExt_OnDamageBegin()"));
 			parser->CallFunc(OnDamageBeginFunc);
-			DEBUG_MSG(this->name + Z(" OnDamage - exit StExt_OnDamageBegin()"));
-
-			if ((damageInfo.BlockDamage > 0) || damageInfo.StopProcess)
+			if ((damageMeta.DamageInfo.BlockDamage > 0) || damageMeta.DamageInfo.StopProcess)
 			{
-				DEBUG_MSG(this->name + Z(" OnDamage - damage blocked! (by script)"));
-				desc.bFinished = true;
-				SetDamageMeta(Null, Null, Null);
+				DEBUG_MSG_DAM("OnDamage_StExt", "EXIT. Reason: damage was blocked.", desc.pNpcAttacker, this);
+				PopDamageMeta();
+				desc.bFinished = 1;
 				return;
 			}
-			damageMeta.DamageType = damageInfo.DamageType;
-			damageMeta.DamageFlags = damageInfo.DamageFlags;
 		}
-		SetDamageMeta(&desc, &damageMeta, this);
 
-		int barrierDamage = static_cast<int>(desc.aryDamage[0] + desc.aryDamageEffective[0]);
-		if (barrierDamage > 0)
-		{
-			ChangeAttribute(NPC_ATR_HITPOINTS, -barrierDamage);
-			desc.aryDamage[0] = 0UL;
-			desc.aryDamageEffective[0] = 0UL;
-		}
-		
 		// Original damage handler
-		DEBUG_MSG(this->name + zSTRING(" OnDamage - call original OnDamage..."));
-		SetDamageMeta(&desc, &damageMeta, this);
-		THISCALL(Hook_oCNpc_OnDamage)(desc);		
-		DEBUG_MSG(this->name + zSTRING(" OnDamage - call original OnDamage DONE"));
+		DEBUG_MSG_DAM("OnDamage", "ENTER.", desc.pNpcAttacker, this);
+		THISCALL(Hook_oCNpc_OnDamage)(desc);
 
-		PrintDamageDescriptorDebug(desc, "OnDamage AFTER original OnDamage", this);
-		damageMeta.IsConditionValid = isConditionValid = (bool)this->IsConditionValid();
-		bool isDamageInfoUpdated = false;
+		UpdateDamageInfo(damageMeta.DamageInfo, desc);
+		SetScriptDamageActors(damageMeta.Attacker, damageMeta.Target, damageMeta.Weapon);
+		parser->SetInstance(StExt_DamageInfo_SymId, &damageMeta.DamageInfo);
 
-		if (isConditionValid)
+		DEBUG_MSG_DAM("OnDamage", "EXIT.", desc.pNpcAttacker, this);
+		DEBUG_MSG_DAMDESC(desc, "OnDamage AFTER original OnDamage", this);		
+
+		// Call script damage post-process
+		if (damageMeta.Attacker)
 		{
-			DEBUG_MSG(this->name + zSTRING(" OnDamage - PostProcessDamage..."));
-			SetDamageMeta(&desc, &damageMeta, this);
-
-			if (!isDot && !HasFlag(descriptorFlags, DamageDescFlag_DotDamage) && !HasFlag(descriptorFlags, DamageDescFlag_ReflectDamage))
-			{
-				if (!isDamageInfo)
-				{
-					damageInfo = BuildDamageInfo(desc);
-					damageInfo.IsInitial = (int)isInitial;
-					damageInfo.SpellId = isAbility ? abilityId : spellId;
-					isDamageInfoUpdated = true;
-					parser->SetInstance("STEXT_DAMAGEINFO", &damageInfo);
-				}
-
-				SetDamageMeta(&desc, &damageMeta, this);
-				parser->CallFunc(OnPostDamageFunc);
-				damageMeta.IsConditionValid = isConditionValid = (bool)this->IsConditionValid();
-				DEBUG_MSG(this->name + zSTRING(" OnDamage - OnPostDamageFunc DONE"));
-			}
-
-			if (isConditionValid && isDamageInfo && !isImmortal && (!damageInfo.BlockDamage || !damageInfo.StopProcess))
-			{
-				// Update (mod)damage descriptor
-				if (!isDamageInfoUpdated)
-				{
-					damageInfo.RealDamage = static_cast<int>(desc.fDamageReal);
-					damageInfo.TotalDamage = static_cast<int>(desc.fDamageTotal);
-					for (int i = 0; i < oEDamageIndex_MAX; i++)
-					{
-						damageInfo.Damage[i] = static_cast<int>(desc.aryDamage[i]);
-						damageInfo.DamageEffective[i] = static_cast<int>(desc.aryDamageEffective[i]);
-						if ((desc.aryDamage[i] > 0) || (desc.aryDamageEffective[i] > 0))
-							damageInfo.DamageEnum |= (unsigned long)(1 << i);
-					}
-					parser->SetInstance("STEXT_DAMAGEINFO", &damageInfo);
-				}
-
-				SetDamageMeta(&desc, &damageMeta, this);
-				parser->CallFunc(OnDamageAfterFunc);
-				DEBUG_MSG(this->name + zSTRING(" OnDamage - OnDamageAfterFunc DONE"));
-			}
+			parser->CallFunc(OnPostDamageFunc);
+			parser->CallFunc(OnDamageAfterFunc);
 		}
-		SetDamageMeta(Null, Null, Null);
+
+		PopDamageMeta();
+		DEBUG_MSG_DAMDESC(desc, "OnDamage_StExt - EXIT", this);
+		DEBUG_MSG_DAM("OnDamage_StExt", "EXIT.", desc.pNpcAttacker, this);
 	}
+
 
 	HOOK ivk_oCNpc_ChangeAttribute PATCH(&oCNpc::ChangeAttribute, &oCNpc::ChangeAttribute_StExt);
 	void oCNpc::ChangeAttribute_StExt(int attrIndex, int value)
@@ -711,24 +635,69 @@ namespace Gothic_II_Addon
 		if ((attrIndex == NPC_ATR_HITPOINTS) && (value < 0))
 		{
 			int damage = value * (-1);
-			DEBUG_MSG("Apply damage to '" + Z this->name[0] + "'. Hp: " + Z(this->attribute[0]) + " Damage: " + Z damage);
-			UpdateIncomingDamage(damage, this);
-			value += *(int*)parser->CallFunc(ProcessHpDamageFunc);
-			damage = value >= 0 ? 0 : value * (-1);
-			DEBUG_MSG("Apply damage to '" + Z this->name[0] + "'. Damage after: " + Z damage);
-			if (value >= 0)
+			oCNpc* attaker = Null;
+			oCItem* weapon = Null;
+
+			oCNpc* oldTarget = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol(StExt_TargetNpc_SymId)->GetInstanceAdr());
+			oCNpc* oldAttacker = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol(StExt_AttackNpc_SymId)->GetInstanceAdr());
+			oCItem* oldWeap = dynamic_cast<oCItem*>((zCVob*)parser->GetSymbol(StExt_AttackWeapon_SymId)->GetInstanceAdr());
+
+			DamageMeta* currentDamageMeta = GetDamageMeta();
+			IncomingDamageInfo currentDamageInfo = IncomingDamageInfo{};
+			
+			if (currentDamageMeta && currentDamageMeta->Target == this)
 			{
-				DEBUG_MSG("Apply damage to '" + Z this->name[0] + "'. Damage fully absorbed!");
+				attaker = currentDamageMeta->Attacker;
+				weapon = currentDamageMeta->Weapon;
+				UpdateDamageInfo(currentDamageMeta->DamageInfo, *currentDamageMeta->Desc);
+				CreateIncomingDamage(currentDamageInfo, currentDamageMeta);
+			}
+			else
+			{
+				DEBUG_MSG_IF(currentDamageMeta && currentDamageMeta->Target != this, "ChangeAttribute_StExt: use DamageStackMeta for incorrect character!");
+				DEBUG_MSG("ChangeAttribute_StExt: create IncomingDamageInfo...");
+				CreateIncomingDamage(currentDamageInfo, damage);
+			}
+
+			if (currentDamageInfo.DamageTotal != damage)
+			{
+				DEBUG_MSG("ChangeAttribute_StExt: actual damage and IncomingDamageInfo damages was different! Was: " + Z(currentDamageInfo.DamageTotal));
+				currentDamageInfo.DamageTotal = damage;
+			}
+			if (attaker) currentDamageInfo.Flags |= StExt_IncomingDamageFlag_Index_HasAttacker;
+			if (weapon) currentDamageInfo.Flags |= StExt_IncomingDamageFlag_Index_HasWeapon;
+
+			DEBUG_MSG_DAM("ChangeAttribute_StExt", "ENTER. InitialHp: " + Z(this->attribute[0]) + " | Damage: " + Z(damage), attaker, this);
+
+			SetScriptDamageActors(attaker, this, weapon);
+			parser->SetInstance(StExt_IcomingDamageInfo_SymId, &currentDamageInfo);
+			value += *(int*)parser->CallFunc(ProcessHpDamageFunc);
+
+			if (value >= 0) 
+			{
+				DEBUG_MSG_FUNC("ChangeAttribute_StExt", "Damage to '" + this->name[0] + "' was absorbed! (value now: " + Z(value) + ")");
+				SetScriptDamageActors(oldAttacker, oldTarget, oldWeap);
+				parser->SetInstance(StExt_IcomingDamageInfo_SymId, Null);
 				return;
 			}
 
-			bool isExtraDamage = HasFlag(IncomingDamage.ScriptInstance.Flags, StExt_IncomingDamageFlag_Index_ExtraDamage);
-			bool isExtraDamageDontKill = HasFlag(IncomingDamage.ScriptInstance.Flags, StExt_IncomingDamageFlag_Index_DontKill);
-			bool isKill = ((this->attribute[0] + value) <= 0);
-			int preserveHp = isKill && isExtraDamage && isExtraDamageDontKill ? -1 : 0;
-			value = (value * (-1) > this->attribute[0] + preserveHp) ? -(this->attribute[0] + preserveHp) : value;
+			damage = value >= 0 ? 0 : value * (-1);
+			DEBUG_MSG_FUNC("ChangeAttribute_StExt", "Apply " + Z(damage) + " damage to '" + this->name[0] + "' ...");
+
+			const bool isKill = ((this->attribute[0] + value) <= 0);
+			const bool isExtraDamage = HasFlag(currentDamageInfo.Flags, StExt_IncomingDamageFlag_Index_ExtraDamage);
+			const bool isExtraDamageDontKill = HasFlag(currentDamageInfo.Flags, StExt_IncomingDamageFlag_Index_DontKill);
+			const int preserveHp = isKill && (isExtraDamage && isExtraDamageDontKill) ? -1 : 0;
+			value = (damage > (this->attribute[0] + preserveHp)) ? -(this->attribute[0] + preserveHp) : value;
+
+			DEBUG_MSG_FUNC("ChangeAttribute", "ENTER");
+			THISCALL(ivk_oCNpc_ChangeAttribute)(attrIndex, value);
+			DEBUG_MSG_FUNC("ChangeAttribute", "EXIT");
+
+			SetScriptDamageActors(oldAttacker, oldTarget, oldWeap);
+			parser->SetInstance(StExt_IcomingDamageInfo_SymId, Null);
+			return;
 		}
 		THISCALL(ivk_oCNpc_ChangeAttribute)(attrIndex, value);
-		//DEBUG_MSG_IF((attrIndex == NPC_ATR_HITPOINTS),"Apply damage to '" + Z this->name[0] + "' Done. Hp after: " + Z this->attribute[0]);
 	}
 }

@@ -68,6 +68,8 @@ namespace Gothic_II_Addon
 	const int ItemExtension_CraftData_Max = 64;
 	const int ItemExtension_CraftFlags_Max = 128;
 
+	const int ItemExtension_MaxPrice = 99999;
+
 	typedef unsigned int ItemClassKey;
 	const ItemClassKey ItemClassKey_Empty = 0x0U;
 	const ItemClassKey ItemClassKey_Error = 0xFFFFFFFFU;
@@ -503,6 +505,8 @@ namespace Gothic_II_Addon
 		float ItemLevelPowerRatio;
 		float ItemLevelSpread;
 
+		float ItemPriceMult;
+
 		int ItemMaxRank;
 		int ItemRankMax;
 		int ItemRankBaseStep;
@@ -767,6 +771,7 @@ namespace Gothic_II_Addon
 		const ItemExtension* GetSafe(byte type = (byte)ItemType::Unknown, byte cls = (byte)ItemClass::Unknown, byte subClass = (byte)ItemSubClass::Unknown, uflag64 flags = 0ULL, int level = Invalid, int rank = Invalid, int power = Invalid, int levelDelta = 0, int powerDelta = 0);
 
 		bool Insert(ItemExtension* itemExtension);
+		bool InsertFromSave(ItemExtension* itemExtension);
 		void Clear();
 
 		void Archive(zCArchiver& arc);
@@ -910,69 +915,4 @@ namespace Gothic_II_Addon
 	bool SelectItemGeneratorConfigs(const zSTRING& fileName);
 	void IdentifyItem(const oCItem* item);
 
-	/*
-    Array<oCItem*> GetEnchantedItems(int flags)
-    {
-        Array<oCItem*> items = Array<oCItem*>();
-        if (!player || !player->inventory2.GetContents())
-        {
-            DEBUG_MSG("GetEnchantedItems - player seems not initialized!");
-            return items;
-        }
-
-        auto contents = player->inventory2.GetContents();
-        int size = contents->GetNumInList();
-        int i = 0;
-        zSTRING instName;
-        while (i < size)
-        {
-            oCItem* pItem = contents->Get(i);
-            if (!pItem) { i++; continue; }
-            instName = pItem->GetInstanceName();
-            if (!instName.StartWith(GenerateItemPrefix)) { i++; continue; }
-            if (pItem->HasFlag(ITM_FLAG_ACTIVE)) { i++; continue; }
-            if (flags != 0)
-            {
-                C_ItemData* data = GetItemData(instName);
-                if (!data) { i++; continue; }
-                if (!HasFlag(data->Type, flags)) { i++; continue; }
-            }
-            
-            items.Insert(pItem);
-            i++;
-        }
-        DEBUG_MSG("GetEnchantedItems - items found: " + Z (int)items.GetNum());
-        return items;
-    }
-
-    Array<oCItem*> GetUndefinedItems()
-    {
-        Array<oCItem*> items = Array<oCItem*>();
-        if (!player || !player->inventory2.GetContents())
-        {
-            DEBUG_MSG("GetUndefinedItems - player seems not initialized!");
-            return items;
-        }
-
-        auto contents = player->inventory2.GetContents();
-        int size = contents->GetNumInList();
-        int i = 0;
-        zSTRING instName;
-        while (i < size)
-        {
-            oCItem* pItem = contents->Get(i);
-            if (!pItem) { i++; continue; }
-            instName = pItem->GetInstanceName();
-            if (!instName.StartWith(GenerateItemPrefix)) { i++; continue; }
-
-            C_ItemData* data = GetItemData(instName);
-            if (!data) { i++; continue; }
-            if (!HasFlag(data->Flags, ItemFlag_Undefined)) { i++; continue; }
-
-            items.Insert(pItem);
-            i++;
-        }
-        DEBUG_MSG("GetUndefinedItems - items found: " + Z(int)items.GetNum());
-        return items;
-    }*/
 }

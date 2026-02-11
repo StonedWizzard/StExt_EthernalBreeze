@@ -32,10 +32,8 @@ namespace Gothic_II_Addon
             BaseMenuElement* item = Items[i];
             if (!item) continue;
 
-            if (ScrollOffset != ScrollOffsetBefore)
+            if (ScrollOffset != ScrollOffsetBefore || HasBehavior(UiElementBehaviorFlags::ForceResize))
             {
-                /*float lastPosY = item->PosY + (ScrollOffsetBefore * ScreenToRelativePixDelta);
-                item->PosY = lastPosY - scrollOffsetAbs;*/
                 item->PosY = item->InitialPosY - scrollOffsetAbs;
                 item->Resize();
 
@@ -43,12 +41,28 @@ namespace Gothic_II_Addon
                 int itemBottom = itemTop + item->GlobalSizeY;
                 item->IsVisible = (itemTop >= panelTop) && (itemBottom <= panelBottom);
 
+                /*
                 if (!item->IsVisible && item->View)
                 {
                     item->View->Blit();
                     item->View->ClrPrintwin();
                     if (View)
                         View->RemoveItem(item->View);
+                }*/
+
+                if (item->IsVisible)
+                {
+                    if (item->View && View && !View->childs.IsIn(item->View))
+                        View->InsertItem(item->View);
+                }
+                else
+                {
+                    if (item->View && View && View->childs.IsIn(item->View))
+                    {
+                        item->View->Blit();
+                        item->View->ClrPrintwin();
+                        View->RemoveItem(item->View);
+                    }
                 }
                 
                 /*
@@ -110,11 +124,7 @@ namespace Gothic_II_Addon
         return BaseMenuPanel::HandleMouse(args);
     }
 
-    bool MenuScrollPanel::HandleKey(const UiKeyEventArgs& args)
-    {
-        
-        return false;
-    }
+    bool MenuScrollPanel::HandleKey(const UiKeyEventArgs& args) { return false; }
 
     MenuScrollPanel::~MenuScrollPanel() { }
 }

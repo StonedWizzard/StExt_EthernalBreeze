@@ -42,7 +42,20 @@ namespace Gothic_II_Addon
 	int StExt_GamePausedFunc = Invalid;
 	int StExt_InitializeCraftContextFunc = Invalid;
 	int StExt_OnSpellCastFunc = Invalid;
+	int StExt_OnOtherSpellCastFunc = Invalid;
 	int StExt_OnSpellPreCastFunc = Invalid;
+	int StExt_NpcUidCounterIndex = Invalid;
+
+	int StExt_TargetNpc_SymId = Invalid;
+	int StExt_AttackNpc_SymId = Invalid;
+	int StExt_AttackWeapon_SymId = Invalid;
+	int StExt_DamageInfo_SymId = Invalid;
+	int StExt_IcomingDamageInfo_SymId = Invalid;
+	int StExt_Self_SymId = Invalid;
+	int StExt_Other_SymId = Invalid;
+	int StExt_ModSelf_SymId = Invalid;
+	int StExt_ModOther_SymId = Invalid;
+	int StExt_FocusNpc_SymId = Invalid;
 
 	int StExt_Config_NpcStats_TopOffset;
 	int StExt_Config_NpcStats_HideTags;
@@ -78,16 +91,32 @@ namespace Gothic_II_Addon
 		DEBUG_MSG("StExt - Debug system initialized!");
 	}
 
-	void PrintDebug(zSTRING message)
+	inline void PrintDebug(zSTRING message)
 	{
 		message = message + "\n";
 		cmd << message;
 		DebugFile->Write(message);
 	}
 
-	void DebugMessage(zSTRING message)
+	inline void DebugMessage(zSTRING message)
 	{
 		message = "[EthernalBreeze.dll] -> " + message + "\n";
+		cmd << message;
+		DebugFile->Write(message);
+	}
+
+	inline void DebugFuncMessage(zSTRING funcName, zSTRING message)
+	{
+		message = "[EthernalBreeze.dll] -> " + funcName + "(...): " + message + "\n";
+		cmd << message;
+		DebugFile->Write(message);
+	}
+
+	inline void DebugDamageMessage(zSTRING funcName, zSTRING message, oCNpc* atk, oCNpc* target)
+	{
+		zSTRING targetName = target ? target->name[0] : "???";
+		zSTRING atkName = atk ? atk->name[0] : "???";
+		message = "[EthernalBreeze.dll] -> " + funcName + "(...) <" + atkName + " -> " + targetName + ">: " + message + "\n";
 		cmd << message;
 		DebugFile->Write(message);
 	}
@@ -133,7 +162,7 @@ namespace Gothic_II_Addon
 	{
 		int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
 		parser->CallFunc(setVerFunc);
-		ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 7.0.0)]");
+		ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 7.0.2)]");
 		
 #if DebugEnabled 
 		ModVersionString += Z(" | [Debug]"); 
@@ -441,6 +470,9 @@ namespace Gothic_II_Addon
 		StExt_OnSpellCastFunc = parser->GetIndex("StExt_OnSpellCast");
 		DEBUG_MSG_IF(StExt_OnSpellCastFunc == Invalid, "StExt_OnSpellCastFunc is null!");
 
+		StExt_OnOtherSpellCastFunc = parser->GetIndex("StExt_OnOtherSpellCast");
+		DEBUG_MSG_IF(StExt_OnOtherSpellCastFunc == Invalid, "StExt_OnOtherSpellCastFunc is null!");
+
 		StExt_OnSpellPreCastFunc = parser->GetIndex("StExt_OnSpellPreCast");
 		DEBUG_MSG_IF(StExt_OnSpellPreCastFunc == Invalid, "StExt_OnSpellPreCastFunc is null!");
 
@@ -458,6 +490,17 @@ namespace Gothic_II_Addon
 		CurrentDiffPresetStr = parser->GetSymbol("StExt_Str_ModMenu_CurrentDiffPreset")->stringdata;
 		CurrentItemsPresetStr = parser->GetSymbol("StExt_Str_ModMenu_CurrentItemsPreset")->stringdata;
 
+		StExt_TargetNpc_SymId = parser->GetIndex("STEXT_TARGETNPC");
+		StExt_AttackNpc_SymId = parser->GetIndex("STEXT_ATTACKNPC");
+		StExt_AttackWeapon_SymId = parser->GetIndex("STEXT_ATTACKWEAPON");
+		StExt_DamageInfo_SymId = parser->GetIndex("STEXT_DAMAGEINFO");
+		StExt_IcomingDamageInfo_SymId = parser->GetIndex("STEXT_INCOMINGDAMAGEINFO");
+		StExt_Self_SymId = parser->GetIndex("SELF");
+		StExt_Other_SymId = parser->GetIndex("OTHER");
+		StExt_ModSelf_SymId = parser->GetIndex("STEXT_SELF");
+		StExt_ModOther_SymId = parser->GetIndex("STEXT_OTHER");
+		StExt_FocusNpc_SymId = parser->GetIndex("STEXT_FOCUSNPC");
+
 		MaxSpellId = parser->GetSymbol("max_spell")->single_intdata;
 		DEBUG_MSG("StExt - MaxSpellId: " + Z MaxSpellId);
 
@@ -472,6 +515,7 @@ namespace Gothic_II_Addon
 		StExt_AiVar_Uid = parser->GetSymbol("StExt_AiVar_Uid")->single_intdata;
 		StExt_AiVar_EsCur = parser->GetSymbol("StExt_AiVar_EsCur")->single_intdata;
 		StExt_AiVar_EsMax = parser->GetSymbol("StExt_AiVar_EsMax")->single_intdata;
+		StExt_NpcUidCounterIndex = parser->GetIndex("StExt_NpcUidCounter");
 
 		ItemBasePriceMult = parser->GetSymbol("StExt_ItemBasicPriceMult")->single_floatdata;
 		if (ItemBasePriceMult < 0.1f) ItemBasePriceMult = 0.1f;

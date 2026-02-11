@@ -417,6 +417,12 @@
     <ClCompile Include="JsonMapper.cpp">
       <Filter>Plugin\Workspace\Plugin\Core\JsonParser</Filter>
     </ClCompile>
+    <ClCompile Include="ModConfigsController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="NpcController.cpp">
+      <Filter>Plugin\Workspace\Plugin\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ZenGin\zGothicAPI.h">

@@ -33,6 +33,8 @@ namespace Gothic_II_Addon
 	const int StatGroup_Other = 5;
 	const int StatGroup_Characteristics = 6;
 
+	const int NpcExtension_StatsMax = 256;
+
 constexpr auto ConfigsExportTemplate = R"(META
 {
     After = ConfigsPresets.d;

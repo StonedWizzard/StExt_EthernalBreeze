@@ -187,6 +187,16 @@ namespace Gothic_II_Addon
 		int ManaCost;
 	};
 
+	struct NpcExtension
+	{
+		int NpcUid;
+		oCNpc* NpcPtr;
+		zSTRING InstanceName;//just added
+
+		int Stats[NpcExtension_StatsMax];
+	};
+
+
 	// **************************************************************
 	//						NB Hooks
 	// **************************************************************

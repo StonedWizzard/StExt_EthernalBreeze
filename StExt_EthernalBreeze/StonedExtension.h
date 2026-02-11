@@ -78,17 +78,29 @@ namespace Gothic_II_Addon
 	extern int StExt_ApplyPotionEffectFunc;
 	extern int StExt_ApplyPotionPermEffectFunc;
 	extern int StExt_GamePausedFunc;
+	extern int StExt_OnSpellCastFunc;
+	extern int StExt_OnOtherSpellCastFunc;
+	extern int StExt_OnSpellPreCastFunc;
 
 	extern int StExt_InitializeCraftContextFunc;
 
-	extern int StExt_OnSpellCastFunc;
-	extern int StExt_OnSpellPreCastFunc;
-
+	extern int StExt_NpcUidCounterIndex;
 	extern int StExt_CurrentDayPart;
 	extern int MaxSpellId;
 	extern int StExt_AbilityPrefix;
 	extern int ItemCondSpecialSeparator;
 	extern int MaxStatId;
+
+	extern int StExt_TargetNpc_SymId;
+	extern int StExt_AttackNpc_SymId;
+	extern int StExt_AttackWeapon_SymId;
+	extern int StExt_DamageInfo_SymId;
+	extern int StExt_IcomingDamageInfo_SymId;
+	extern int StExt_Self_SymId;
+	extern int StExt_Other_SymId;
+	extern int StExt_ModSelf_SymId;
+	extern int StExt_ModOther_SymId;
+	extern int StExt_FocusNpc_SymId;
 
 	extern int StExt_AiVar_IsRandomized;
 	extern int StExt_AiVar_Uid;
@@ -132,14 +144,19 @@ namespace Gothic_II_Addon
 	uint FindZStringSorted(const Array<zSTRING>& arr, const zSTRING& key);
 
 	// Npc UId subsystem
-	int GetNextNpcUid();
-	void RegisterNpc(oCNpc* npc, int& npcUid);
-	void RegisterNpc(oCNpc* npc);
-	int GetNpcUid(oCNpc* npc);
-	oCNpc* GetNpcByUid(int npcUid);
-	bool IsUidRegistered(int npcUid);
-	void ClearRegisteredNpcs();
-	void RegisterNearestNpcs();
+	extern bool IsUidRegistered(int npcUid);
+	extern int GetNextNpcUid();
+	extern int GetNpcUid(oCNpc* npc);
+	extern oCNpc* GetNpcByUid(int npcUid);
+	extern void ClearNpcExtensionData();
+	extern void ClearNpcExtensionPointers();
+	void RegisterNpc(oCNpc* npc, int& npcUid);	
+	void RegisterWorldNpcs();
+	void SaveNpcExtensions();
+	void LoadNpcExtensions();
+
+	extern bool SetNpcExtensionVar(const int uid, const int index, const int value);
+	extern bool GetNpcExtensionVar(const int uid, const int index, int& value);
 
 	void InitStatsUncaper();
 	void StartUncaper();
@@ -162,4 +179,6 @@ namespace Gothic_II_Addon
 	bool IsObjectsTableAllocated(void* ptr);
 	bool WriteToDynamicObject(void* basePtr, size_t offset, int value);
 	bool ReadFormDynamicObject(void* basePtr, size_t offset, int& outValue);
+
+	bool ExportCurrentConfigs(zSTRING& configsName);
 }

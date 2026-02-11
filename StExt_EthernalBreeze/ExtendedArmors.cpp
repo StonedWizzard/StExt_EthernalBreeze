@@ -30,7 +30,8 @@ namespace Gothic_II_Addon
         while (contList) 
         {
             oCItem* item = contList->data;
-            if (item->HasFlag(ITM_CAT_ARMOR) && item->HasFlag(ITM_FLAG_ACTIVE)) array.Insert(item);
+            if (item && item->HasFlag(ITM_CAT_ARMOR) && item->HasFlag(ITM_FLAG_ACTIVE)) 
+                array.Insert(item);
             contList = contList->next;
         }
     }
@@ -97,7 +98,7 @@ namespace Gothic_II_Addon
         ApplySoftSkinItem(item);
     }
 
-    void oCNpc::UnequipAdditionalArmorItem(int wear)
+    void oCNpc::UnequipAdditionalArmorItem(const int wear)
     {
         if (wear <= wear_separator) return;
         for (int i = 0; i < invSlot.GetNumInList(); ++i) 
@@ -105,12 +106,15 @@ namespace Gothic_II_Addon
             TNpcSlot* slot = invSlot[i];
             if (!slot) continue;
             const zSTRING slotName = slot->name;
+            DEBUG_MSG("EquipAdditionalArmorItem: slot - " + slotName);
 
             if (slotName.StartWith(SlotPrefix)) 
             {
                 oCItem* item = slot->vob->CastTo<oCItem>();
                 if (!item) continue;
-                if (item->wear & (wear > wear_separator))
+
+                const uint collision = item->wear & wear;
+                if (collision > wear_separator)
                 {
                     UnequipItem_StExt(item);
                     RemoveSoftSkinItem(item);
@@ -144,8 +148,7 @@ namespace Gothic_II_Addon
     HOOK Hook_oCNpc_UnequipItem PATCH(&oCNpc::UnequipItem, &oCNpc::UnequipItem_StExt);
     void oCNpc::UnequipItem_StExt(oCItem* item)
     {
-        if (!item) return;
-        if (IsAdditionalArmorItem(item) && item->HasFlag(ITM_FLAG_ACTIVE))
+        if (item && IsAdditionalArmorItem(item) && item->HasFlag(ITM_FLAG_ACTIVE))
         {
             item->AddRef();
             THISCALL(Hook_oCNpc_UnequipItem)(item);

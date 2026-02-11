@@ -21,6 +21,7 @@ namespace Gothic_II_Addon
 		Class = ItemClassKey_GetClass(ItemClassID);
 		SubClass = ItemClassKey_GetSubClass(ItemClassID);
 		ItemClassData = GetItemClassDescriptor(ItemClassID);
+		DEBUG_MSG_IF(!ItemClassData, "ItemExtension::Initialize: ItemClassData not found! ClassId: " + Z((int)ItemClassID));
 	}
 
 	void ItemExtension::UpgradeDamage(const int valueDelta, const float mult)
@@ -145,16 +146,19 @@ namespace Gothic_II_Addon
 
 	void ItemExtension::UpdatePrice()
 	{
-		float priceMult = 1.0f + (Level * ItemClassData->PriceLevelBonus) + (Rank * ItemClassData->PriceRankBonus) + (Quality * ItemClassData->PriceQualityBonus);
+		float priceMult = 0.5f + (Level * ItemClassData->PriceLevelBonus) + (Rank * ItemClassData->PriceRankBonus) + (Quality * ItemClassData->PriceQualityBonus);
 		int itemExtraCost = Properties[(int)ItemProperty::AdditionalCost];
+		int statsCost = 0;
+		int abilitiesCost = 0;
+		int totalCost = 0;
 		for (int i = 0; i < ItemExtension_Stats_Max; ++i)
 		{
 			if (StatId[i] == Invalid) continue;
 			const ExtraStatData* stat = GetExtraStatDataById(StatId[i]);
 			if (!stat) continue;
 
-			const int statCost = static_cast<int>((StatValue[i] * stat->CostPerStat) * ItemsGeneratorConfigs.ItemStatPriceMult);
-			itemExtraCost += statCost <= 0 ? 1 : statCost;
+			const int statCost = static_cast<int>(StatValue[i] * stat->CostPerStat);
+			statsCost += statCost <= 0 ? 1 : statCost;
 		}
 
 		for (int i = 0; i < ItemExtension_OwnStats_Max; ++i)
@@ -163,13 +167,20 @@ namespace Gothic_II_Addon
 			const ExtraStatData* stat = GetExtraStatDataById(StatId[i]);
 			if (!stat) continue;
 
-			const int statCost = static_cast<int>((OwnStatValue[i] * stat->CostPerStat) * ItemsGeneratorConfigs.ItemStatPriceMult);
-			itemExtraCost += statCost <= 0 ? 1 : statCost;
+			const int statCost = static_cast<int>(OwnStatValue[i] * stat->CostPerStat);
+			statsCost += statCost <= 0 ? 1 : statCost;
 		}
 
 		// TODO - count abilities
 
-		Cost = ValidateValueMin(static_cast<int>(((Properties[(int)ItemProperty::InitialCost] + itemExtraCost) * priceMult) * ItemClassData->PriceMult), 1);		
+		statsCost = static_cast<int>(statsCost * ItemsGeneratorConfigs.ItemStatPriceMult);
+		abilitiesCost = static_cast<int>(statsCost * ItemsGeneratorConfigs.ItemStatPriceMult); // TODO - Fix it later
+
+		totalCost = static_cast<int>(((statsCost + abilitiesCost) * priceMult) * ItemClassData->PriceMult);
+		totalCost += Properties[(int)ItemProperty::InitialCost] + itemExtraCost;
+		totalCost = static_cast<int>(totalCost * ItemsGeneratorConfigs.ItemPriceMult);
+
+		Cost = ValidateValue(totalCost, 1, ItemExtension_MaxPrice);
 	}
 
 	int ItemExtension::GetProperty(const int propertyId) { return (IsIndexInBounds(propertyId, ItemExtension_Props_Max)) ? Properties[propertyId] : 0; }
@@ -318,11 +329,11 @@ namespace Gothic_II_Addon
 
 		arc.WriteRaw("ItemClassID", &ItemClassID, sizeof(ItemClassID));
 		arc.WriteRaw("Flags", &Flags, sizeof(Flags));
-		arc.WriteRaw("Tags", Tags, sizeof(Tags));
+		arc.WriteRaw("Tags", &Tags, sizeof(Tags));
 
 		// crafting
-		arc.WriteRaw("CraftData", CraftData, sizeof(CraftData));
-		arc.WriteRaw("CraftFlags", CraftFlags, sizeof(CraftFlags));
+		arc.WriteRaw("CraftData", &CraftData, sizeof(CraftData));
+		arc.WriteRaw("CraftFlags", &CraftFlags, sizeof(CraftFlags));
 
 		// names / affixes
 		arc.WriteString("OwnName", OwnName);
@@ -333,13 +344,13 @@ namespace Gothic_II_Addon
 
 		// visual effect
 		arc.WriteString("VisualEffect", VisualEffect);
-		arc.WriteRaw("VisualEffectData", VisualEffectData, sizeof(VisualEffectData));
+		arc.WriteRaw("VisualEffectData", &VisualEffectData, sizeof(VisualEffectData));
 
 		// level/quality/rank/properties
 		arc.WriteInt("Level", Level);
 		arc.WriteInt("Rank", Rank);
 		arc.WriteInt("Quality", Quality);
-		arc.WriteRaw("Properties", Properties, sizeof(Properties));
+		arc.WriteRaw("Properties", &Properties, sizeof(Properties));
 
 		// special damage / protection
 		arc.WriteInt("SpecialDamageMin", SpecialDamageMin);
@@ -355,14 +366,14 @@ namespace Gothic_II_Addon
 		arc.WriteInt("ExtraFlags_Additional", ExtraFlags_Additional);
 
 		// conditions
-		arc.WriteRaw("CondAtr", CondAtr, sizeof(CondAtr));
-		arc.WriteRaw("CondValue", CondValue, sizeof(CondValue));
+		arc.WriteRaw("CondAtr", &CondAtr, sizeof(CondAtr));
+		arc.WriteRaw("CondValue", &CondValue, sizeof(CondValue));
 
 		// damage/protection arrays
 		arc.WriteInt("DamageTypes", DamageTypes);
 		arc.WriteInt("DamageTotal", DamageTotal);
-		arc.WriteRaw("Damage", Damage, sizeof(Damage));
-		arc.WriteRaw("Protection", Protection, sizeof(Protection));
+		arc.WriteRaw("Damage", &Damage, sizeof(Damage));
+		arc.WriteRaw("Protection", &Protection, sizeof(Protection));
 		arc.WriteInt("Range", Range);
 
 		// cost/weight
@@ -370,34 +381,36 @@ namespace Gothic_II_Addon
 		arc.WriteInt("Weight", Weight);
 
 		// stats
-		arc.WriteRaw("StatId", StatId, sizeof(StatId));
-		arc.WriteRaw("StatValue", StatValue, sizeof(StatValue));
-		arc.WriteRaw("StatDuration", StatDuration, sizeof(StatDuration));
+		arc.WriteRaw("StatId", &StatId, sizeof(StatId));
+		arc.WriteRaw("StatValue", &StatValue, sizeof(StatValue));
+		arc.WriteRaw("StatDuration", &StatDuration, sizeof(StatDuration));
 
 		// own stats
-		arc.WriteRaw("OwnStatId", OwnStatId, sizeof(OwnStatId));
-		arc.WriteRaw("OwnStatValue", OwnStatValue, sizeof(OwnStatValue));
+		arc.WriteRaw("OwnStatId", &OwnStatId, sizeof(OwnStatId));
+		arc.WriteRaw("OwnStatValue", &OwnStatValue, sizeof(OwnStatValue));
 
 		// abilities
-		arc.WriteRaw("AbilityId", AbilityId, sizeof(AbilityId));
-		arc.WriteRaw("AbilityChance", AbilityChance, sizeof(AbilityChance));
-		arc.WriteRaw("AbilityValue", AbilityValue, sizeof(AbilityValue));
-		arc.WriteRaw("AbilityDuration", AbilityDuration, sizeof(AbilityDuration));
+		arc.WriteRaw("AbilityId", &AbilityId, sizeof(AbilityId));
+		arc.WriteRaw("AbilityChance", &AbilityChance, sizeof(AbilityChance));
+		arc.WriteRaw("AbilityValue", &AbilityValue, sizeof(AbilityValue));
+		arc.WriteRaw("AbilityDuration", &AbilityDuration, sizeof(AbilityDuration));
+		arc.WriteRaw("AbilityRange", &AbilityRange, sizeof(AbilityRange));
 	}
 
 	void ItemExtension::UnArchive(zCArchiver& arc)
 	{
+		int i = 0;
 		arc.ReadRaw("UId", &UId, sizeof(UId));
 		arc.ReadString("InstanceName", InstanceName);
 		arc.ReadString("BaseInstanceName", BaseInstanceName);
 
 		arc.ReadRaw("ItemClassID", &ItemClassID, sizeof(ItemClassID));
 		arc.ReadRaw("Flags", &Flags, sizeof(Flags));
-		arc.ReadRaw("Tags", Tags, sizeof(Tags));
+		arc.ReadRaw("Tags", &Tags, sizeof(Tags));
 
 		// crafting
-		arc.ReadRaw("CraftData", CraftData, sizeof(CraftData));
-		arc.ReadRaw("CraftFlags", CraftFlags, sizeof(CraftFlags));
+		arc.ReadRaw("CraftData", &CraftData, sizeof(CraftData));
+		arc.ReadRaw("CraftFlags", &CraftFlags, sizeof(CraftFlags));
 
 		// names / affixes
 		arc.ReadString("OwnName", OwnName);
@@ -408,13 +421,13 @@ namespace Gothic_II_Addon
 
 		// visual effect
 		arc.ReadString("VisualEffect", VisualEffect);
-		arc.ReadRaw("VisualEffectData", VisualEffectData, sizeof(VisualEffectData));
+		arc.ReadRaw("VisualEffectData", &VisualEffectData, sizeof(VisualEffectData));
 
 		// level/quality/rank/properties
 		arc.ReadInt("Level", Level);
 		arc.ReadInt("Rank", Rank);
 		arc.ReadInt("Quality", Quality);
-		arc.ReadRaw("Properties", Properties, sizeof(Properties));
+		arc.ReadRaw("Properties", &Properties, sizeof(Properties));
 
 		// special damage / protection
 		arc.ReadInt("SpecialDamageMin", SpecialDamageMin);
@@ -430,14 +443,14 @@ namespace Gothic_II_Addon
 		arc.ReadInt("ExtraFlags_Additional", ExtraFlags_Additional);
 
 		// conditions
-		arc.ReadRaw("CondAtr", CondAtr, sizeof(CondAtr));
-		arc.ReadRaw("CondValue", CondValue, sizeof(CondValue));
+		arc.ReadRaw("CondAtr", &CondAtr, sizeof(CondAtr));
+		arc.ReadRaw("CondValue", &CondValue, sizeof(CondValue));
 
 		// damage/protection arrays
 		arc.ReadInt("DamageTypes", DamageTypes);
 		arc.ReadInt("DamageTotal", DamageTotal);
-		arc.ReadRaw("Damage", Damage, sizeof(Damage));
-		arc.ReadRaw("Protection", Protection, sizeof(Protection));
+		arc.ReadRaw("Damage", &Damage, sizeof(Damage));
+		arc.ReadRaw("Protection", &Protection, sizeof(Protection));
 		arc.ReadInt("Range", Range);
 
 		// cost/weight
@@ -445,19 +458,20 @@ namespace Gothic_II_Addon
 		arc.ReadInt("Weight", Weight);
 
 		// stats
-		arc.ReadRaw("StatId", StatId, sizeof(StatId));
-		arc.ReadRaw("StatValue", StatValue, sizeof(StatValue));
-		arc.ReadRaw("StatDuration", StatDuration, sizeof(StatDuration));
+		arc.ReadRaw("StatId", &StatId, sizeof(StatId));
+		arc.ReadRaw("StatValue", &StatValue, sizeof(StatValue));
+		arc.ReadRaw("StatDuration", &StatDuration, sizeof(StatDuration));
 
 		// own stats
-		arc.ReadRaw("OwnStatId", OwnStatId, sizeof(OwnStatId));
-		arc.ReadRaw("OwnStatValue", OwnStatValue, sizeof(OwnStatValue));
+		arc.ReadRaw("OwnStatId", &OwnStatId, sizeof(OwnStatId));
+		arc.ReadRaw("OwnStatValue", &OwnStatValue, sizeof(OwnStatValue));
 
 		// abilities
-		arc.ReadRaw("AbilityId", AbilityId, sizeof(AbilityId));
-		arc.ReadRaw("AbilityChance", AbilityChance, sizeof(AbilityChance));
-		arc.ReadRaw("AbilityValue", AbilityValue, sizeof(AbilityValue));
-		arc.ReadRaw("AbilityDuration", AbilityDuration, sizeof(AbilityDuration));
+		arc.ReadRaw("AbilityId", &AbilityId, sizeof(AbilityId));
+		arc.ReadRaw("AbilityChance", &AbilityChance, sizeof(AbilityChance));
+		arc.ReadRaw("AbilityValue", &AbilityValue, sizeof(AbilityValue));
+		arc.ReadRaw("AbilityDuration", &AbilityDuration, sizeof(AbilityDuration));
+		arc.ReadRaw("AbilityRange", &AbilityRange, sizeof(AbilityRange));
 
 		Initialize();
 	}

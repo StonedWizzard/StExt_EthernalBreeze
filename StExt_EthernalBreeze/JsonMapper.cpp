@@ -208,7 +208,9 @@ namespace Gothic_II_Addon
 		{ "ItemLevelSpread", FIELD_OFFSET(ItemsGeneratorConfig, ItemLevelSpread), JsonFieldType::Float },
 		{ "ItemRankGrowthFactor", FIELD_OFFSET(ItemsGeneratorConfig, ItemRankGrowthFactor), JsonFieldType::Float },
 		{ "ItemRankBaseStep", FIELD_OFFSET(ItemsGeneratorConfig, ItemRankBaseStep), JsonFieldType::Int },
-		
+
+		{ "ItemPriceMult", FIELD_OFFSET(ItemsGeneratorConfig, ItemPriceMult), JsonFieldType::Float },
+
 		{ "ItemRollAsUndefinedChance", FIELD_OFFSET(ItemsGeneratorConfig, ItemRollAsUndefinedChance), JsonFieldType::Int },
 		{ "ItemRollAsInfusedChance", FIELD_OFFSET(ItemsGeneratorConfig, ItemRollAsInfusedChance), JsonFieldType::Int },
 

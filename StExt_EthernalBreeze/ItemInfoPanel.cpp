@@ -188,6 +188,11 @@ namespace Gothic_II_Addon
 	{
 		if (!DisplayItem) return;
 
+#if DebugEnabled
+		if (itemExtension && parser->GetSymbol("StExt_Config_DebugEnabled")->single_intdata)
+			CreateContentLine("[" + itemExtension->InstanceName + "]");
+#endif
+
 		if (!itemExtension)
 		{
 			CreateContentLine(DisplayItem->name);
@@ -364,9 +369,11 @@ namespace Gothic_II_Addon
 			BuildSpellDescription(itemExtension);
 		else if (itemExtension)
 		{
-			UpdateItemDescriptionText(const_cast<oCItem*>(DisplayItem), itemExtension);
 			BuildExtensionDescription(itemExtension);
+			UpdateItemDescriptionText(const_cast<oCItem*>(DisplayItem), itemExtension);
 		}
+		else return;
+
 		for (uint i = 0; i < Content.GetNum(); ++i)
 		{
 			const int width = screen->FontSize(Content[i].Text);

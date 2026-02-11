@@ -900,7 +900,9 @@ $(ALLUSERSPROFILE)\Union\SDK\Union\v1.0m\Build\incver.exe $(ProjectDir)</Command
     <ClCompile Include="MenuTextItem.cpp" />
     <ClCompile Include="MenuValueItem.cpp" />
     <ClCompile Include="MenuWindow.cpp" />
+    <ClCompile Include="ModConfigsController.cpp" />
     <ClCompile Include="MsgTray.cpp" />
+    <ClCompile Include="NpcController.cpp" />
     <ClCompile Include="ReceiptSlotParser.cpp" />
     <ClCompile Include="StatsUncaper.cpp" />
     <ClCompile Include="StatsWindow.cpp" />

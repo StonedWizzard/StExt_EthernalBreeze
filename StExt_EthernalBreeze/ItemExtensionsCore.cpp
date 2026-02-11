@@ -276,9 +276,8 @@ namespace Gothic_II_Addon
             return;
         }
 
-        //ToDo: fix zero-value display text...
         item->count[5] = item->value;
-        item->text[5] = ItemRanksList[ValidateValue(extension->Rank, 0, ItemsGeneratorConfigs.ItemMaxRank)] + " | " + ItemNameValueString + " " + Z(item->value);
+        item->text[5] = ItemRanksList[ValidateValue(extension->Rank, 0, ItemsGeneratorConfigs.ItemMaxRank)] + " | " + ItemNameValueString;
 
         switch (static_cast<ItemType>(extension->Type))
         {
@@ -303,7 +302,7 @@ namespace Gothic_II_Addon
             DEBUG_MSG_IF(!extension, "ApplyItemExtension: item extension is null");
             return false; 
         }
-        DEBUG_MSG("ApplyItemExtension: apply item extension for '" + item->GetInstanceName() + "' ...");
+        //DEBUG_MSG("ApplyItemExtension: apply item extension for '" + item->GetInstanceName() + "' ...");
 
         zSTRING affix = (extension->Affix.IsEmpty() ? "" : " - ") + extension->Affix;
         zSTRING preffix = extension->Preffix + (extension->Preffix.IsEmpty() ? "" : " ");
@@ -315,7 +314,9 @@ namespace Gothic_II_Addon
         item->max_hitp = static_cast<int>(extension->UId);
         item->flags |= extension->ExtraFlags_Base;
         item->hitp |= extension->ExtraFlags_Additional;
-        item->value = extension->Cost;
+
+        if (extension->Cost > 0) item->value = extension->Cost;
+        if (item->value <= 0) item->value = 1;
         item->weight = (extension->ItemClassData->ModWeight && extension->Weight != Invalid) ? extension->Weight : item->weight;
 
         for (int i = 0; i < oEDamageIndex_MAX; ++i)
@@ -422,19 +423,17 @@ namespace Gothic_II_Addon
         return archivePath;
     }
 
-    inline void ArchiveItemExtensionsCoreState(zCArchiver& ar)
-    {
-        UpdateItemExtensionsCoreState();
-        ar.WriteRaw("ItemExtensionsCount", &ItemExtensionsState.ItemExtensionsCount, sizeof(uint));
-        ar.WriteRaw("NextItemExtensionUId", &ItemExtensionsState.NextItemExtensionUId, sizeof(uint));
+    inline void ArchiveItemExtensionsCoreState(zCArchiver& ar) 
+    { 
+        UpdateItemExtensionsCoreState(); 
+        ar.WriteRaw("ExtensionsState_ItemExtensionsCount", &ItemExtensionsState.ItemExtensionsCount, sizeof(uint)); 
+        ar.WriteRaw("ExtensionsState_NextItemExtensionUId", &ItemExtensionsState.NextItemExtensionUId, sizeof(uint)); 
     }
-
-    inline void UnArchiveItemExtensionsCoreState(zCArchiver& ar)
+    inline void UnArchiveItemExtensionsCoreState(zCArchiver& ar) 
     {
-        ResetItemExtensionsCoreState();
-        ar.ReadRaw("ItemExtensionsCount", &ItemExtensionsState.ItemExtensionsCount, sizeof(uint));
-        ar.ReadRaw("NextItemExtensionUId", &ItemExtensionsState.NextItemExtensionUId, sizeof(uint));
-        //  HideItemVisualEffect = parser->GetSymbol("StExt_Config_DisableEnchantedItemsEffects")->single_intdata;
+        ResetItemExtensionsCoreState(); 
+        ar.ReadRaw("ExtensionsState_ItemExtensionsCount", &ItemExtensionsState.ItemExtensionsCount, sizeof(uint));
+        ar.ReadRaw("ExtensionsState_NextItemExtensionUId", &ItemExtensionsState.NextItemExtensionUId, sizeof(uint));
     }
 
     void SaveGeneratedItems()
@@ -506,14 +505,23 @@ namespace Gothic_II_Addon
             return;
         }
 
-        zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        //zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        zCListSort<oCItem>* it = player->inventory2.GetContents();
         while (it)
         {
             const oCItem* itm = it->GetData();
-            if (!itm) continue;
-            if (HasFlag(itm->flags, ITM_FLAG_ACTIVE)) continue;
-            if (HasFlag(itm->hitp, bit_item_questitem)) continue;
-            if (itemClassId == GetItemClassKey(itm)) foundItems.Insert(itm);
+            if (!itm) {
+                it = it->GetNextInList();
+                continue;
+            }
+            if (HasFlag(itm->flags, ITM_FLAG_ACTIVE) || HasFlag(itm->hitp, bit_item_questitem)) {
+                it = it->GetNextInList();
+                continue;
+            }
+
+            if (itemClassId == GetItemClassKey(itm)) 
+                foundItems.Insert(itm);
+            it = it->GetNextInList();
         }
     }
 
@@ -525,13 +533,19 @@ namespace Gothic_II_Addon
             return;
         }
 
-        zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        //zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        zCListSort<oCItem>* it = player->inventory2.GetContents();
         while (it)
         {
             const oCItem* itm = it->GetData();
-            if (!itm) continue;
-            if (HasFlag(itm->flags, ITM_FLAG_ACTIVE)) continue;
-            if (HasFlag(itm->hitp, bit_item_questitem)) continue;
+            if (!itm) {
+                it = it->GetNextInList();
+                continue;
+            }
+            if (HasFlag(itm->flags, ITM_FLAG_ACTIVE) || HasFlag(itm->hitp, bit_item_questitem)) {
+                it = it->GetNextInList();
+                continue;
+            }
 
             const int itmClassId = GetItemClassKey(itm);
             for (uint i = 0; i < itemClassIds.GetNum(); ++i)
@@ -542,6 +556,7 @@ namespace Gothic_II_Addon
                     break;
                 }
             }
+            it = it->GetNextInList();
         }
     }
 
@@ -553,17 +568,20 @@ namespace Gothic_II_Addon
             return;
         }
 
-        zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        //zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        zCListSort<oCItem>* it = player->inventory2.GetContents();
         while (it)
         {
             const oCItem* itm = it->GetData();
-            if (!itm) continue;
-            if (HasFlag(itm->flags, ITM_FLAG_ACTIVE)) continue;
-            if (HasFlag(itm->hitp, bit_item_questitem)) continue;
-
+            if (!itm)
+            {
+                it = it->GetNextInList();
+                continue;
+            }
             const ItemExtension* ext = GetItemExtension(itm);
             if (ext && ext->Tags[(int)ItemTags::Unidentified])
                 foundItems.Insert(itm);
+            it = it->GetNextInList();
         }
     }
 
@@ -696,10 +714,11 @@ namespace Gothic_II_Addon
         if ((instance != Invalid) && this)
         {
             const ItemExtension* extension = GetItemExtension(this);
-            if (!extension) return;
-
-            if (!ApplyItemExtension(this, extension)) {
-                DEBUG_MSG("oCItem::InitByScript_StExt: fail apply item extension for '" + this->GetInstanceName() + "'!");
+            if (extension)
+            {
+                if (!ApplyItemExtension(this, extension)) {
+                    DEBUG_MSG("oCItem::InitByScript_StExt: fail apply item extension for '" + this->GetInstanceName() + "'!");
+                }
             }
 
             // Global price update
@@ -711,6 +730,27 @@ namespace Gothic_II_Addon
             }
             this->value = static_cast<int>(price);
         }
+    }
+
+    HOOK Hook_oCItem_GetValue PATCH(&oCItem::GetValue, &oCItem::GetValue_StExt);
+    int oCItem::GetValue_StExt()
+    {
+        int result = THISCALL(Hook_oCItem_GetValue)();
+        if (result <= 0)
+        {
+            if (this->value > 0) result = this->value;
+            else
+            {
+                const ItemExtension* extension = GetItemExtension(this);
+                if (extension) 
+                    result = this->value = extension->Cost;
+                else result = this->value = 1;
+            }
+        }
+
+        //DEBUG_MSG_IF(result <= 0, "oCItem::GetValue_StExt: cost is less than zero! Cost: " + Z(result) + " | Item: " + this->GetInstanceName());
+        //DEBUG_MSG_IF(result >= 65535, "oCItem::GetValue_StExt: cost is more than short! Cost: " + Z(result) + " | Item: " + this->GetInstanceName());
+        return ValidateValue(result, 1, ItemExtension_MaxPrice);
     }
 
     HOOK Hook_oCNpc_AddItemEffects PATCH(&oCNpc::AddItemEffects, &oCNpc::AddItemEffects_StExt);

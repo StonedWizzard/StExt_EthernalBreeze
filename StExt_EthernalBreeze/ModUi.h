@@ -116,7 +116,8 @@ namespace Gothic_II_Addon
 		Interactable = 1 << 0U,
 		Selectable = 1 << 1U,
 		Hoverable = 1 << 2U,
-		Checkable = 1 << 3U
+		Checkable = 1 << 3U,
+		ForceResize = 1 << 4U,
 	};
 
 	inline UiElementBehaviorFlags operator|(UiElementBehaviorFlags a, UiElementBehaviorFlags b)	{
@@ -465,6 +466,8 @@ namespace Gothic_II_Addon
 	{
 	public:
 		bool HideCursor;
+		std::function<void(MenuWindow*)> OnOpen;
+		std::function<void(MenuWindow*)> OnClose;
 
 		MenuWindow();
 
@@ -595,20 +598,18 @@ namespace Gothic_II_Addon
 	class MenuCursorController
 	{
 	protected:
-		static LRESULT CALLBACK MouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
-		static MenuCursorController* Instance;
-		static HHOOK MouseHook;
-
 		bool LeftBtnPressed = false, LeftBtnReleased = false;
 		bool RightBtnPressed = false, RightBtnReleased = false;
 		bool MiddleBtnPressed = false, MiddleBtnReleased = false;
 
-		bool IsHookChecked;
 	public:
 		int ScreenWidth;
 		int ScreenHeight;
 		float ScreenRatioX;
 		float ScreenRatioY;
+
+		float MouseSensitivity;
+		float ScrollSensitivity;
 
 		bool HasEvent;
 		bool IsInitialized;

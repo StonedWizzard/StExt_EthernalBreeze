@@ -148,7 +148,7 @@ namespace Gothic_II_Addon
         }
         if (slot.IsEmpty) return;
 
-        zCListSort<oCItem>* it = player->inventory2.GetContents()->GetNextInList();
+        zCListSort<oCItem>* it = player->inventory2.GetContents();
         while (it)
         {
             const oCItem* itm = it->GetData();

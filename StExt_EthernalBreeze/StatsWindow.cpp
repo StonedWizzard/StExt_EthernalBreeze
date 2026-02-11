@@ -90,8 +90,8 @@ namespace Gothic_II_Addon
 			oCNpcEx* heroEx = dynamic_cast<oCNpcEx*>(player);
 			if (heroEx)
 			{
-				int esCur = heroEx->m_pVARS[StExt_AiVar_EsCur];
-				int esMax = heroEx->m_pVARS[StExt_AiVar_EsMax];
+				int esCur; GetNpcExtensionVar(heroEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_EsCur, esCur);
+				int esMax; GetNpcExtensionVar(heroEx->m_pVARS[StExt_AiVar_Uid], StExt_AiVar_EsMax, esMax);
 				itm->Text = Z(esCur) + "/" + Z(esMax);
 			}
 			else itm->Text = "???/???";
@@ -132,20 +132,27 @@ namespace Gothic_II_Addon
 
 	inline void StatsWindow_OnBonusPanelUpdate_BuildContent(zSTRING& content, uint& contentSize, const zSTRING& valueArrayName, const zSTRING& timeArrayName)
 	{
-		const bool hasDuration = timeArrayName.IsEmpty();
+		const bool hasDuration = !timeArrayName.IsEmpty();
 		const int statsMax = parser->GetSymbol("StExt_PcStats_Index_Max")->single_intdata;
 		const zSTRING secStr = parser->GetSymbol("StExt_Str_Seconds")->stringdata;
 
 		zCPar_Symbol* descArray = parser->GetSymbol("StExt_PcStats_Desc");
 		zCPar_Symbol* valueArray = parser->GetSymbol(valueArrayName);
-		zCPar_Symbol* durationArray = hasDuration ? parser->GetSymbol(timeArrayName) : Null;
+		zCPar_Symbol* durationArray = parser->GetSymbol(timeArrayName);
 
 		zSTRING tmpStr;
 		content.Clear();
+		if (!valueArray || !descArray)
+		{
+			content = "ERROR!";
+			contentSize = 1;
+			return;
+		}
+
 		for (int i = 0; i < statsMax; ++i)
 		{
 			if (valueArray->intdata[i] == 0) continue;
-			if (hasDuration && durationArray->intdata[i] <= 0) continue;
+			if (hasDuration && durationArray && durationArray->intdata[i] <= 0) continue;
 
 			tmpStr = !hasDuration ? descArray->stringdata[i] + " " + Z(valueArray->intdata[i]) :
 				descArray->stringdata[i] + " " + Z(valueArray->intdata[i]) + " (" + Z(durationArray->intdata[i]) + secStr + ")";
@@ -164,6 +171,11 @@ namespace Gothic_II_Addon
 	void StatsWindow_OnBonusPanelUpdate(BaseUiElement* panel)
 	{
 		if (!panel || !Instance) return;
+
+		static int updateCounter = 0;
+		++updateCounter;
+		if (updateCounter > 10) updateCounter = 0;
+		else return;
 
 		BaseMenuPanel* container = static_cast<BaseMenuPanel*>(panel);
 		if (!container) return;
@@ -232,7 +244,6 @@ namespace Gothic_II_Addon
 
 			yOffset += contentSizeY + yOffsetForHeader;
 		}
-		panel->Resize();
 	}
 
 	//----------------------------------------------------------------------
@@ -302,6 +313,9 @@ namespace Gothic_II_Addon
 		TabPanel->Init();
 		tabPanelSeparator->Init();
 	}
+
+	inline void BuildSkillPostfixName(zSTRING& postfix, const int masteryId, const int skillId, const bool isCorruption, const bool isGeneric) { postfix = Z((int)isCorruption) + Z((int)isGeneric) + "_" + Z(masteryId) + "_" + Z(skillId); }
+
 
 	//----------------------------------------------------------------------
 	//								GENERAL PANEL
@@ -934,6 +948,129 @@ namespace Gothic_II_Addon
 		return panel;
 	}
 
+	inline BaseMenuPanel* BuildGenericValuePanel(const zSTRING valueSym, const zSTRING valueHeaderSym, const float posY, const float sizeY)
+	{
+		BaseMenuPanel* panel = new BaseMenuPanel();
+		panel->OnInit = [valueSym, posY, sizeY](BaseUiElement* item)
+		{
+			item->Name = "GenericDamagePanel_" + valueSym;
+			item->SizeX = 0.98f;
+			item->SizeY = sizeY;
+			item->PosX = 0.01f;
+			item->PosY = posY;
+			if (auto* itm = static_cast<BaseMenuPanel*>(item)) {
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+			}
+		};
+
+		MenuItem* titleItem = new MenuItem();
+		titleItem->OnInit = [valueHeaderSym, valueSym](BaseUiElement* item)
+		{
+			item->Name = "GenericDamagePanel_Title_" + valueSym;
+			item->SizeX = 0.80f;
+			item->SizeY = 0.95f;
+			item->PosX = 0.025f;
+			item->PosY = 0.025f;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = parser->GetSymbol(valueHeaderSym)->stringdata;
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+				itm->HorizontalAlign = UiContentAlignEnum::Begin;
+			}
+		};
+
+		MenuValueItem* valueItem = new MenuValueItem();
+		valueItem->OnInit = [valueSym](BaseUiElement* item)
+		{
+			item->Name = "GenericDamagePanel_Value_" + valueSym;
+			item->SizeX = 0.15f;
+			item->SizeY = 0.95f;
+			item->PosX = 0.825f;
+			item->PosY = 0.25f;
+
+			if (auto* itm = static_cast<MenuValueItem*>(item))
+			{
+				itm->PrimaryValueName = valueSym;
+				itm->PrimaryValueDisplayType = UiValueDisplayType::Default;
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+			}
+		};
+
+		panel->AddItem(titleItem);
+		panel->AddItem(valueItem);
+		return panel;
+	}
+
+	inline BaseMenuPanel* BuildSkillGenericHeaderPanel(const SkillHeaderPanelArgs& args, const float posY, const float sizeY)
+	{
+		BaseMenuPanel* panel = new BaseMenuPanel();
+		panel->OnInit = [args, posY, sizeY](BaseUiElement* item)
+		{
+			item->Name = "SkillGenericHeaderPanel_" + args.NamePostfix;
+			item->SizeX = 0.98f;
+			item->SizeY = sizeY;
+			item->PosX = 0.01f;
+			item->PosY = posY;
+			if (auto* itm = static_cast<BaseMenuPanel*>(item)) {
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+			}
+		};
+
+		MenuItem* titleItem = new MenuItem();
+		MenuValueItem* levelValueItem = new MenuValueItem();
+		MenuValueItem* expValueItem = new MenuValueItem();
+
+		titleItem->OnInit = [args](BaseUiElement* item)
+		{
+			item->Name = "SkillGenericHeaderPanel_Title_" + args.NamePostfix;
+			item->SizeX = 0.80f;
+			item->SizeY = 0.95f;
+			item->PosX = 0.025f;
+			item->PosY = 0.025f;
+
+			if (auto* itm = static_cast<MenuItem*>(item))
+			{
+				itm->Text = parser->GetSymbol(args.TitleSymbol)->stringdata[args.MasteryId];
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+				itm->HorizontalAlign = UiContentAlignEnum::Begin;
+			}
+		};
+
+		levelValueItem->OnInit = [args](BaseUiElement* item)
+		{
+			item->Name = "SkillGenericHeaderPanel_LevelValue_" + args.NamePostfix;
+			item->SizeX = 0.15f;
+			item->SizeY = 0.95f;
+			item->PosX = 0.825f;
+			item->PosY = 0.025f;
+
+			if (auto* itm = static_cast<MenuValueItem*>(item))
+			{
+				itm->IsArray = true;
+				itm->IsRanged = true;
+				itm->RangeValueSeparator = " | ";
+				itm->HorizontalAlign = UiContentAlignEnum::Center;
+				itm->BehaviorFlags = UiElementBehaviorFlags::Hoverable | UiElementBehaviorFlags::Interactable;
+
+				itm->PrimaryValueName = args.LevelSymbol;
+				itm->PrimaryValueArrayIndex = args.MasteryId;
+				itm->PrimaryValueDisplayType = UiValueDisplayType::Default;
+
+				itm->SecondaryValueName = args.RankSymbol;
+				itm->SecondaryValueArrayIndex = args.MasteryId;
+				itm->SecondaryValueDisplayType = UiValueDisplayType::Bool;
+				itm->SecondarySpecialValueFormatter = ConvertValueToMasteryRank;
+			}
+		};
+
+		panel->AddItem(titleItem);
+		panel->AddItem(levelValueItem);
+		return panel;
+	}
+
+
+
 #define STEXT_GENERALTABPANEL_ADDITEM(itm, offset)  GeneralTabPanel->AddItem(itm); yOffset += offset;
 	void StatsWindow::InitGeneralTab()
 	{
@@ -957,6 +1094,39 @@ namespace Gothic_II_Addon
 
 		STEXT_GENERALTABPANEL_ADDITEM(BuildGenericCorruptionPanel(yOffset), statPanelSizeY);
 		yOffset += 0.40f + yOffsetBig;
+
+		// masteries
+		zSTRING namePostfix = "";
+		for (auto masteryData : ExtraMasteriesData)
+		{
+			if (masteryData.IsGeneric || masteryData.IsCorruption) continue;
+
+			SkillHeaderPanelArgs skillsHeaderPanelArgs = SkillHeaderPanelArgs();
+			BuildSkillPostfixName(namePostfix, masteryData.MasteryId, 0, masteryData.IsCorruption, masteryData.IsGeneric);
+
+			skillsHeaderPanelArgs.MasteryId = masteryData.MasteryId;
+			skillsHeaderPanelArgs.PosY = yOffset;
+			skillsHeaderPanelArgs.IsCorruptionMastery = masteryData.IsCorruption;
+			skillsHeaderPanelArgs.NamePostfix = namePostfix;
+
+			skillsHeaderPanelArgs.TitleSymbol = masteryData.TitleSymbol;
+			skillsHeaderPanelArgs.DescSymbol = masteryData.DescSymbol;
+			skillsHeaderPanelArgs.LevelSymbol = masteryData.LevelSymbol;
+			skillsHeaderPanelArgs.RankSymbol = masteryData.RankSymbol;
+			skillsHeaderPanelArgs.ExpSymbol = masteryData.ExpSymbol;
+			skillsHeaderPanelArgs.NextExpSymbol = masteryData.NextExpSymbol;
+			skillsHeaderPanelArgs.LpSymbol = masteryData.LpSymbol;
+
+			BaseMenuPanel* skillsHeaderPanel = BuildSkillGenericHeaderPanel(skillsHeaderPanelArgs, yOffset, statPanelSizeY);
+			STEXT_GENERALTABPANEL_ADDITEM(skillsHeaderPanel, statPanelSizeY);
+		}
+		yOffset += yOffsetBig;
+
+		// Karma
+		STEXT_GENERALTABPANEL_ADDITEM(BuildGenericValuePanel("StExt_InnosKarma", "StExt_Str_Karma_Innos", yOffset, statPanelSizeY), statPanelSizeY);
+		STEXT_GENERALTABPANEL_ADDITEM(BuildGenericValuePanel("StExt_BeliarKarma", "StExt_Str_Karma_Beliar", yOffset, statPanelSizeY), statPanelSizeY);
+		STEXT_GENERALTABPANEL_ADDITEM(BuildGenericValuePanel("StExt_AdanosKarma", "StExt_Str_Karma_Adanos", yOffset, statPanelSizeY), statPanelSizeY);
+		yOffset += yOffsetSmall;
 
 		// Caps
 		STEXT_GENERALTABPANEL_ADDITEM(BuildGenericMasteriesPanel(yOffset, statPanelSizeY), statPanelSizeY);
@@ -1044,6 +1214,11 @@ namespace Gothic_II_Addon
 			item->PosY = 0.11f;
 			item->BgTexture = UiElement_PanelNoBorderTexture;
 			item->OnUpdate = StatsWindow_OnBonusPanelUpdate;
+			
+			if (auto* itm = static_cast<MenuScrollPanel*>(item))
+			{
+				//itm->BehaviorFlags = UiElementBehaviorFlags::ForceResize;
+			}
 		};
 		AddItem(BonusTabPanel);
 
@@ -1053,7 +1228,7 @@ namespace Gothic_II_Addon
 		{
 			item->Name = "BonusTabPanel_ItemsTitle";
 			item->SizeX = 0.98f;
-			item->SizeY = 0.10f;
+			item->SizeY = 0.07f;
 			item->PosX = 0.01f;
 			item->PosY = 0.02f;
 
@@ -1096,7 +1271,7 @@ namespace Gothic_II_Addon
 		{
 			item->Name = "BonusTabPanel_ArtifactTitle";
 			item->SizeX = 0.98f;
-			item->SizeY = 0.10f;
+			item->SizeY = 0.07f;
 			item->PosX = 0.01f;
 			item->PosY = 0.02f;
 
@@ -1139,7 +1314,7 @@ namespace Gothic_II_Addon
 		{
 			item->Name = "BonusTabPanel_AlchemyTitle";
 			item->SizeX = 0.98f;
-			item->SizeY = 0.10f;
+			item->SizeY = 0.07f;
 			item->PosX = 0.01f;
 			item->PosY = 0.02f;
 
@@ -1182,7 +1357,7 @@ namespace Gothic_II_Addon
 		{
 			item->Name = "BonusTabPanel_EffectsTitle";
 			item->SizeX = 0.98f;
-			item->SizeY = 0.10f;
+			item->SizeY = 0.07f;
 			item->PosX = 0.01f;
 			item->PosY = 0.02f;
 
@@ -1225,7 +1400,7 @@ namespace Gothic_II_Addon
 		{
 			item->Name = "BonusTabPanel_AurasTitle";
 			item->SizeX = 0.98f;
-			item->SizeY = 0.10f;
+			item->SizeY = 0.07f;
 			item->PosX = 0.01f;
 			item->PosY = 0.02f;
 
@@ -1456,8 +1631,6 @@ namespace Gothic_II_Addon
 	//----------------------------------------------------------------------
 	//								SKILLS PANEL
 	//----------------------------------------------------------------------
-
-	inline void BuildSkillPostfixName(zSTRING& postfix, const int masteryId, const int skillId, const bool isCorruption, const bool isGeneric) { postfix = Z((int)isCorruption) + Z((int)isGeneric) + "_" + Z(masteryId) + "_" + Z(skillId); }
 
 	inline BaseMenuPanel* BuildSkillPanel(const SkillPanelArgs& args)
 	{

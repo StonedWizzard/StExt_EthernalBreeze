@@ -59,8 +59,8 @@ namespace Gothic_II_Addon
     {
         if (!IsLoading && !IsLevelChanging)
         {
-            DEBUG_MSG("");
             SaveModState();
+            SaveNpcExtensions();
             SaveTimedEffects();
             SaveGeneratedItems();
         }
@@ -82,7 +82,8 @@ namespace Gothic_II_Addon
         MsgTray_Clear();
         StopUncaper();
         ClearDamageMeta();
-        ClearRegisteredNpcs();
+        ClearNpcExtensionPointers();
+        ClearNpcExtensionData();
         ClearGeneratedItemsData();
         ResetModState();
         ClearTimedEffects();
@@ -111,15 +112,16 @@ namespace Gothic_II_Addon
         parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
 
         MsgTray_Clear();
-        ClearDamageMeta();
         StopUncaper();
-        ClearRegisteredNpcs();
+        ClearDamageMeta();
+        ClearTimedEffects();
+        ClearNpcExtensionData();
         LoadGeneratedItems();
     }
     void Game_LoadEnd_SaveGame() 
     {
         LoadModState();
-        RegisterNearestNpcs();
+        LoadNpcExtensions();
         LoadTimedEffects();
 
         IsLoading = false;
@@ -152,11 +154,12 @@ namespace Gothic_II_Addon
     void Game_LoadBegin_ChangeLevel()
     {
         FinalizeTimedEffects();
+        ClearNpcExtensionPointers();
         StopUncaper();
-        ClearRegisteredNpcs();
     }
     void Game_LoadEnd_ChangeLevel()
     {
+        RegisterWorldNpcs();
         IsLevelChanging = false;
         IsLoading = false;
         parser->GetSymbol("StExt_IsLoading")->SetValue(IsLoading, 0);
@@ -165,7 +168,7 @@ namespace Gothic_II_Addon
         DEBUG_MSG("");
         DEBUG_MSG("-------> LoadEnd: CHANGE LEVEL");
         DEBUG_MSG("");
-    }    
+    }
 
     void Game_Pause() { UpdateUiStatus(); }
 
