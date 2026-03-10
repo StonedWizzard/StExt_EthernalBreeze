@@ -1,9 +1,12 @@
 #include <UnionAfx.h>
+#include <StringCollections.h>
 #include <vector>
 #include <algorithm>
 
 namespace Gothic_II_Addon
 {
+    StringMap<int> SymIndexCache;
+
     void StExt_PushInt(const int& value)
     {
         parser->datastack.Push(value);
@@ -130,12 +133,50 @@ namespace Gothic_II_Addon
     void StExt_GetArray(zSTRING& arrayName, zCPar_Symbol*& arrayDesc, void*& pointer, int& size)
     {
         StExt_InitFunctions();
-        arrayDesc = nullptr;
-        pointer = nullptr;
+
+        zCPar_Symbol* symbol = Null;
+        arrayDesc = Null;
+        pointer = Null;
         size = 0;
+
+        bool requireCache = false;
+        if (arrayName.Search('.', 0) == Invalid)
+        {
+            requireCache = true;
+            const int* symIndexPtr = SymIndexCache.Find(Z(arrayName).Upper());
+            if (symIndexPtr)
+            {
+                const int symIndex = *symIndexPtr;
+                symbol = parser->GetSymbol(symIndex);
+                if(!symbol)
+                    return StExt_ShowParserError((string)"Corrupted cache array name: " + arrayName.ToChar());
+
+                if (!StExt_ValidateArrayType(symbol->type)) {
+                    return StExt_ShowParserError((string)"Invalid cache array type: " + symbol->type);
+                }
+
+                arrayDesc = symbol;
+                size = arrayDesc->ele;
+                switch (arrayDesc->type)
+                {
+                    case zPAR_TYPE_INT:
+                    case zPAR_TYPE_FUNC:
+                        pointer = (size == 1) ? &arrayDesc->single_intdata : arrayDesc->intdata;
+                        break;
+                    case zPAR_TYPE_FLOAT:
+                        pointer = (size == 1) ? &arrayDesc->single_floatdata : arrayDesc->floatdata;
+                        break;
+                    case zPAR_TYPE_STRING:
+                        pointer = arrayDesc->stringdata;
+                        break;
+                }
+                return;
+            }
+        }
 
         string name = arrayName.ToChar();
         name.Upper();
+
         zCArray<string> segments;
         StExt_ExtractSegments(name, segments);
 
@@ -144,7 +185,7 @@ namespace Gothic_II_Addon
         }
 
         string funcName = StExt_GetFuncNameByAddress(parser->stack.stackptr - parser->stack.stack).ToChar();
-        zCPar_Symbol* symbol = parser->GetSymbol((funcName + "." + segments[0]).GetVector());
+        symbol = parser->GetSymbol((funcName + "." + segments[0]).GetVector());
 
         if (!symbol) {
             symbol = parser->GetSymbol(segments[0].GetVector());
@@ -175,6 +216,9 @@ namespace Gothic_II_Addon
                     pointer = arrayDesc->stringdata;
                     break;
             }
+
+            if (requireCache)
+                SymIndexCache.Insert(Z(arrayName).Upper(), parser->symtab.GetIndex(symbol));
             return;
         }
 

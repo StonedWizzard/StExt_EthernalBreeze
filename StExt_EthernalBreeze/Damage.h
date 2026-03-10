@@ -104,6 +104,7 @@ namespace Gothic_II_Addon
         int BlockDamage;
         int StopProcess;
         int IsInitial;
+        int StopAoe;
     };
 
     struct IncomingDamageInfo
@@ -122,9 +123,11 @@ namespace Gothic_II_Addon
         int DotDamage[8];
         int Ticks[8];
         int TotalDamage;
+        int TotalDotDamage;
         int DamageType;
         int DamageFlags;
         int MaxTargets;
+        int Radius;
         int IsProcessed;
     };
     
@@ -147,15 +150,18 @@ namespace Gothic_II_Addon
     //-----------------------------------------------------------------
     //							DAMAGE
     //-----------------------------------------------------------------
+    extern void AddPendingSpellDamage(oCNpc* atk, oCNpc* target, oCVisualFX* hitFx, const ExtraDamageInfo& extraDam, const ulong flags, int damageSelectorFunc = Invalid);
 
     void ApplyDamages(ulong type, ulong* damage, int& total);
     void ApplyDamages(int type, int* damage, int& total);
 
-    void ApplyExtraDamage(Gothic_II_Addon::oCNpc* atk, Gothic_II_Addon::oCNpc* target);
-    void ApplyDotDamage(Gothic_II_Addon::oCNpc* atk, Gothic_II_Addon::oCNpc* target);
-    void ApplyReflectDamage(Gothic_II_Addon::oCNpc* atk, Gothic_II_Addon::oCNpc* target);
-    void ApplySingleDamage(oCNpc* atk, oCNpc* target, const int damType, const int damTotal, const int damageType, const int damageFlags);
+    void ApplyExtraDamage(oCNpc* atk, oCNpc* target);
+    void ApplyDotDamage(oCNpc* atk, oCNpc* target);
+    void ApplyReflectDamage(oCNpc* atk, oCNpc* target);
+    void ApplyScriptDamage(oCNpc* atk, oCNpc* target, ExtraDamageInfo& damStruct, const int damageSelectorFuncIndex);
+    void ApplyScriptPendingDamage(oCNpc* atk, oCNpc* target, ExtraDamageInfo& damStruct, const int damageSelectorFuncIndex);
 
+    void ProcessPendingDamages();
     extern void ClearDamageMeta();
     void ThrowItem(ThrowItemDescriptor& itemDescriptor);
 }

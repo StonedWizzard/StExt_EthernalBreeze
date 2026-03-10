@@ -27,6 +27,7 @@ namespace Gothic_II_Addon
         if (ogame && player)
         {
             UpdateUiStatus();
+            ProcessPendingDamages();
             StonedExtension_Loop();
             TimedEffectsLoop();
             DrawModInfo();
@@ -123,6 +124,7 @@ namespace Gothic_II_Addon
         LoadModState();
         LoadNpcExtensions();
         LoadTimedEffects();
+        UpdateNpcAbilities();
 
         IsLoading = false;
         IsLevelChanging = false;

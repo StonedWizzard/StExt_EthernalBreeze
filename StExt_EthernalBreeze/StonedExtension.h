@@ -33,6 +33,8 @@ namespace Gothic_II_Addon
 	extern Map<int, ExtraStatData> ExtraConditionStatsData;
 	extern Map<int, zSTRING> ExtraStatsNameData;
 	extern Map<int, AuraData> AurasData;
+	extern Map<int, TimedEffectData> TimedEffectsData;
+	extern Map<int, NpcAbility> NpcAbilitiesData;
 
 	extern Array<ConfigPresetData> GameConfigsPresets;
 	extern Array<ModExtensionInfo> ModPluginsInfo;
@@ -74,13 +76,13 @@ namespace Gothic_II_Addon
 	extern int UpdateUiStatusFunc;
 	extern int StExt_CheckConditionStatFunc;
 	extern int StExt_OnAiStateFunc;
-	extern int StExt_NpcToUidFunc;
 	extern int StExt_ApplyPotionEffectFunc;
 	extern int StExt_ApplyPotionPermEffectFunc;
 	extern int StExt_GamePausedFunc;
 	extern int StExt_OnSpellCastFunc;
 	extern int StExt_OnOtherSpellCastFunc;
 	extern int StExt_OnSpellPreCastFunc;
+	extern int StExt_IsEnemyFuncIndex;
 
 	extern int StExt_InitializeCraftContextFunc;
 
@@ -98,6 +100,7 @@ namespace Gothic_II_Addon
 	extern int StExt_IcomingDamageInfo_SymId;
 	extern int StExt_Self_SymId;
 	extern int StExt_Other_SymId;
+	extern int StExt_Victim_SymId;
 	extern int StExt_ModSelf_SymId;
 	extern int StExt_ModOther_SymId;
 	extern int StExt_FocusNpc_SymId;
@@ -106,6 +109,11 @@ namespace Gothic_II_Addon
 	extern int StExt_AiVar_Uid;
 	extern int StExt_AiVar_EsCur;
 	extern int StExt_AiVar_EsMax;
+
+	extern int StExt_CurrentNpcAbilitySymId;
+	extern int StExt_Npc_FirstAbilityIdIndex;
+	extern int StExt_Npc_FirstAbilityTimerIndex;
+	extern int StExt_Npc_MaxAbilities;
 
 	extern int StExt_Config_NpcStats_TopOffset;
 	extern int StExt_Config_NpcStats_HideTags;
@@ -157,6 +165,7 @@ namespace Gothic_II_Addon
 
 	extern bool SetNpcExtensionVar(const int uid, const int index, const int value);
 	extern bool GetNpcExtensionVar(const int uid, const int index, int& value);
+	extern bool GetNpcExtensionArr(const int uid, int*& arr);
 
 	void InitStatsUncaper();
 	void StartUncaper();
@@ -171,6 +180,7 @@ namespace Gothic_II_Addon
 	MagicInfusionData* CreateInfusion(int tier);
 	extern const MagicInfusionData* GetRandomInfusion(int type, int tier, int grantInfusion);
 	extern const ConfigPresetData* GetConfigPreset(const zSTRING& presetName);
+	extern void UpdateNpcAbilities();
 
 	bool InitVoiceController();
 

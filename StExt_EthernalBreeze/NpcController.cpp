@@ -85,6 +85,7 @@ namespace Gothic_II_Addon
                 NpcExtension* ext = pair->GetValue();
                 if (!ext) {
                     pair->GetValue() = CreateNpcExtension(npcUid, player->GetInstanceName(), player);
+                    ext = pair->GetValue();
                 }
 
                 ext->NpcPtr = player;
@@ -148,9 +149,16 @@ namespace Gothic_II_Addon
             }
             return Null;
         }
+
         NpcExtension* npcExt = pair->GetValue();
-        if (!npcExt || !npcExt->NpcPtr) return Null;
-        return dynamic_cast<oCNpc*>(npcExt->NpcPtr);
+        if (!npcExt)
+        {
+            NpcExtensionData.Remove(npcUid);
+            return Null;
+        }
+
+        if (!npcExt->NpcPtr) return Null;
+        return npcExt->NpcPtr;
     }
         
 
@@ -213,6 +221,18 @@ namespace Gothic_II_Addon
         if (npcExt && IsIndexInBounds(index, NpcExtension_StatsMax))
         {
             value = npcExt->Stats[index];
+            return true;
+        }
+        return false;
+    }
+
+    inline bool GetNpcExtensionArr(const int uid, int*& arr)
+    {
+        auto pair = NpcExtensionData.GetSafePair(uid);
+        if (!pair) return false;
+        NpcExtension* npcExt = pair->GetValue();
+        if (npcExt) {
+            arr = npcExt->Stats;
             return true;
         }
         return false;

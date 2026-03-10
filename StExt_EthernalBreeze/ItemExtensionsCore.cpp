@@ -780,20 +780,15 @@ namespace Gothic_II_Addon
     HOOK Hook_oCNpc_CanUse PATCH(&oCNpc::CanUse, &oCNpc::CanUse_StExt);
     int oCNpc::CanUse_StExt(oCItem* item)
     {
-        const int result = THISCALL(Hook_oCNpc_CanUse)(item);
-        if (!item) return result;
+        if (!item || !this) return False;
 
-        const zSTRING instanceName = NormalizeInstanceName(this->GetInstanceName());
-        const bool isSpecialNpc = (instanceName == "PC_HEROMUL") || (instanceName == "STEXT_HEROSHADOW");        
-
+        const bool isPlayer = this->IsAPlayer();
         const bool hasSpecialCond = (item->cond_atr[0] > ItemCondSpecialSeparator) ||
             (item->cond_atr[1] > ItemCondSpecialSeparator) || (item->cond_atr[2] > ItemCondSpecialSeparator);
 
-        // handle stat check on my own
-        if (hasSpecialCond)
+        if (IsExtendedItem(item) || (isPlayer && hasSpecialCond))
         {
-            const bool ignoreConditions = !this->IsAPlayer() || isSpecialNpc;
-            if (ignoreConditions) return True;
+            if (!isPlayer) return True;
 
             int skill = GetTalentSkill(Gothic_II_Addon::oCNpcTalent::oTEnumNpcTalent::NPC_TAL_MAGE);
             if (skill < item->mag_circle)
@@ -806,16 +801,16 @@ namespace Gothic_II_Addon
             }
 
             int canUse = True;
-            for (int i = 0; i < ItemExtension_Conditions_Max; ++i) 
+            for (int i = 0; i < ItemExtension_Conditions_Max; ++i)
             {
                 if (item->cond_atr[i] == 0 || item->cond_atr[i] == Invalid) continue;
                 int funcResult = *(int*)parser->CallFunc(StExt_CheckConditionStatFunc, item->cond_atr[i], item->cond_value[i]);
                 if (!funcResult) { canUse = False; break; }
             }
             return canUse;
-        }        
+        }
 
-        if (!result && (isSpecialNpc || (!this->IsAPlayer() && IsExtendedItem(item))))  return TRUE;
-        return result;
+        if (!isPlayer) return True;
+        return THISCALL(Hook_oCNpc_CanUse)(item);
     }
 }

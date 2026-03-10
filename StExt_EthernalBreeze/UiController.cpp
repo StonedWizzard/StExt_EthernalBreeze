@@ -441,6 +441,6 @@ namespace Gothic_II_Addon
                 return;
             }
         }
-        ClearFocusNpc();         
+        ClearFocusNpc();
     }
 }

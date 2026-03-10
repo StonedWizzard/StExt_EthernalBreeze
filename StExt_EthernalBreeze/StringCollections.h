@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <UnionAfx.h>
 
 namespace Gothic_II_Addon
@@ -31,6 +31,7 @@ namespace Gothic_II_Addon
 
         bool    Insert(const zSTRING& key, const TValue& value);
         TValue* Find(const zSTRING& key);
+        TValue* FindApprox(const zSTRING& key);
         bool    Remove(const zSTRING& key);
         void    Clear();
         uint    Size() const;
@@ -158,6 +159,21 @@ namespace Gothic_II_Addon
             if (node->key == key)
                 return &node->value;
             node = node->next;
+        }
+        return Null;
+    }
+
+    template<class TValue>
+    TValue* StringMap<TValue>::FindApprox(const zSTRING& key)
+    {
+        for (uint i = 0; i < bucketCount; ++i) {
+            StringMapNode<TValue>* node = buckets[i];
+            while (node) 
+            {
+                if (key.StartWith(node->key))
+                    return &node->value;
+                node = node->next;
+            }
         }
         return Null;
     }

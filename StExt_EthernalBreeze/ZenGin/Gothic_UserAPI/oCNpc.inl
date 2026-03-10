@@ -4,6 +4,8 @@
 // Add your methods here
 
 // HOOKS
+int oCNpc::EV_DamagePerFrame_StExt(oCMsgDamage* msg);
+
 void oCNpc::OnDamage_StExt(oSDamageDescriptor& desc);
 
 void oCNpc::OnDamage_Sound_StExt(oSDamageDescriptor& desc);

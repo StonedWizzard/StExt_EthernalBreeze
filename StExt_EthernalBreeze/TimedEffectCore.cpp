@@ -70,21 +70,18 @@ namespace Gothic_II_Addon
     void ProcessTimedEffect(TimedEffect* trigger, bool& requireCleanUp)
     {
         requireCleanUp = false;
-        if (!trigger)
-        {
+        if (!trigger) {
             requireCleanUp = true;
             return;
         }
 
-        if (trigger->ScriptInstance.SelfUId == EmptyNpcUId)
-        {
+        if (trigger->ScriptInstance.SelfUId == EmptyNpcUId) {
             DEBUG_MSG("ProcessTimedEffect - Self Npc UId not set! Details: " + GetTimedEffectDebugLine(trigger));
             requireCleanUp = true;
             return;
         }
 
-        if (!trigger->Self)
-        {
+        if (!trigger->Self) {
             trigger->Self = GetNpcByUid(trigger->ScriptInstance.SelfUId);
             if (!trigger->Self)
             {
@@ -94,8 +91,7 @@ namespace Gothic_II_Addon
             }
         }
 
-        if ((trigger->ScriptInstance.OtherUId != EmptyNpcUId) && (!trigger->Other))
-        {
+        if ((trigger->ScriptInstance.OtherUId != EmptyNpcUId) && (!trigger->Other)) {
             trigger->Other = GetNpcByUid(trigger->ScriptInstance.OtherUId);
             if (!trigger->Other)
             {
@@ -116,25 +112,17 @@ namespace Gothic_II_Addon
             }
         }
 
-        if (trigger->ScriptInstance.Enabled)
-        {
-            DEBUG_MSG("ProcessTimedEffect - OnTick: " + GetTimedEffectDebugLine(trigger));
+        if (!trigger->ScriptInstance.Enabled) return;       
+        DEBUG_MSG("ProcessTimedEffect - OnTick: " + GetTimedEffectDebugLine(trigger));
 
-            oCNpc* self = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol(StExt_Self_SymId)->GetInstanceAdr());
-            oCNpc* other = dynamic_cast<oCNpc*>((zCVob*)parser->GetSymbol(StExt_Other_SymId)->GetInstanceAdr());
+        parser->SetInstance(StExt_ModSelf_SymId, trigger->Self);
+        parser->SetInstance(StExt_ModOther_SymId, trigger->Other);
+        parser->SetInstance("STEXT_CURRENTTIMEDEFFECT", &trigger->ScriptInstance);
 
-            parser->SetInstance(StExt_Self_SymId, trigger->Self);
-            parser->SetInstance(StExt_Other_SymId, trigger->Other);
-            parser->SetInstance("STEXT_CURRENTTIMEDEFFECT", &trigger->ScriptInstance);
-
-            int Ok = *(int*)parser->CallFunc(trigger->Function);
-            if (Ok)
-            {
-                DEBUG_MSG("ProcessTimedEffect - Finished " + GetTimedEffectDebugLine(trigger));
-                requireCleanUp = true;
-            }
-            parser->SetInstance(StExt_Self_SymId, self);
-            parser->SetInstance(StExt_Other_SymId, other);
+        int Ok = *(int*)parser->CallFunc(trigger->Function);
+        if (Ok) {
+            DEBUG_MSG("ProcessTimedEffect - Finished " + GetTimedEffectDebugLine(trigger));
+            requireCleanUp = true;
         }
     }
 
@@ -292,28 +280,26 @@ namespace Gothic_II_Addon
 
     int __cdecl GetTimedEffectsCount()
     {
-        zCParser* par = zCParser::GetParser();
         CurrentTimedEffectsCount = TimedEffects.GetNum();
-        par->SetReturn(static_cast<int>(CurrentTimedEffectsCount));
+        parser->SetReturn(static_cast<int>(CurrentTimedEffectsCount));
         return True;
     }
 
     int __cdecl CreateTimedEffect()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING funcName;
         int delay;
 
-        oCNpc* other = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        oCNpc* self = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        par->GetParameter(delay);
-        par->GetParameter(funcName);
+        oCNpc* other = (oCNpc*)parser->GetInstance();
+        oCNpc* self = (oCNpc*)parser->GetInstance();
+        parser->GetParameter(delay);
+        parser->GetParameter(funcName);
 
         TimedEffect* trigger = BuildTimedEffect(funcName, delay);
         if (!trigger)
         {
             DEBUG_MSG("CreateTimedEffect - fail to create timed effect! OnTick func: '" + funcName + "'");
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
@@ -322,22 +308,20 @@ namespace Gothic_II_Addon
         trigger->ScriptInstance.SelfUId = self ? GetNpcUid(self) : EmptyNpcUId;
         trigger->ScriptInstance.OtherUId = other ? GetNpcUid(other) : EmptyNpcUId;
 
-        par->SetReturn(&trigger->ScriptInstance);
+        parser->SetReturn(&trigger->ScriptInstance);
         return True;
     }
 
     int __cdecl GetTimedEffectByNpc()
     {
-        zCParser* par = zCParser::GetParser();
-        zSTRING funcName;
-        int npcUid;
-        par->GetParameter(funcName);
-        par->GetParameter(npcUid);
+        int npcUid, effectId;
+        parser->GetParameter(effectId);
+        parser->GetParameter(npcUid);
 
         oCNpc* npc = GetNpcByUid(npcUid);
         if (!npc)
         {
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
@@ -345,37 +329,36 @@ namespace Gothic_II_Addon
         for (uint i = 0U; i < CurrentTimedEffectsCount; ++i)
         {
             if (TimedEffects[i]->ScriptInstance.SelfUId != npcUid) continue;
-            if (TimedEffects[i]->FunctionName == funcName)
+            if (TimedEffects[i]->ScriptInstance.EffectId == effectId)
             {
-                par->SetReturn(&TimedEffects[i]->ScriptInstance);
+                parser->SetReturn(&TimedEffects[i]->ScriptInstance);
                 return True;
             }
         }
 
-        par->SetReturn(Null);
+        parser->SetReturn(Null);
         return False;
     }
 
     int __cdecl GetTimedEffectByIndex()
     {
-        zCParser* par = zCParser::GetParser();
-        int index; par->GetParameter(index);
+        int index; parser->GetParameter(index);
 
         if (index < 0)
         {
             DEBUG_MSG("GetTimedEffectByIndex - index out of range. Index: " + Z index);
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
         if (TimedEffects.GetSafe(static_cast<uint>(index)))
         {
-            par->SetReturn(&TimedEffects[index]->ScriptInstance);
+            parser->SetReturn(&TimedEffects[index]->ScriptInstance);
             return True;
         }
 
         DEBUG_MSG("GetTimedEffectByIndex - invalid index: " + Z index);
-        par->SetReturn(Null);
+        parser->SetReturn(Null);
         return False;
     }
 }

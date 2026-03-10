@@ -64,7 +64,7 @@ namespace Gothic_II_Addon
             DEBUG_MSG("ThrowItem - item is null!");
             return;
         }
-        zVEC3 vec = itemDescriptor.attacker->GetPositionWorld() + itemDescriptor.attacker->trafoObjToWorld.GetAtVector() * 100;
+        zVEC3 vec = itemDescriptor.attacker->GetPositionWorld() + itemDescriptor.attacker->trafoObjToWorld.GetAtVector() * 50;
 
         item->nutrition = 1; // (was 1) true mean that damage calculate from item, not stats
         item->SetPositionWorld(vec);

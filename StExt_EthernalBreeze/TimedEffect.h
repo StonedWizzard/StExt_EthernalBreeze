@@ -17,7 +17,7 @@ namespace Gothic_II_Addon
             int Enabled;
             int SelfUId;
             int OtherUId;
-            int AIVariables[32];
+            int AIVar[32];
             int Flags;
             int EffectId;
         }ScriptInstance;

@@ -196,6 +196,74 @@ namespace Gothic_II_Addon
 		int Stats[NpcExtension_StatsMax];
 	};
 
+	struct NpcAbility
+	{
+		int Id;
+		int Type;
+		int Flags;
+		int AiVars[32];
+
+		int DamageType;
+		int DamageFlags;
+		int DamageEnum;
+		int DamageTotal;
+
+		int Duration;
+		int Radius;
+		int Chance;
+		int RangeMin;
+		int RangeMax;
+		int Cooldown;
+		int MaxTargets;
+
+		int SummonsId[3];
+		int SummonsCount[3];
+		int TimedEffectId;
+		zSTRING ItemInstanceName;
+		int SpellId;
+
+		zSTRING Name;
+		zSTRING EffectName;
+
+		zSTRING OnCast;
+		zSTRING OnOffence;
+		zSTRING OnDeffence;
+		zSTRING OnTick;
+		zSTRING OnDeath;
+	};
+
+	struct TimedEffectData
+	{
+		int Id;
+		int Flags;
+		int Duration;
+		int Range;
+		int Targets;
+		int BaseValue;
+		int MinValue;
+		int MaxValue;
+		int PowerRatio;
+		zSTRING Name;
+
+		zSTRING LoopName;
+		zSTRING OnInit;
+		zSTRING OnUpdate;
+	};
+
+	struct ScriptCallback
+	{
+		oCNpc* Self;
+		oCNpc* Other;
+		int FuncIndex;
+		int Delay;
+
+		struct
+		{
+			int IntParam[16];
+			float FloatParam[8];
+			zSTRING StringParam[8];
+		} ScriptCallbackParams;
+	};
 
 	// **************************************************************
 	//						NB Hooks

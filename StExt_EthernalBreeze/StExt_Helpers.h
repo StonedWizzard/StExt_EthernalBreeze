@@ -24,7 +24,10 @@ namespace Gothic_II_Addon
 	inline constexpr bool IsIndexInBounds(const T& index, const T& max_size) { return index >= 0 && index < max_size; }
 
 	template <typename T>
-	inline constexpr bool HasFlag(const T& flags, const T& bits) { return (flags & bits) != T(); }
+	inline constexpr bool HasFlag(T flags, T bits) { return (flags & bits) != T(); }
+
+	template <typename T>
+	inline constexpr bool HasAllFlags(T flags, T bits) { return bits != 0 && (flags & bits) == bits; }
 
 	template <typename T>
 	inline void AddFlag(T& flags, const T& bits) { flags |= bits; }
@@ -127,7 +130,5 @@ namespace Gothic_II_Addon
 	//inline bool operator<=(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) <= 0; }
 	//inline bool operator>=(const zSTRING& a, const zSTRING& b) { return a.CompareI(b.ToChar()) >= 0; }
 
-
-	zSTRING GetModVersion();
 	string GetSaveSlotNameByID(int ID);
 }

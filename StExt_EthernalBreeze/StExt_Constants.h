@@ -35,6 +35,29 @@ namespace Gothic_II_Addon
 
 	const int NpcExtension_StatsMax = 256;
 
+	const int StExt_NpcAbility_Type_Any = Invalid;
+	const int StExt_NpcAbility_Type_Passive = 0;
+	const int StExt_NpcAbility_Type_Spell = 1;
+	const int StExt_NpcAbility_Type_Throw = 2;
+	const int StExt_NpcAbility_Type_Debuff = 4;
+	const int StExt_NpcAbility_Type_Buff = 8;
+	const int StExt_NpcAbility_Type_Summon = 16;
+	const int StExt_NpcAbility_Type_Offence = 32;
+	const int StExt_NpcAbility_Type_Deffence = 64;
+
+	const int StExt_NpcAbility_Flag_None = 0;
+	const int StExt_NpcAbility_Flag_OnTick = 1;
+	const int StExt_NpcAbility_Flag_OnCast = 2;
+	const int StExt_NpcAbility_Flag_OnOffense = 4;
+	const int StExt_NpcAbility_Flag_OnDeffense = 8;
+	const int StExt_NpcAbility_Flag_OnDeath = 16;
+	const int StExt_NpcAbility_Flag_Target = 32;
+	const int StExt_NpcAbility_Flag_Aoe = 64;
+	const int StExt_NpcAbility_Flag_UseSummonPack = 128;
+	const int StExt_NpcAbility_Flag_UseDistance = 256;
+	const int StExt_NpcAbility_Flag_UseCooldown = 512;
+	const int StExt_NpcAbility_Flag_UseSpell = 1024;
+
 constexpr auto ConfigsExportTemplate = R"(META
 {
     After = ConfigsPresets.d;

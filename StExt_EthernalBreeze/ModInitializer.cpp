@@ -36,7 +36,6 @@ namespace Gothic_II_Addon
 	int IsExtraDamageProhibitedFunc = Invalid;
 	int StExt_CheckConditionStatFunc = Invalid;
 	int StExt_OnAiStateFunc = Invalid;
-	int StExt_NpcToUidFunc = Invalid;
 	int StExt_ApplyPotionEffectFunc = Invalid;
 	int StExt_ApplyPotionPermEffectFunc = Invalid;
 	int StExt_GamePausedFunc = Invalid;
@@ -45,6 +44,7 @@ namespace Gothic_II_Addon
 	int StExt_OnOtherSpellCastFunc = Invalid;
 	int StExt_OnSpellPreCastFunc = Invalid;
 	int StExt_NpcUidCounterIndex = Invalid;
+	int StExt_IsEnemyFuncIndex = Invalid;
 
 	int StExt_TargetNpc_SymId = Invalid;
 	int StExt_AttackNpc_SymId = Invalid;
@@ -52,10 +52,16 @@ namespace Gothic_II_Addon
 	int StExt_DamageInfo_SymId = Invalid;
 	int StExt_IcomingDamageInfo_SymId = Invalid;
 	int StExt_Self_SymId = Invalid;
+	int StExt_Victim_SymId = Invalid;
 	int StExt_Other_SymId = Invalid;
 	int StExt_ModSelf_SymId = Invalid;
 	int StExt_ModOther_SymId = Invalid;
 	int StExt_FocusNpc_SymId = Invalid;
+
+	int StExt_CurrentNpcAbilitySymId = Invalid;
+	int StExt_Npc_FirstAbilityIdIndex = 0;
+	int StExt_Npc_FirstAbilityTimerIndex = 0;
+	int StExt_Npc_MaxAbilities = 0;
 
 	int StExt_Config_NpcStats_TopOffset;
 	int StExt_Config_NpcStats_HideTags;
@@ -112,11 +118,13 @@ namespace Gothic_II_Addon
 		DebugFile->Write(message);
 	}
 
-	inline void DebugDamageMessage(zSTRING funcName, zSTRING message, oCNpc* atk, oCNpc* target)
+	inline void DebugDamageMessage(zSTRING funcName, zSTRING message, oCNpc* atk, oCNpc* targ)
 	{
-		zSTRING targetName = target ? target->name[0] : "???";
-		zSTRING atkName = atk ? atk->name[0] : "???";
-		message = "[EthernalBreeze.dll] -> " + funcName + "(...) <" + atkName + " -> " + targetName + ">: " + message + "\n";
+		oCNpc* attacker = dynamic_cast<oCNpc*>((zCVob*)atk);
+		oCNpc* target = dynamic_cast<oCNpc*>((zCVob*)targ);
+		zSTRING targetName = target ? (target->IsSelfPlayer() ? "Hero" : target->name[0]) : "<Null>";
+		zSTRING atkName = attacker ? (attacker->IsSelfPlayer() ? "Hero" : attacker->name[0]) : "<Null>";
+		message = "[EthernalBreeze.dll] -> " + funcName + "(...) <" + atkName + " --> " + targetName + ">: " + message + "\n";
 		cmd << message;
 		DebugFile->Write(message);
 	}
@@ -151,51 +159,110 @@ namespace Gothic_II_Addon
 		return isSuccess;
 	}
 
-	zSTRING GetModVersion()
-	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* verSym = par->GetSymbol("StExt_CurrentModVersionString");
-		return verSym->stringdata;
-	}
-
 	void BuildModVersionString()
 	{
 		int setVerFunc = parser->GetIndex("StExt_SetModVersionString");
 		parser->CallFunc(setVerFunc);
-		ModVersionString = Z("Ethernal Breeze mod [" + GetModVersion() + " (Build: 7.0.2)]");
-		
+		zCPar_Symbol* verSym = parser->GetSymbol("StExt_CurrentModVersionString");
+
+		ModVersionString = Z("Ethernal Breeze " + Z(verSym->stringdata) + " [build - 7.0.2");
 #if DebugEnabled 
-		ModVersionString += Z(" | [Debug]"); 
+		ModVersionString += Z(" | Debug"); 
 #endif
+		ModVersionString += Z("]");
 	}
 
 
 	void InitAuraData()
 	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* auraIndxArray = par->GetSymbol("StExt_AurasIndexArray");
+		zCPar_Symbol* auraIndxArray = parser->GetSymbol("StExt_AurasIndexArray");
 		if (!auraIndxArray)
 		{
 			DEBUG_MSG("InitAuraData: 'StExt_AurasIndexArray' not found!");
 			return;
 		}
 
-		AurasData = Map<int, AuraData>();
+		AurasData.Clear();
 		DEBUG_MSG("Initialize " + Z((int)auraIndxArray->ele) + " aura instances...");
 		for (uint i = 0; i < auraIndxArray->ele; ++i)
 		{
-			zSTRING strIndx = auraIndxArray->stringdata[i];
-			int index = par->GetIndex(strIndx);
+			zSTRING& strIndx = auraIndxArray->stringdata[i];
+			int index = parser->GetIndex(strIndx);
 			if (index == Invalid)
 			{
-				DEBUG_MSG("InitAuraData: Can't load aura instance '" + strIndx + "'!");
+				DEBUG_MSG("InitAuraData - Can't load aura instance '" + strIndx + "'!");
 				continue;
 			}
-			AuraData aura = AuraData();
+			AuraData aura = AuraData{};
 			parser->CreateInstance(index, &aura);
 			AurasData.Insert(aura.Id, aura);
 		}
-		DEBUG_MSG("InitAuraData: Auras was initialized!");
+		DEBUG_MSG("InitAuraData: " + Z((int)AurasData.GetNum()) + " auras was initialized!");
+	}
+
+	void InitTimedEffectsData()
+	{
+		zCPar_Symbol* effectIndxArray = parser->GetSymbol("StExt_TimedEffectData_IndexArray");
+		if (!effectIndxArray)
+		{
+			DEBUG_MSG("InitTimedEffectsData: 'StExt_TimedEffectData_IndexArray' not found!");
+			return;
+		}
+
+		TimedEffectsData.Clear();
+		DEBUG_MSG("Initialize " + Z((int)effectIndxArray->ele) + " timed effects instances...");
+		for (uint i = 0; i < effectIndxArray->ele; ++i)
+		{
+			zSTRING& strIndx = effectIndxArray->stringdata[i];
+			int index = parser->GetIndex(strIndx);
+			if (index == Invalid)
+			{
+				DEBUG_MSG("InitTimedEffectsData - Can't load aura instance '" + strIndx + "'!");
+				continue;
+			}
+			TimedEffectData effect = TimedEffectData{};
+			parser->CreateInstance(index, &effect);
+			TimedEffectsData.Insert(effect.Id, effect);
+		}
+		DEBUG_MSG("InitTimedEffectsData: " + Z((int)TimedEffectsData.GetNum()) + " timed effects was initialized!");
+	}
+
+	void InitNpcAbilitiesData()
+	{
+		zCPar_Symbol* abilityIndxArray = parser->GetSymbol("StExt_Npc_AbilityData_IndexArray");
+		zCPar_Symbol* abilityNameArray = parser->GetSymbol("StExt_Str_Npc_Ability_Name");
+		if (!abilityIndxArray || !abilityNameArray)
+		{
+			DEBUG_MSG_IF(!abilityIndxArray, "InitNpcAbilitiesData: 'StExt_Npc_AbilityData_IndexArray' not found!");
+			DEBUG_MSG_IF(!abilityNameArray, "InitNpcAbilitiesData: 'StExt_Str_Npc_Ability_Name' not found!");
+			return;
+		}
+		if (abilityIndxArray->ele != abilityNameArray->ele)
+		{
+			DEBUG_MSG("InitNpcAbilitiesData - npc abilities index array mismatch with name array!");
+			Message::Error((string)"InitNpcAbilitiesData - npc abilities index array mismatch with name array!", "Critical error!");
+			gameMan->ExitGame();
+			return;
+		}
+
+		NpcAbilitiesData.Clear();
+		DEBUG_MSG("Initialize " + Z((int)abilityIndxArray->ele) + " npc abilities instances...");
+		for (uint i = 0; i < abilityIndxArray->ele; ++i)
+		{
+			zSTRING& strIndx = abilityIndxArray->stringdata[i];
+			int index = parser->GetIndex(strIndx);
+			if (index == Invalid)
+			{
+				DEBUG_MSG("InitNpcAbilitiesData - Can't load npc ability instance '" + strIndx + "'!");
+				continue;
+			}
+
+			NpcAbility ability = NpcAbility{};
+			parser->CreateInstance(index, &ability);
+			ability.Name = abilityNameArray->stringdata[ability.Id];
+			NpcAbilitiesData.Insert(ability.Id, ability);
+		}
+		DEBUG_MSG("InitNpcAbilitiesData: " + Z((int)NpcAbilitiesData.GetNum()) + " npc abilities was initialized!");
 	}
 
 	void InitExtraMasteriesData()
@@ -281,8 +348,7 @@ namespace Gothic_II_Addon
 
 	void InitExtraStatsData(Map<int, ExtraStatData> &statsData, const zSTRING& initArray)
 	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* statsIndxArray = par->GetSymbol(initArray);
+		zCPar_Symbol* statsIndxArray = parser->GetSymbol(initArray);
 		if (!statsIndxArray)
 		{
 			DEBUG_MSG("InitExtraStatsData - '" + initArray + "' not found!");
@@ -292,18 +358,18 @@ namespace Gothic_II_Addon
 		DEBUG_MSG("Initialize " + Z((int)statsIndxArray->ele) + " stat instances...");
 		for (unsigned int i = 0; i < statsIndxArray->ele; ++i)
 		{
-			zSTRING strIndx = statsIndxArray->stringdata[i];
-			int index = par->GetIndex(strIndx);
+			zSTRING& strIndx = statsIndxArray->stringdata[i];
+			int index = parser->GetIndex(strIndx);
 			if (index == Invalid)
 			{
 				DEBUG_MSG("InitExtraStatsData - Can't load infusion instance '" + strIndx + "'!");
 				continue;
 			}
-			ExtraStatData statData = ExtraStatData();
+			ExtraStatData statData = ExtraStatData{};
 			parser->CreateInstance(index, &statData);
 			statsData.Insert(statData.Id, statData);
 		}
-		MaxStatId = par->GetSymbol("StExt_PcStats_Index_Max")->single_intdata;
+		MaxStatId = parser->GetSymbol("StExt_PcStats_Index_Max")->single_intdata;
 		DEBUG_MSG("InitExtraStatsData - '" + initArray + "' was initialized!");
 	}
 
@@ -327,8 +393,7 @@ namespace Gothic_II_Addon
 
 	void InitInfusionData(Array<MagicInfusionData>& InfusionData, const zSTRING& initArray)
 	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* infusionIndxArray = par->GetSymbol(initArray);
+		zCPar_Symbol* infusionIndxArray = parser->GetSymbol(initArray);
 		if (!infusionIndxArray)
 		{
 			DEBUG_MSG("InitInfusionData - '" + initArray + "' not found!");
@@ -336,18 +401,18 @@ namespace Gothic_II_Addon
 		}
 		DEBUG_MSG("InitInfusionData - Init infusion from: " + initArray + ". size: " + Z((int)infusionIndxArray->ele) + " ...");
 
-		InfusionData = Array<MagicInfusionData>();
+		InfusionData.Clear();
 		for (uint i = 0; i < infusionIndxArray->ele; ++i)
 		{
-			zSTRING strIndx = infusionIndxArray->stringdata[i];
-			int index = par->GetIndex(strIndx);
+			zSTRING& strIndx = infusionIndxArray->stringdata[i];
+			int index = parser->GetIndex(strIndx);
 			if (index == Invalid)
 			{
 				DEBUG_MSG("InitInfusionData - Can't load infusion instance '" + strIndx + "'!");
 				continue;
 			}
 
-			MagicInfusionData infusion = MagicInfusionData();
+			MagicInfusionData infusion = MagicInfusionData{};
 			parser->CreateInstance(index, &infusion);
 			InfusionData.Insert(infusion);
 		}
@@ -458,9 +523,6 @@ namespace Gothic_II_Addon
 		StExt_OnAiStateFunc = parser->GetIndex("StExt_OnAiState");
 		DEBUG_MSG_IF(StExt_OnAiStateFunc == Invalid, "StExt_OnAiStateFunc is null!");
 
-		StExt_NpcToUidFunc = parser->GetIndex("StExt_NpcToUid");
-		DEBUG_MSG_IF(StExt_NpcToUidFunc == Invalid, "StExt_NpcToUidFunc is null!");
-
 		StExt_ApplyPotionEffectFunc = parser->GetIndex("StExt_ApplyPotionEffect");
 		DEBUG_MSG_IF(StExt_ApplyPotionEffectFunc == Invalid, "StExt_ApplyPotionEffectFunc is null!");
 
@@ -481,7 +543,9 @@ namespace Gothic_II_Addon
 
 		StExt_InitializeCraftContextFunc = parser->GetIndex("StExt_InitializeCraftContext");
 		DEBUG_MSG_IF(StExt_InitializeCraftContextFunc == Invalid, "StExt_InitializeCraftContextFunc is null!");
-		
+
+		StExt_IsEnemyFuncIndex = parser->GetIndex("StExt_NpcsIsEnemies_Engine");
+		DEBUG_MSG_IF(StExt_InitializeCraftContextFunc == Invalid, "StExt_IsEnemyFuncIndex is null!");
 
 		StExt_EsText = parser->GetSymbol("StExt_EsText")->stringdata;
 		SecondsSuffixString = parser->GetSymbol("StExt_Str_Seconds")->stringdata;
@@ -497,9 +561,15 @@ namespace Gothic_II_Addon
 		StExt_IcomingDamageInfo_SymId = parser->GetIndex("STEXT_INCOMINGDAMAGEINFO");
 		StExt_Self_SymId = parser->GetIndex("SELF");
 		StExt_Other_SymId = parser->GetIndex("OTHER");
+		StExt_Victim_SymId = parser->GetIndex("VICTIM");
 		StExt_ModSelf_SymId = parser->GetIndex("STEXT_SELF");
 		StExt_ModOther_SymId = parser->GetIndex("STEXT_OTHER");
 		StExt_FocusNpc_SymId = parser->GetIndex("STEXT_FOCUSNPC");
+
+		StExt_CurrentNpcAbilitySymId = parser->GetIndex("STEXT_CURRENTNPCABILITY");
+		StExt_Npc_FirstAbilityIdIndex = parser->GetSymbol("StExt_AiVar_AbilityData1")->single_intdata;
+		StExt_Npc_FirstAbilityTimerIndex = parser->GetSymbol("StExt_AiVar_AbilityCooldown1")->single_intdata;
+		StExt_Npc_MaxAbilities = parser->GetSymbol("StExt_Npc_MaxNpcAbilities")->single_intdata;
 
 		MaxSpellId = parser->GetSymbol("max_spell")->single_intdata;
 		DEBUG_MSG("StExt - MaxSpellId: " + Z MaxSpellId);
@@ -529,6 +599,8 @@ namespace Gothic_II_Addon
 		InitExtraMasteriesData();
 		InitExtraStatsData();
 		InitAuraData();
+		InitTimedEffectsData();
+		InitNpcAbilitiesData();
 		InitNpcInfusionsData();
 		InitItemAbilitiesData();
 

@@ -43,8 +43,7 @@ namespace Gothic_II_Addon
 
 	void InitItemsExtensionNameData(Array<zSTRING>& nameData, const zSTRING& initArray)
 	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* nameArray = par->GetSymbol(initArray);
+		zCPar_Symbol* nameArray = parser->GetSymbol(initArray);
 		if (!nameArray)
 		{
 			DEBUG_MSG("InitItemsExtensionNameData - '" + initArray + "' not found!");

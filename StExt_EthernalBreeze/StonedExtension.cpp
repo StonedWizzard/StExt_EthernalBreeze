@@ -13,11 +13,17 @@ namespace Gothic_II_Addon
     StringMap<ExtraConfigData> ExtraConfigsData(256);
 
     Map<int, AuraData> AurasData;
+    Map<int, NpcAbility> NpcAbilitiesData;
+    Map<int, TimedEffectData> TimedEffectsData;
     Array<WaypointData> ProhibitedWaypoints;
+    Array<ScriptCallback> RegisteredCallbacks;
 
     Array<MagicInfusionData> InfusionAffixes;
     Array<MagicInfusionData> InfusionSuffixes;
-    Array<MagicInfusionData> InfusionPreffixes;   
+    Array<MagicInfusionData> InfusionPreffixes;
+
+    StringMap<int> FuncIndexCache;
+    StringMap<int> StructOffsetCache;
 
     SpellInfo CurrentSpellInfo;
     zSTRING ResultString;
@@ -27,17 +33,67 @@ namespace Gothic_II_Addon
 
     void StonedExtension_Loop()
     {
-        if (IsLoading || IsLevelChanging) return;
-        HeroNpcUId = parser->GetSymbol("StExt_HeroUid")->single_intdata;
+        if (IsLoading || IsLevelChanging)
+        {
+            DEBUG_MSG_IF(RegisteredCallbacks.GetNum() > 0, "StonedExtension_Loop: Clear RegisteredCallbacks. REASON: World was changed!");
+            RegisteredCallbacks.Clear();
+            return;
+        };
+
+        static int playerUidSymInd = parser->GetIndex("StExt_HeroUid");
+        static int fpsSymInd = parser->GetIndex("StExt_Fps");
+        static int currentDayPartSymInd = parser->GetIndex("StExt_CurrentDayPart");
+        static int callbackParamsSymInd = parser->GetIndex("StExt_CallbackParams");
 
         StonedExtension_Loop_Ui();
-        FpsCounter += 1;
+        const bool gamePause = ogame->IsOnPause() || *(int*)parser->CallFunc(StExt_GamePausedFunc);
+
+        ++FpsCounter;
         if (FpsTimer.AwaitExact(1000))
         {
-            parser->GetSymbol("StExt_Fps")->SetValue(FpsCounter, 0);
-            StExt_CurrentDayPart = parser->GetSymbol("StExt_CurrentDayPart")->single_intdata;
+            parser->GetSymbol(fpsSymInd)->SetValue(FpsCounter, 0);
+            StExt_CurrentDayPart = parser->GetSymbol(currentDayPartSymInd)->single_intdata;
             FpsCounter = 0;
         }
+        if (gamePause) return;
+
+        HeroNpcUId = parser->GetSymbol(playerUidSymInd)->single_intdata;
+        for (int i = RegisteredCallbacks.GetNum() - 1; i >= 0; --i)
+        {
+            ScriptCallback& callback = RegisteredCallbacks[i];
+            --callback.Delay;
+
+            if (callback.Delay <= 0)
+            {
+                parser->SetInstance(StExt_ModSelf_SymId, callback.Self);
+                parser->SetInstance(StExt_ModOther_SymId, callback.Other);
+                parser->SetInstance(callbackParamsSymInd, &callback.ScriptCallbackParams);
+                parser->CallFunc(callback.FuncIndex);
+
+                RegisteredCallbacks.RemoveAt(i);
+                parser->SetInstance(callbackParamsSymInd, Null);
+            }
+        }
+    }
+
+    inline void DoReturnString()
+    {
+        static int returnStringSymIndex = parser->GetIndex("STEXT_RETURNSTRING");
+        parser->GetSymbol(returnStringSymIndex)->SetValue(ResultString, 0);
+        parser->SetReturn(ResultString);
+    }
+
+    inline int GetFuncIndex(zSTRING& funcName)
+    {
+        funcName.Upper();
+        int* cacheIndex = FuncIndexCache.Find(funcName);
+        if (cacheIndex != Null)
+            return *cacheIndex;
+
+        int funcIndex = parser->GetIndex(funcName);
+        if (funcIndex != Invalid)
+            FuncIndexCache.Insert(funcName, funcIndex);        
+        return funcIndex;
     }
 
     //-----------------------------------------------------------------
@@ -108,6 +164,40 @@ namespace Gothic_II_Addon
             return Null;
         }
         return &auraPair->GetValue();
+    }
+
+    inline const TimedEffectData* GetTimedEffectById(const int id)
+    {
+        auto effectPair = TimedEffectsData.GetSafePair(id);
+        if (!effectPair)
+        {
+            DEBUG_MSG("GetTimedEffectById - incorrect id: " + Z id + "!");
+            return Null;
+        }
+        return &effectPair->GetValue();
+    }
+
+    inline const NpcAbility* GetNpcAbilityById(const int id)
+    {
+        auto abilityPair = NpcAbilitiesData.GetSafePair(id);
+        if (!abilityPair)
+        {
+            DEBUG_MSG("GetAuraById - incorrect id: " + Z id + "!");
+            return Null;
+        }
+        return &abilityPair->GetValue();
+    }
+
+    inline void UpdateNpcAbilities()
+    {
+        static int updateFunc = parser->GetIndex("StExt_UpdateAbility_Engine");
+        for (auto& pair : NpcAbilitiesData)
+        {
+            NpcAbility& ability = pair.GetValue();
+            parser->SetInstance(StExt_CurrentNpcAbilitySymId, &ability);
+            parser->CallFunc(updateFunc);
+        }
+        parser->SetInstance(StExt_CurrentNpcAbilitySymId, Null);
     }
 
     inline const ExtraStatData* GetExtraStatDataById(const int id)
@@ -356,77 +446,70 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_Cmd()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING message;
-        par->GetParameter(message);
+        parser->GetParameter(message);
         PrintDebug(message);
         return True;
     }
 
     int __cdecl StExt_GetInstanceIdByName()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING instName;
-        par->GetParameter(instName);
-        int index = (instName.IsEmpty() || instName == "") ? Invalid : par->GetIndex(instName);
+        parser->GetParameter(instName);
+        int index = (instName.IsEmpty() || instName == "") ? Invalid : parser->GetIndex(instName);
         if (index == Invalid)
             DEBUG_MSG("Instance '" + instName + "' not found!");
-        par->SetReturn(index);
+        parser->SetReturn(index);
         return True;
     }
 
     int __cdecl StExt_FloatMult()
     {
-        zCParser* par = zCParser::GetParser();
         float m1, m2, result;
-        par->GetParameter(m2);
-        par->GetParameter(m1);
+        parser->GetParameter(m2);
+        parser->GetParameter(m1);
         result = m1 * m2;
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_FloatPow()
     {
-        zCParser* par = zCParser::GetParser();
         float m1, m2, result;
-        par->GetParameter(m2);
-        par->GetParameter(m1);
+        parser->GetParameter(m2);
+        parser->GetParameter(m1);
         result = pow(m1, m2);
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_IntPow()
     {
-        zCParser* par = zCParser::GetParser();
         int m1, m2, result;
-        par->GetParameter(m2);
-        par->GetParameter(m1);
+        parser->GetParameter(m2);
+        parser->GetParameter(m1);
         result = static_cast<int>(pow(m1, m2));
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_FloatPowAsInt()
     {
-        zCParser* par = zCParser::GetParser();
         float m2;
         int m1, result;
-        par->GetParameter(m2);
-        par->GetParameter(m1);
+        parser->GetParameter(m2);
+        parser->GetParameter(m1);
         result = static_cast<int>(pow(m1, m2));
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_GetPercentBasedOnValue()
     {
-        zCParser* par = zCParser::GetParser();
         float m1, m2;
         int val, max, result;
-        par->GetParameter(max);
-        par->GetParameter(val);
+        parser->GetParameter(max);
+        parser->GetParameter(val);
         result = 0;
         if (max != 0 && val != 0)
         {
@@ -434,47 +517,44 @@ namespace Gothic_II_Addon
             m2 = static_cast<float>(max);
             result = static_cast<int>((m1 / m2) * 100.0f);
         }
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_TryCallFunc()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING funcName;
         int funcId;
-        par->GetParameter(funcName);
-        funcId = par->GetIndex(funcName);
+        parser->GetParameter(funcName);
+        funcId = GetFuncIndex(funcName);
         if (funcId == Invalid)
         {
             DEBUG_MSG("StExt_TryCallFunc - fail to call '" + funcName + "'");
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return False;
         }
         parser->CallFunc(funcId);
-        par->SetReturn(true);
+        parser->SetReturn(true);
         return True;
     }
 
     int __cdecl StExt_GetAuraData()
     {
-        zCParser* par = zCParser::GetParser();
         int index;
         parser->GetParameter(index);
 
         const AuraData* aura = GetAuraById(index);
         if (!aura) 
         {
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
-        par->SetReturn(const_cast<AuraData*>(aura));
+        parser->SetReturn(const_cast<AuraData*>(aura));
         return True;
     }
 
     int __cdecl StExt_UpdatePcStats()
     {
-        zCParser* par = zCParser::GetParser();
         zCPar_Symbol* StExt_PcStatsArray = parser->GetSymbol("StExt_PcStats");
         zCPar_Symbol* StExt_PcStats_PermArray = parser->GetSymbol("StExt_PcStats_Perm");
         zCPar_Symbol* StExt_PcStats_ItemsArray = parser->GetSymbol("StExt_PcStats_Items");
@@ -505,11 +585,10 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_ProhibitWp()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING wpId;
         int radius;
-        par->GetParameter(radius);
-        par->GetParameter(wpId);
+        parser->GetParameter(radius);
+        parser->GetParameter(wpId);
         WaypointData wp = WaypointData();
         wp.Radius = radius;
         wp.Wp = wpId;
@@ -520,14 +599,11 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_GetRandomWp()
     {
-        zCParser* par = zCParser::GetParser();
-
         ResultString.Clear();
         oCWorld* world = ogame->GetGameWorld();
         if (!world)
         {
-            par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-            par->SetReturn(ResultString);
+            DoReturnString();
             return False;
         }
 
@@ -535,8 +611,7 @@ namespace Gothic_II_Addon
         if (size <= 0)
         {
             DEBUG_MSG("StExt_GetRandomWp - Wp list is empty!");
-            par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-            par->SetReturn(ResultString);
+            DoReturnString();
             return False;
         }
 
@@ -589,22 +664,19 @@ namespace Gothic_II_Addon
         while ((i < iMax) && !isfound);
         DEBUG_MSG_IF(!isfound, "StExt_GetRandomWp - Wp not found!");
 
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         return isfound;
     }
 
     int __cdecl StExt_GetRandomEmptyChest()
     {
-        zCParser* par = zCParser::GetParser();
-        int onlyEmpty; par->GetParameter(onlyEmpty);
+        int onlyEmpty; parser->GetParameter(onlyEmpty);
 
         ResultString.Clear();
         oCWorld* world = ogame->GetGameWorld();
         if (!world)
         {
-            par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-            par->SetReturn(ResultString);
+            DoReturnString();
             return False;
         }
 
@@ -632,24 +704,21 @@ namespace Gothic_II_Addon
             ResultString = chests[indx]->GetObjectName();
 
             DEBUG_MSG("StExt_GetRandomEmptyChest: " + ResultString);
-            par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-            par->SetReturn(ResultString);
+            DoReturnString();
             return False;
         }
 
         DEBUG_MSG("StExt_GetRandomEmptyChest: Empty!");
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         return False;
     }
 
     int __cdecl StExt_LockChest()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING chestName;
         int combinationPower;
-        par->GetParameter(combinationPower);
-        par->GetParameter(chestName);
+        parser->GetParameter(combinationPower);
+        parser->GetParameter(chestName);
 
         oCWorld* world = ogame->GetGameWorld();
         if (!world || chestName.IsEmpty()) return False;
@@ -702,17 +771,15 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_UpdateUncaperStat()
     {
-        zCParser* par = zCParser::GetParser();
-        int index; par->GetParameter(index);
+        int index; parser->GetParameter(index);
         UpdateUncapedStat(index);
         return True;
     }
 
     int __cdecl StExt_UpdateTradeVars()
     {
-        zCParser* par = zCParser::GetParser();
         int sellMulRaw;
-        par->GetParameter(sellMulRaw);
+        parser->GetParameter(sellMulRaw);
 
         float sellMul = (sellMulRaw > 0) ? sellMulRaw * 0.001f : 0.01f;
         if (sellMul < 0.01f) sellMul = 0.01f;
@@ -727,11 +794,10 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_RegtisterScriptPlugin()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING modName, modVersion, modAuthor;
-        par->GetParameter(modAuthor);
-        par->GetParameter(modVersion);
-        par->GetParameter(modName);
+        parser->GetParameter(modAuthor);
+        parser->GetParameter(modVersion);
+        parser->GetParameter(modName);
 
         ModExtensionInfo info = ModExtensionInfo();
         info.Name = modName;
@@ -744,20 +810,19 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_OverrideFunc()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING origFuncName, newFuncName;
-        par->GetParameter(newFuncName);
-        par->GetParameter(origFuncName);
+        parser->GetParameter(newFuncName);
+        parser->GetParameter(origFuncName);
         DEBUG_MSG("StExt_OverrideFunc - replace '" + origFuncName + "' func to '" + newFuncName + "' ...");
 
         zCPar_Symbol* origFuncSym;
         zCPar_Symbol* newFuncSym;
-        origFuncSym = par->GetSymbol(origFuncName);
-        newFuncSym = par->GetSymbol(newFuncName);
+        origFuncSym = parser->GetSymbol(origFuncName);
+        newFuncSym = parser->GetSymbol(newFuncName);
         if (!origFuncSym || !newFuncSym)
         {
             DEBUG_MSG("StExt_OverrideFunc - symbols not found!");
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return False;
         }
 
@@ -765,16 +830,16 @@ namespace Gothic_II_Addon
         {
             if (origFuncSym->type != zPAR_TYPE_FUNC) { DEBUG_MSG("StExt_OverrideFunc - original symbol is not a func!"); }
             else { DEBUG_MSG("StExt_OverrideFunc - new symbol is not a func!"); }
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return False;
         }
 
         int oldPos = origFuncSym->single_intdata;
         int newPos = newFuncSym->single_intdata;
-        byte* bytecodes = par->stack.stack;
+        byte* bytecodes = parser->stack.stack;
 
         Array<byte*> referralTokens = Array<byte*>();
-        uint index = 0, stackSize = par->stack.GetDynSize();
+        uint index = 0, stackSize = parser->stack.GetDynSize();
         while (index < stackSize - 1)
         {
             byte& token = bytecodes[index++];
@@ -807,28 +872,27 @@ namespace Gothic_II_Addon
 
         referralTokens.Clear();
         DEBUG_MSG("StExt_OverrideFunc - overriding '" + origFuncName + "' (" + Z overrideCount + ") was DONE!");
-        par->SetReturn(true);
+        parser->SetReturn(true);
         return True;
     }
 
     int __cdecl StExt_OverrideDialog()
     {
-        zCParser* par = zCParser::GetParser();
         int instanceId, actionId, condId;
         zSTRING infoFuncName, condFuncName;
-        par->GetParameter(condFuncName);
-        par->GetParameter(infoFuncName);
-        par->GetParameter(instanceId);
+        parser->GetParameter(condFuncName);
+        parser->GetParameter(infoFuncName);
+        parser->GetParameter(instanceId);
 
         oCInfo* pInfo = ogame->GetInfoManager()->GetInformation(instanceId);
         if (!pInfo)
         {
             DEBUG_MSG("StExt_OverrideDialog - dialog not found!");
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return False;
         }
 
-        actionId = par->GetIndex(infoFuncName);
+        actionId = parser->GetIndex(infoFuncName);
         int oldActionId = pInfo->pd.information;
         if (actionId != Invalid && oldActionId != actionId)
         {
@@ -836,7 +900,7 @@ namespace Gothic_II_Addon
             DEBUG_MSG("StExt_OverrideDialog - override action. Id was/new: " + Z oldActionId + " / " + Z actionId + " | New func name: " + infoFuncName);
         }
 
-        condId = par->GetIndex(condFuncName);
+        condId = parser->GetIndex(condFuncName);
         int oldConditionId = pInfo->pd.conditions;
         if (condId != Invalid && oldConditionId != condId)
         {
@@ -845,77 +909,81 @@ namespace Gothic_II_Addon
         }
 
         DEBUG_MSG("StExt_OverrideDialog - overriding '" + pInfo->name + "' was DONE!");
-        par->SetReturn(true);
+        parser->SetReturn(true);
         return True;
     }
 
     int __cdecl StExt_OverrideConst()
     {
-        zCParser* par = zCParser::GetParser();
         int newValue;
         zSTRING constName;
-        par->GetParameter(constName);
-        par->GetParameter(newValue);
+        parser->GetParameter(constName);
+        parser->GetParameter(newValue);
 
-        zCPar_Symbol* sym = par->GetSymbol(constName);
+        zCPar_Symbol* sym = parser->GetSymbol(constName);
         if (sym)
             sym->SetValue(newValue, 0);
         return True;
     }
 
-
     int __cdecl StExt_Struct_Sizeof()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING className;
-        par->GetParameter(className);
+        parser->GetParameter(className);
+        className.Upper();
 
-        int instanceID;
-        instanceID = par->GetIndex(className);
+        int* cachedSize = StructOffsetCache.Find(className);
+        if (cachedSize != Null)
+        {
+            parser->SetReturn(*cachedSize);
+            return True;
+        }
+
+        int instanceID = parser->GetIndex(className);
         if (instanceID == Invalid)
         {
             DEBUG_MSG("StExt_Struct_Sizeof - Class not found!");
-            par->SetReturn(Invalid);
+            parser->SetReturn(Invalid);
             return False;
         }
 
-        zCPar_Symbol* classInstSym = par->GetSymbol(instanceID);
-        uint elementsCount = classInstSym->ele;
+        zCPar_Symbol* classInstSym = parser->GetSymbol(instanceID);
+        zCPar_Symbol* sym = classInstSym->next;
+        uint size = 0;
 
-        zCPar_Symbol* second = classInstSym;
-        uint size = 0, memberId = 0;
-        while (second)
+        while (sym && sym->parent == classInstSym)
         {
-            ++memberId;
-            size += second->type == zPAR_TYPE_STRING ? sizeof(zSTRING) : 4;
-            second = second->next;
-            if (memberId > elementsCount) break;
+            uint elemSize = (sym->type == zPAR_TYPE_STRING) ? sizeof(zSTRING) : 4;
+            uint count = sym->ele > 0 ? sym->ele : 1;
+            size += elemSize * count;
+            sym = sym->next;
         }
-        par->SetReturn(static_cast<int>(size));
+
+        size = (size + 15) & ~15;
+        StructOffsetCache.Insert(className, (int)size);
+        parser->SetReturn((int)size);
         return True;
     }
 
     int __cdecl StExt_Struct_Alloc()
     {
-        zCParser* par = zCParser::GetParser();
         int length;
-        par->GetParameter(length);
+        parser->GetParameter(length);
         void* mem = AllocateDynamicObject(static_cast<size_t>(length));
         if (mem == Null)
         {
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             DEBUG_MSG("StExt_Struct_Alloc - Allocate failed!");
             return False;
         }
-        par->SetReturn(mem);
+        parser->SetReturn(mem);
         DEBUG_MSG("StExt_Struct_Alloc - Allocated: " + Z length + " bytes in ObjectsMemPool!");
         return True;
     }
 
     int __cdecl StExt_Struct_Free()
     {
-        zCParser* par = zCParser::GetParser();
-        void* mem = par->GetInstance();
+        void* mem = parser->GetInstance();
         if (!FreeDynamicObject(mem)) return False;
         DEBUG_MSG("StExt_Struct_Free - Allocated memory was cleared!");
         return True;
@@ -923,41 +991,37 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_Struct_IsEmpty()
     {
-        zCParser* par = zCParser::GetParser();
-        void* mem = par->GetInstance();
+        void* mem = parser->GetInstance();
         bool result = mem && IsObjectsTableAllocated(mem);
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return result;
     }
 
     //func int StExt_Struct_Write(var C_IntArray ptr, var int offset, var int value);
     int __cdecl StExt_Struct_Write()
     {
-        zCParser* par = zCParser::GetParser();
         int value, offset;
-        par->GetParameter(value);
-        par->GetParameter(offset);
-        void* ptr = par->GetInstance();
+        parser->GetParameter(value);
+        parser->GetParameter(offset);
+        void* ptr = parser->GetInstance();
 
         bool ok = WriteToDynamicObject(ptr, (size_t)offset, value);
         DEBUG_MSG_IF(!ok, "StExt_Struct_Write - fail to write!");
-        par->SetReturn((int)ok);
+        parser->SetReturn((int)ok);
         return ok;
     }
 
     //func int StExt_Struct_Read(var C_IntArray ptr, var int offset);
     int __cdecl StExt_Struct_Read()
     {
-        zCParser* par = zCParser::GetParser();
-
         int offset;
-        par->GetParameter(offset);
-        void* ptr = par->GetInstance();
+        parser->GetParameter(offset);
+        void* ptr = parser->GetInstance();
 
         int value = 0;
         bool ok = ReadFormDynamicObject((void*)ptr, (size_t)offset, value);
         DEBUG_MSG_IF(!ok, "StExt_Struct_Read - fail to write!");
-        par->SetReturn(ok ? value : 0);
+        parser->SetReturn(ok ? value : 0);
         return ok ? value : 0;
     }
 
@@ -966,21 +1030,19 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_GetNpc()
     {
-        zCParser* par = zCParser::GetParser();
-        oCNpc* npc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        par->SetReturn(npc);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        parser->SetReturn(npc);
         return true;
     }
 
     int __cdecl StExt_SpawnNpcWithFunc()
     {
-        zCParser* par = zCParser::GetParser();
         int count, instance, initFuncIndx;
         zSTRING initFunc, point;
-        par->GetParameter(initFunc);
-        par->GetParameter(point);
-        par->GetParameter(count);
-        par->GetParameter(instance);
+        parser->GetParameter(initFunc);
+        parser->GetParameter(point);
+        parser->GetParameter(count);
+        parser->GetParameter(instance);
 
         if (point.IsEmpty())
         {
@@ -988,7 +1050,7 @@ namespace Gothic_II_Addon
             return False;
         }
 
-        initFuncIndx = initFunc.IsEmpty() ? Invalid : parser->GetIndex(initFunc);
+        initFuncIndx = initFunc.IsEmpty() ? Invalid : GetFuncIndex(initFunc);
         for (int i = 0; i < count; ++i)
         {
             oCNpc* pNpc = ogame->GetSpawnManager()->SpawnNpc(instance, point, 0.0f);
@@ -1004,10 +1066,8 @@ namespace Gothic_II_Addon
 
             if (initFuncIndx != Invalid)
             {
-                oCNpc* slf = dynamic_cast<oCNpc*>((zCVob*)par->GetSymbol(StExt_ModSelf_SymId)->GetInstanceAdr());
-                par->SetInstance(StExt_ModSelf_SymId, pNpc);
-                par->CallFunc(initFuncIndx);
-                par->SetInstance(StExt_ModSelf_SymId, slf);
+                parser->SetInstance(StExt_ModSelf_SymId, pNpc);
+                parser->CallFunc(initFuncIndx);
             }
         }
         return True;
@@ -1015,20 +1075,19 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_ForEachNpcInRadius()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING initFunc, condFunc, execFunc;
         int radius, initFuncIndx, condFuncIndx, execFuncIndx;
 
-        par->GetParameter(execFunc);
-        par->GetParameter(condFunc);
-        par->GetParameter(initFunc);
-        par->GetParameter(radius);
-        oCNpc* center = (oCNpc*)par->GetInstance();
+        parser->GetParameter(execFunc);
+        parser->GetParameter(condFunc);
+        parser->GetParameter(initFunc);
+        parser->GetParameter(radius);
+        oCNpc* center = (oCNpc*)parser->GetInstance();
 
         //DEBUG_MSG("StExt_ForEachNpcInRadius - Do FOR(Init = '" + initFunc + "'; Cond = '" + condFunc + "'; Func = '" + execFunc + "')");
-        initFuncIndx = par->GetIndex(initFunc);
-        condFuncIndx = par->GetIndex(condFunc);
-        execFuncIndx = par->GetIndex(execFunc);
+        initFuncIndx = GetFuncIndex(initFunc);
+        condFuncIndx = GetFuncIndex(condFunc);
+        execFuncIndx = GetFuncIndex(execFunc);
 
         if (radius < 10) radius = 10;
         if (!center || (execFuncIndx == Invalid))
@@ -1043,43 +1102,37 @@ namespace Gothic_II_Addon
         DEBUG_MSG_IF(npcArray.GetNum() > 0,"StExt_ForEachNpcInRadius - found " + Z(npcArray.GetNum()) +  " npc's in radius: " + Z(radius));
         if (npcArray.GetNum() <= 0) return True;
 
-        oCNpc* slf = dynamic_cast<oCNpc*>((zCVob*)par->GetSymbol(StExt_ModSelf_SymId)->GetInstanceAdr());
-        oCNpc* oth = dynamic_cast<oCNpc*>((zCVob*)par->GetSymbol(StExt_ModOther_SymId)->GetInstanceAdr());
-
-        par->SetInstance(StExt_ModSelf_SymId, center);
+        parser->SetInstance(StExt_ModSelf_SymId, center);
         if (initFuncIndx != Invalid)
-            par->CallFunc(initFuncIndx);
+            parser->CallFunc(initFuncIndx);
 
-        par->SetInstance(StExt_ModOther_SymId, center);
+        parser->SetInstance(StExt_ModOther_SymId, center);
         for (int i = 0; i < npcArray.GetNum(); ++i)
         {
             if (!npcArray[i]) continue;
 
-            par->SetInstance(StExt_ModSelf_SymId, npcArray[i]);
+            parser->SetInstance(StExt_ModOther_SymId, center);
+            parser->SetInstance(StExt_ModSelf_SymId, npcArray[i]);            
             if (condFuncIndx != Invalid)
             {
-                int condResult = *(int*)par->CallFunc(condFuncIndx);
+                int condResult = *(int*)parser->CallFunc(condFuncIndx);
                 if (!condResult) continue;
             }
-            par->CallFunc(execFuncIndx);
+            parser->CallFunc(execFuncIndx);
         }
-
-        parser->SetInstance(StExt_ModSelf_SymId, slf);
-        parser->SetInstance(StExt_ModOther_SymId, oth);
         return True;
     }
 
     int __cdecl StExt_FindTargetInRadius()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING condFunc;
         int radius, condFuncIndx;
 
-        par->GetParameter(condFunc);
-        par->GetParameter(radius);
-        oCNpc* center = (oCNpc*)par->GetInstance();
+        parser->GetParameter(condFunc);
+        parser->GetParameter(radius);
+        oCNpc* center = (oCNpc*)parser->GetInstance();
 
-        condFuncIndx = par->GetIndex(condFunc);
+        condFuncIndx = GetFuncIndex(condFunc);
         if (condFuncIndx == Invalid)
         {
             parser->SetReturn(false);
@@ -1099,11 +1152,11 @@ namespace Gothic_II_Addon
         {
             if (npcArray[i] == Null) continue;
 
-            parser->SetInstance("STEXT_SELF", npcArray[i]);
-            int condResult = *(int*)par->CallFunc(condFuncIndx);
+            parser->SetInstance(StExt_ModSelf_SymId, npcArray[i]);
+            int condResult = *(int*)parser->CallFunc(condFuncIndx);
             if (condResult)
             {
-                parser->SetInstance("STEXT_OTHER", npcArray[i]);
+                parser->SetInstance(StExt_ModOther_SymId, npcArray[i]);
                 parser->SetReturn(true);
                 return True;
             };
@@ -1114,105 +1167,98 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_InfuseNpcWithMagic()
     {
-        zCParser* par = zCParser::GetParser();
-        int tier; par->GetParameter(tier);
-        oCNpc* pNpc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        int tier; parser->GetParameter(tier);
+        oCNpc* pNpc = (oCNpc*)parser->GetInstance();
         if (!pNpc)
         {
             DEBUG_MSG("StExt_InfuseNpcWithMagic - target npc is null!");
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
         MagicInfusionData* infusion = CreateInfusion(tier);
-        par->SetReturn(infusion);
+        parser->SetReturn(infusion);
         return True;
     }
 
     int __cdecl StExt_DisposeNpcInfusion()
     {
-        zCParser* par = zCParser::GetParser();
-        void* infusionInstance = par->GetInstance();
+        void* infusionInstance = parser->GetInstance();
 
         if (!infusionInstance)
         {
             DEBUG_MSG("DisposeNpcInfusion - instance is null!");
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
         MagicInfusionData* infusion = reinterpret_cast<MagicInfusionData*>(infusionInstance);
         SAFE_DELETE(infusion);
-        par->SetReturn(Null);
+        parser->SetReturn(Null);
         return True;
     }
 
     int __cdecl StExt_RegisterNpc()
     {
-        zCParser* par = zCParser::GetParser();
-        int npcUid; par->GetParameter(npcUid);
-        oCNpc* npc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        int npcUid; parser->GetParameter(npcUid);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
 
         if (!npc)
         {
             DEBUG_MSG("StExt_RegisterNpc - Try to register null npc!");
-            par->SetReturn(Invalid);
+            parser->SetReturn(Invalid);
             return False;
         }
 
         RegisterNpc(npc, npcUid);
-        par->SetReturn(npcUid);
+        parser->SetReturn(npcUid);
         return True;
     }
 
     int __cdecl StExt_GetNpcByUid()
     {
-        zCParser* par = zCParser::GetParser();
         int npcUid;
-        par->GetParameter(npcUid);
+        parser->GetParameter(npcUid);
 
         if (npcUid == 0)
         {
-            par->SetReturn(player);
+            parser->SetReturn(player);
             return False;
         }
         if (npcUid == Invalid)
         {
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
         oCNpc* npc = GetNpcByUid(npcUid);
-        par->SetReturn(npc);
+        parser->SetReturn(npc);
         return True;
     }
 
     int __cdecl StExt_IsUidRegistered()
     {
-        zCParser* par = zCParser::GetParser();
-        int npcUid; par->GetParameter(npcUid);
-        par->SetReturn(IsUidRegistered(npcUid));
+        int npcUid; parser->GetParameter(npcUid);
+        parser->SetReturn(IsUidRegistered(npcUid));
         return True;
     }
 
     int __cdecl StExt_GetNextNpcUid()
     {
-        zCParser* par = zCParser::GetParser();
-        par->SetReturn(GetNextNpcUid());
+        parser->SetReturn(GetNextNpcUid());
         return true;
     }
 
 
     int __cdecl StExt_GetNpcVar()
     {
-        zCParser* par = zCParser::GetParser();
         int value = Invalid;
-        int index; par->GetParameter(index);
-        oCNpc* npc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        int index; parser->GetParameter(index);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
         oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
         if (!npc && !npcEx)
         {
             DEBUG_MSG("StExt_GetNpcVar - Npc is null!");
-            par->SetReturn(Invalid);
+            parser->SetReturn(Invalid);
             return False;
         }
 
@@ -1225,19 +1271,18 @@ namespace Gothic_II_Addon
         if (!GetNpcExtensionVar(npcEx->m_pVARS[StExt_AiVar_Uid], index, value))
         {
             DEBUG_MSG("StExt_GetNpcVar - Fail to get value #" + Z(index) + " from npc '" + npc->name[0] + "' with UId: " + Z(npcEx->m_pVARS[StExt_AiVar_Uid]) + "!");
-            par->SetReturn(Invalid);
+            parser->SetReturn(Invalid);
             return False;
         }
-        par->SetReturn(value);
+        parser->SetReturn(value);
         return True;
     }
 
     int __cdecl StExt_SetNpcVar()
     {
-        zCParser* par = zCParser::GetParser();
-        int value; par->GetParameter(value);
-        int index; par->GetParameter(index);
-        oCNpc* npc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        int value; parser->GetParameter(value);
+        int index; parser->GetParameter(index);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
         oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
         if (!npc && !npcEx)
         {
@@ -1260,12 +1305,9 @@ namespace Gothic_II_Addon
     }
 
 
-
-
     int __cdecl StExt_ValidateNpcPosition()
     {
-        zCParser* par = zCParser::GetParser();
-        oCNpc* npc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
         if (!npc)
             return False;
 
@@ -1285,9 +1327,8 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_TeleportToNpc()
     {
-        zCParser* par = zCParser::GetParser();
-        oCNpc* target = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        oCNpc* atk = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
 
         if (!atk || !target)
         {
@@ -1295,9 +1336,7 @@ namespace Gothic_II_Addon
             return False;
         }
 
-        zMAT4 trafo = target->trafoObjToWorld;
-        zVEC3 pos = target->GetPositionWorld() + (target->GetAtVectorWorld() * 200.0);
-
+        zVEC3 pos = target->GetPositionWorld() - (target->GetAtVectorWorld() * 50.0f);
         atk->SetCollDet(FALSE);
         atk->SetPositionWorld(pos);
         if (NpcPositionIsInvalid(atk))
@@ -1314,9 +1353,7 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_IsNpcInProhibitedPlace()
     {
-        zCParser* par = zCParser::GetParser();
-        oCNpc* npc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
         if (!npc)
         {
             DEBUG_MSG("StExt_IsNpcInProhibitedPlace - npc is null!");
@@ -1344,15 +1381,14 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_CopyNpcLook()
     {
-        zCParser* par = zCParser::GetParser();
-        oCNpc* originalNpc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        oCNpc* targetNpc = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        oCNpc* originalNpc = (oCNpc*)parser->GetInstance();
+        oCNpc* targetNpc = (oCNpc*)parser->GetInstance();
         int armorId = Invalid;
 
         if (!targetNpc || !originalNpc)
         {
             DEBUG_MSG("StExt_CopyNpcLook - some actor is null!");
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return False;
         }
         DEBUG_MSG("StExt_CopyNpcLook - from '" + originalNpc->name[0] + "' to '" + targetNpc->name[0] + "' ...");
@@ -1386,7 +1422,7 @@ namespace Gothic_II_Addon
                 pItem->Release();
             }
         }
-        par->SetReturn(true);
+        parser->SetReturn(true);
         return True;
     }
 
@@ -1395,209 +1431,203 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_InitializeExtraDamage()
     {
-        zCParser* par = zCParser::GetParser();
+        static int instanceId = parser->GetIndex("STEXT_EXTRADAMAGEINFO");
         memset(&ExtraDamage, 0, sizeof(ExtraDamage));
-        par->SetInstance("STEXT_EXTRADAMAGEINFO", &ExtraDamage);
+        parser->SetInstance(instanceId, &ExtraDamage);
         return True;
     }
 
     int __cdecl StExt_InitializeDotDamage()
     {
-        zCParser* par = zCParser::GetParser();
+        static int instanceId = parser->GetIndex("STEXT_DOTDAMAGEINFO");
         memset(&DotDamage, 0, sizeof(DotDamage));
-        par->SetInstance("STEXT_DOTDAMAGEINFO", &DotDamage);
+        parser->SetInstance(instanceId, &DotDamage);
         return True;
     }
 
     int __cdecl StExt_InitializeReflectDamage()
     {
-        zCParser* par = zCParser::GetParser();
+        static int instanceId = parser->GetIndex("STEXT_REFLECTDAMAGEINFO");
         memset(&ReflectDamage, 0, sizeof(ReflectDamage));
-        par->SetInstance("STEXT_REFLECTDAMAGEINFO", &ReflectDamage);
+        parser->SetInstance(instanceId, &ReflectDamage);
         return True;
     }
 
     int __cdecl StExt_FinalizeExtraDamage()
     {
-        zCParser* par = zCParser::GetParser();
-        par->SetInstance("STEXT_EXTRADAMAGEINFO", Null);
+        static int instanceId = parser->GetIndex("STEXT_EXTRADAMAGEINFO");
+        parser->SetInstance(instanceId, Null);
         return True;
     }
 
     int __cdecl StExt_FinalizeDotDamage()
     {
-        zCParser* par = zCParser::GetParser();
-        par->SetInstance("STEXT_DOTDAMAGEINFO", Null);
+        static int instanceId = parser->GetIndex("STEXT_DOTDAMAGEINFO");
+        parser->SetInstance(instanceId, Null);
         return True;
     }
 
     int __cdecl StExt_FinalizeReflectDamage()
     {
-        zCParser* par = zCParser::GetParser();
-        par->SetInstance("STEXT_REFLECTDAMAGEINFO", Null);
+        static int instanceId = parser->GetIndex("STEXT_REFLECTDAMAGEINFO");
+        parser->SetInstance(instanceId, Null);
         return True;
     }
 
     int __cdecl StExt_ApplyDotDamage()
     {
-        DEBUG_MSG("StExt_ApplyDotDamage - call");
-        zCParser* par = zCParser::GetParser();
-        oCNpc* target = (oCNpc*)par->GetInstance();
-        oCNpc* atk = (oCNpc*)par->GetInstance();
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
         ApplyDotDamage(atk, target);
         return True;
     }
 
     int __cdecl StExt_ApplyExtraDamage()
     {
-        DEBUG_MSG("StExt_ApplyExtraDamage - call");
-        zCParser* par = zCParser::GetParser();
-        oCNpc* target = (oCNpc*)par->GetInstance();
-        oCNpc* atk = (oCNpc*)par->GetInstance();
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
         ApplyExtraDamage(atk, target);
         return True;
     }
 
     int __cdecl StExt_ApplyReflectDamage()
     {
-        DEBUG_MSG("StExt_ApplyReflectDamage - call");
-        zCParser* par = zCParser::GetParser();
-        oCNpc* target = (oCNpc*)par->GetInstance();
-        oCNpc* atk = (oCNpc*)par->GetInstance();
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
         ApplyReflectDamage(atk, target);
         return True;
     }
 
-    int __cdecl StExt_ApplyDamage()
+    int __cdecl StExt_ApplyScriptDamage()
     {
-        zCParser* par = zCParser::GetParser();
-        int damType, damTotal, damageType, damageFlags;
-        par->GetParameter(damageFlags);
-        par->GetParameter(damageType);
-        par->GetParameter(damType);
-        par->GetParameter(damTotal);
-        oCNpc* target = (oCNpc*)par->GetInstance();
-        oCNpc* atk = (oCNpc*)par->GetInstance();
+        int damageSelectorFuncIndex; parser->GetParameter(damageSelectorFuncIndex);
+        ExtraDamageInfo* damStruct = (ExtraDamageInfo*)parser->GetInstance();
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
 
-        if ((!atk) || (!target))
-        {
-            DEBUG_MSG("StExt_ApplyDamage - one of actors is null!");
+        if (!damStruct) {
+            DEBUG_MSG("StExt_ApplyScriptDamage - damStruct is null!");
             return False;
         }
-        if (damTotal <= 1) damTotal = 1;
-        if (damType == 0) damType = dam_barrier;
 
-        ApplySingleDamage(atk, target, damType, damTotal, damageType, damageFlags);
+        ApplyScriptDamage(atk, target, *damStruct, damageSelectorFuncIndex);
+        return True;
+    }
+
+    int __cdecl StExt_ApplyScriptPendingDamage()
+    {
+        int damageSelectorFuncIndex; parser->GetParameter(damageSelectorFuncIndex);
+        ExtraDamageInfo* damStruct = (ExtraDamageInfo*)parser->GetInstance();
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
+
+        if (!damStruct) {
+            DEBUG_MSG("StExt_ApplyScriptPendingDamage - damStruct is null!");
+            return False;
+        }
+
+        ApplyScriptPendingDamage(atk, target, *damStruct, damageSelectorFuncIndex);
+        return True;
+    }
+
+    int __cdecl StExt_CastScriptSpell()
+    {
+        ExtraDamageInfo* damStruct = (ExtraDamageInfo*)parser->GetInstance();
+        int damType; parser->GetParameter(damType);
+        int damage; parser->GetParameter(damage);
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* atk = (oCNpc*)parser->GetInstance();
+        zSTRING proj; parser->GetParameter(proj);
+
+        if (!damStruct) {
+            DEBUG_MSG("StExt_CastScriptSpell - damStruct is null!");
+            parser->SetReturn(False);
+            return False;
+        }
+        if (damage <= 0) damage = 1;
+
+        oCVisualFX* pVfx = oCVisualFX::CreateAndPlay(proj, atk, target, 1, static_cast<float>(damage), damType, True);
+        if(pVfx)
+            AddPendingSpellDamage(atk, target, pVfx, *damStruct, DamageDescFlag_IsAbilityDamage);
+        zRELEASE(pVfx);
+
+        parser->SetReturn(True);
         return True;
     }
 
     int __cdecl StExt_StunPlayer()
     {
-        zCParser* par = zCParser::GetParser();
         int stun = false;
-        par->GetParameter(stun);
+        parser->GetParameter(stun);
         // TODO
         return True;
     }
 
     int __cdecl StExt_ThrowItem()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING throwInstanceName;
         int damage, damageType;
 
-        par->GetParameter(damageType);
-        par->GetParameter(damage);
-        par->GetParameter(throwInstanceName);
-        oCNpc* target = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        oCNpc* attaker = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
+        parser->GetParameter(damageType);
+        parser->GetParameter(damage);
+        parser->GetParameter(throwInstanceName);
+        oCNpc* target = (oCNpc*)parser->GetInstance();
+        oCNpc* attaker = (oCNpc*)parser->GetInstance();
 
         if (!attaker || !target)
         {
             DEBUG_MSG("StExt_ThrowItem - some actor is null!");
+            parser->SetReturn(False);
             return False;
         }
 
-        int instanceId = par->GetIndex(throwInstanceName);
+        int instanceId = parser->GetIndex(throwInstanceName);
         if (instanceId == Invalid)
         {
             DEBUG_MSG("StExt_ThrowItem - throwable item not found!");
+            parser->SetReturn(False);
             return False;
         }
 
-        ThrowItemDescriptor throwData = ThrowItemDescriptor();
+        ThrowItemDescriptor throwData = ThrowItemDescriptor{};
         throwData.attacker = attaker;
         throwData.target = target;
         throwData.throwInstance = instanceId;
-        throwData.damage = damage < 5 ? 5 : damage;
+        throwData.damage = damage < 1 ? 1 : damage;
         throwData.damageType = damageType <= 0 ? dam_barrier : damageType;
 
         ThrowItem(throwData);
+        parser->SetReturn(True);
         return True;
     }
 
-    int __cdecl StExt_ThrowItemEx()
-    {
-        zCParser* par = zCParser::GetParser();
-        int damage, damageType, throwInstance;
-
-        par->GetParameter(damageType);
-        par->GetParameter(damage);
-        par->GetParameter(throwInstance);
-        oCNpc* target = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-        oCNpc* attaker = dynamic_cast<oCNpc*>((zCVob*)par->GetInstance());
-
-        if (!attaker || !target)
-        {
-            DEBUG_MSG("StExt_ThrowItem - some actor is null!");
-            return False;
-        }
-
-        if (throwInstance == Invalid)
-        {
-            DEBUG_MSG("StExt_ThrowItem - throwable item not found!");
-            return False;
-        }
-
-        ThrowItemDescriptor throwData = ThrowItemDescriptor();
-        throwData.attacker = attaker;
-        throwData.target = target;
-        throwData.throwInstance = throwInstance;
-        throwData.damage = damage < 5 ? 5 : damage;
-        throwData.damageType = damageType <= 0 ? dam_barrier : damageType;
-
-        ThrowItem(throwData);
-        return True;
-    }
 
 
     // ********************** ITEMS FUNCS **********************
 
     int __cdecl StExt_GetItemById()
     {
-        zCParser* par = zCParser::GetParser();
-        int instanceId; par->GetParameter(instanceId);
+        int instanceId; parser->GetParameter(instanceId);
         
         if (instanceId == Invalid)
         {
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
         oCItem* pItem = new oCItem();
-        if (par->CreateInstance(instanceId, pItem)) 
+        if (parser->CreateInstance(instanceId, pItem))
         {
-            par->SetReturn(pItem);
+            parser->SetReturn(pItem);
             return True;
         }
-        par->SetReturn(Null);
+        parser->SetReturn(Null);
         return True;
     }
 
     int __cdecl StExt_DeleteTempItem()
     {
-        zCParser* par = zCParser::GetParser();
-        oCItem* pItem = (oCItem*)par->GetInstance();
+        oCItem* pItem = (oCItem*)parser->GetInstance();
         if(pItem)
             pItem->Release();
         return True;
@@ -1605,58 +1635,51 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_GetItemNameById()
     {
-        zCParser* par = zCParser::GetParser();
-        int instanceId; par->GetParameter(instanceId);
+        int instanceId; parser->GetParameter(instanceId);
 
         ResultString.Clear();
         if (instanceId == Invalid)
         {
-            par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-            par->SetReturn(ResultString);
+            DoReturnString();
             return False;
         }
 
         oCItem* pItem = new oCItem();
-        if (par->CreateInstance(instanceId, pItem)) {
+        if (parser->CreateInstance(instanceId, pItem)) {
             ResultString = pItem->name;
         }
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         pItem->Release();
         return True;
     }
 
     int __cdecl StExt_CreateRandomItem()
     {
-        zCParser* par = zCParser::GetParser();
         int itemClassId, power;
-        par->GetParameter(power);
-        par->GetParameter(itemClassId);
+        parser->GetParameter(power);
+        parser->GetParameter(itemClassId);
 
         if (power <= 0) power = 1;
         const int itemIndex = GenerateNewMagicItem(itemClassId, power);
-        par->SetReturn(itemIndex);
+        parser->SetReturn(itemIndex);
         return True;
     }
 
     int __cdecl StExt_GetRegularItem()
     {
-        zCParser* par = zCParser::GetParser();
         int itemClassId, power;
-        par->GetParameter(power);
-        par->GetParameter(itemClassId);
+        parser->GetParameter(power);
+        parser->GetParameter(itemClassId);
 
         if (power <= 0) power = 1;
         const int itemIndex = GenerateNewRegularItem(itemClassId, power);
-        par->SetReturn(itemIndex);
+        parser->SetReturn(itemIndex);
         return True;
     }
 
     int __cdecl StExt_UseEnchantedItem()
     {
-        zCParser* par = zCParser::GetParser();
         zCPar_Symbol* ps = parser->GetSymbol("ITEM");
-
         oCItem* item = dynamic_cast<oCItem*>((zCVob*)ps->GetInstanceAdr());
         if (!item)
         {
@@ -1675,13 +1698,13 @@ namespace Gothic_II_Addon
         {
             for (int i = 0; i < ItemExtension_Stats_Max; ++i) {
                 if (enchantment->StatId[i] == Invalid) continue;
-                par->CallFunc(StExt_ApplyPotionEffectFunc, enchantment->StatId[i], enchantment->StatValue[i], enchantment->StatDuration[i]);
+                parser->CallFunc(StExt_ApplyPotionEffectFunc, enchantment->StatId[i], enchantment->StatValue[i], enchantment->StatDuration[i]);
             }
             return True;
 
             for (int i = 0; i < ItemExtension_OwnStats_Max; ++i) {
                 if (enchantment->OwnStatId[i] == Invalid) continue;
-                par->CallFunc(StExt_ApplyPotionPermEffectFunc, enchantment->StatId[i], enchantment->StatValue[i]);
+                parser->CallFunc(StExt_ApplyPotionPermEffectFunc, enchantment->StatId[i], enchantment->StatValue[i]);
             }
         }
         return False;
@@ -1689,16 +1712,13 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_GetItemInstanceName()
     {
-        zCParser* par = zCParser::GetParser();
-        oCItem* itm = dynamic_cast<oCItem*>((zCVob*)par->GetInstance());
-
+        oCItem* itm = (oCItem*)parser->GetInstance();
         ResultString.Clear();
         if (itm)        
             ResultString = itm->GetInstanceName();        
         DEBUG_MSG_IF(!itm, "StExt_GetItemInstanceName - itm is null");
         
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         return True;
     }
 
@@ -1706,10 +1726,9 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_StatValueToString()
     {
-        zCParser* par = zCParser::GetParser();
         int statId, statVal;
-        par->GetParameter(statVal);
-        par->GetParameter(statId);
+        parser->GetParameter(statVal);
+        parser->GetParameter(statId);
 
         ResultString.Clear();
         auto statPair = ExtraStatsData.GetSafePair(statId);
@@ -1727,21 +1746,19 @@ namespace Gothic_II_Addon
             }
         }
 
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         return True;
     }
 
     int __cdecl StExt_Info_AddChoice()
     {
-        zCParser* par = zCParser::GetParser();
         int menu, action;
         zSTRING text, actionName;
-        par->GetParameter(actionName);
-        par->GetParameter(text);
-        par->GetParameter(menu);
+        parser->GetParameter(actionName);
+        parser->GetParameter(text);
+        parser->GetParameter(menu);
 
-        action = par->GetIndex(actionName);
+        action = parser->GetIndex(actionName);
         if (action == Invalid)
         {
             DEBUG_MSG("StExt_Info_AddChoice - action '" + actionName + "' not found!");
@@ -1761,19 +1778,17 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_PrintMessageToTray()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING text, color;
-        par->GetParameter(color);
-        par->GetParameter(text);
+        parser->GetParameter(color);
+        parser->GetParameter(text);
         MsgTray_AddEntry(text, color);
         return True;
     }
 
     int __cdecl StExt_TryGetSymbolDescriptionText()
-    {        
-        zCParser* par = zCParser::GetParser();
+    {
         zSTRING optionName;
-        par->GetParameter(optionName);
+        parser->GetParameter(optionName);
 
         ResultString.Clear();
         if (!optionName.IsEmpty())
@@ -1787,33 +1802,30 @@ namespace Gothic_II_Addon
             }
         }
 
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         return True;
     }
 
     int __cdecl StExt_Info_BuildItemGeneratorPresetsChoices()
     {
-        zCParser* par = zCParser::GetParser();
         int menu, action;
         zSTRING text, actionName;
-        par->GetParameter(actionName);
-        par->GetParameter(menu);
+        parser->GetParameter(actionName);
+        parser->GetParameter(menu);
         // DISABLED
         return True;
     }
 
     int __cdecl StExt_Info_BuildConfigPresetsChoices()
     {
-        zCParser* par = zCParser::GetParser();
         int menu, action;
         zSTRING text, actionName;
 
-        par->GetParameter(actionName);
-        par->GetParameter(menu);
+        parser->GetParameter(actionName);
+        parser->GetParameter(menu);
         if (!ogame->GetInfoManager()) return False;
 
-        action = par->GetIndex(actionName);
+        action = parser->GetIndex(actionName);
         oCInfo* pInfo = ogame->GetInfoManager()->GetInformation(menu);
         if ((action == Invalid) || !pInfo) return False;
 
@@ -1827,14 +1839,13 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_BuildItemsSellForm()
     {
-        zCParser* par = zCParser::GetParser();
         if (!player || !player->inventory2.GetContents())
         {
             DEBUG_MSG("StExt_BuildItemsSellForm - player seems not initialized!");
             return False;
         }
 
-        const int callBackFunc = par->GetIndex("StExt_BuildItemsSellForm_Loop");
+        const int callBackFunc = parser->GetIndex("StExt_BuildItemsSellForm_Loop");
         if (callBackFunc == Invalid)
         {
             DEBUG_MSG("StExt_BuildItemsSellForm - func 'StExt_BuildItemsSellForm_Loop' not found!");
@@ -1842,23 +1853,23 @@ namespace Gothic_II_Addon
         }
 
         Array<int> excludedItems = {};
-        zCPar_Symbol* exludedItemsArr = par->GetSymbol("StExt_ItemsSellForm_ExcludedItems");
+        zCPar_Symbol* exludedItemsArr = parser->GetSymbol("StExt_ItemsSellForm_ExcludedItems");
         if (exludedItemsArr)
         {
             uint arrSize = exludedItemsArr->ele;
             for (uint i = 0; i < arrSize; ++i)
             {
-                int indx = par->GetIndex(exludedItemsArr->stringdata[i]);
+                int indx = parser->GetIndex(exludedItemsArr->stringdata[i]);
                 if (indx != Invalid) excludedItems.InsertEnd(indx);
             }
         }
         excludedItems.QuickSort();
 
         int mainFlag = 0, flags = 0, allowGenerated = FALSE, priceMultRaw = 10;
-        par->GetParameter(priceMultRaw);
-        par->GetParameter(allowGenerated);
-        par->GetParameter(flags);
-        par->GetParameter(mainFlag);
+        parser->GetParameter(priceMultRaw);
+        parser->GetParameter(allowGenerated);
+        parser->GetParameter(flags);
+        parser->GetParameter(mainFlag);
 
         const bool hasExcluded = !excludedItems.IsEmpty();
         const float priceMult = ((priceMultRaw * 0.01f) < 0.01f) ? 0.01f : priceMultRaw * 0.01f;
@@ -1885,9 +1896,9 @@ namespace Gothic_II_Addon
                     CraftInfoData craftData = CraftInfoData();
                     craftData.Price = sellPrice <= 0 ? 1 : sellPrice;
                     craftData.ResultInstance = pItem->GetInstanceName();
-                    par->SetInstance("STEXT_CRAFTINFO", &craftData);
-                    par->CallFunc(callBackFunc);
-                    par->SetInstance("STEXT_CRAFTINFO", Null);
+                    parser->SetInstance("STEXT_CRAFTINFO", &craftData);
+                    parser->CallFunc(callBackFunc);
+                    parser->SetInstance("STEXT_CRAFTINFO", Null);
                 }                
             }
             it = it->GetNextInList();
@@ -1898,17 +1909,16 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_SetItemGeneratorConfigs()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING configFileName;
-        par->GetParameter(configFileName);
+        parser->GetParameter(configFileName);
         DEBUG_MSG("StExt_SetItemGeneratorConfigs -> read config: " + configFileName + "...");
         if (!SelectItemGeneratorConfigs(configFileName))
         {
             DEBUG_MSG("StExt_SetItemGeneratorConfigs -> ERROR. Item Generator Configs not loaded!");
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return False;
         }
-        par->SetReturn(true);
+        parser->SetReturn(true);
         return True;
     }
 
@@ -1920,15 +1930,14 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_RegistrateConfigsPreset()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING presetInstance;
-        par->GetParameter(presetInstance);
+        parser->GetParameter(presetInstance);
 
-        int index = par->GetIndex(presetInstance);
+        int index = parser->GetIndex(presetInstance);
         if (index == Invalid)
         {
             DEBUG_MSG("StExt_RegistrateConfigsPreset -> Can't load configs preset instance '" + presetInstance + "'!");
-            par->SetReturn(false);
+            parser->SetReturn(false);
             return FALSE;
         }
 
@@ -1936,49 +1945,46 @@ namespace Gothic_II_Addon
             if (GameConfigsPresets[i].Name == presetInstance)
             {
                 DEBUG_MSG("StExt_RegistrateConfigsPreset -> Configs preset instance '" + presetInstance + "' already contains in presets list!");
-                par->SetReturn(false);
+                parser->SetReturn(false);
                 return FALSE;
             }
         }
 
         ConfigPresetData configPreset;
-        par->CreateInstance(index, &configPreset);
+        parser->CreateInstance(index, &configPreset);
         GameConfigsPresets.InsertEnd(configPreset);
         DEBUG_MSG("StExt_RegistrateConfigsPreset: " + configPreset.Name);
-        par->SetReturn(true);
+        parser->SetReturn(true);
         return TRUE;
     }
 
     int __cdecl StExt_GetConfigsPreset()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING presetInstance;
-        par->GetParameter(presetInstance);
+        parser->GetParameter(presetInstance);
 
         if (presetInstance.IsEmpty())
         {
             DEBUG_MSG("StExt_GetConfigsPreset -> Instance name is empty!");
-            par->SetReturn(Null);
+            parser->SetReturn(Null);
             return False;
         }
 
         ConfigPresetData* result = const_cast<ConfigPresetData*>(GetConfigPreset(presetInstance));
-        par->SetReturn(result);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_ParsePresetName()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING rawInput;
-        par->GetParameter(rawInput);
+        parser->GetParameter(rawInput);
 
         ResultString.Clear();
         if (rawInput.IsEmpty())
         {
             DEBUG_MSG("StExt_GetConfigsPreset -> Instance name is empty!");
-            par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-            par->SetReturn(ResultString);
+            DoReturnString();
             return False;
         }
 
@@ -1998,35 +2004,32 @@ namespace Gothic_II_Addon
             ResultString += chars[i];
         }
 
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(ResultString);
+        DoReturnString();
         return True;
     }
 
     int __cdecl StExt_RegisterConfig()
     {
-        zCParser* par = zCParser::GetParser();
-
         int isExportable, isEditable, isVisible, configGroup, displayType;
         int maxValue, minValue;
         zSTRING valueSymbol, descSymbol;
 
-        par->GetParameter(isExportable);
-        par->GetParameter(isEditable);
-        par->GetParameter(isVisible);
-        par->GetParameter(displayType);
-        par->GetParameter(maxValue);
-        par->GetParameter(minValue);
-        par->GetParameter(configGroup);
-        par->GetParameter(descSymbol);
-        par->GetParameter(valueSymbol);
+        parser->GetParameter(isExportable);
+        parser->GetParameter(isEditable);
+        parser->GetParameter(isVisible);
+        parser->GetParameter(displayType);
+        parser->GetParameter(maxValue);
+        parser->GetParameter(minValue);
+        parser->GetParameter(configGroup);
+        parser->GetParameter(descSymbol);
+        parser->GetParameter(valueSymbol);
 
-        if (valueSymbol.IsEmpty() || par->GetSymbol(valueSymbol) == Null)
+        if (valueSymbol.IsEmpty() || parser->GetSymbol(valueSymbol) == Null)
         {
             DEBUG_MSG("StExt_RegisterConfig -> Config value symbol name '" + valueSymbol + "' is empty or incorrect!");
             return False;
         }
-        if ((descSymbol.IsEmpty() || par->GetSymbol(descSymbol) == Null) && isVisible) {
+        if ((descSymbol.IsEmpty() || parser->GetSymbol(descSymbol) == Null) && isVisible) {
             DEBUG_MSG("StExt_RegisterConfig -> Symbol description symbol name '" + descSymbol + "' is empty or incorrect!");
         }
 
@@ -2055,10 +2058,8 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_ValidateConfig()
     {
-        zCParser* par = zCParser::GetParser();
-
         zSTRING valueSymbol;
-        par->GetParameter(valueSymbol);
+        parser->GetParameter(valueSymbol);
         valueSymbol.Upper();
 
         auto pair = ExtraConfigsData.Find(valueSymbol);
@@ -2069,7 +2070,7 @@ namespace Gothic_II_Addon
         }
 
         ExtraConfigData& data = *pair;
-        zCPar_Symbol* valueSym = par->GetSymbol(data.ValueSymbol);
+        zCPar_Symbol* valueSym = parser->GetSymbol(data.ValueSymbol);
 
         if (!valueSym) return False;
         switch (valueSym->type)
@@ -2099,10 +2100,9 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_ValidateConfigs()
     {
-        zCParser* par = zCParser::GetParser();
         for (auto& data : ExtraConfigsData)
         {
-            zCPar_Symbol* valueSym = par->GetSymbol(data.ValueSymbol);
+            zCPar_Symbol* valueSym = parser->GetSymbol(data.ValueSymbol);
 
             if (!valueSym) continue;
             switch (valueSym->type)
@@ -2134,26 +2134,23 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_ExportCurrentConfigs()
     {
-        zCParser* par = zCParser::GetParser();
         ResultString.Clear();
         bool result = ExportCurrentConfigs(ResultString);
-        par->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
-        par->SetReturn(result);
+        parser->GetSymbol("STEXT_RETURNSTRING")->SetValue(ResultString, 0);
+        parser->SetReturn(result);
         return True;
     }
 
     int __cdecl StExt_BuildEnchntedItemsSellForm()
     {
-        zCParser* par = zCParser::GetParser();
-
         int size = 0;
-        par->GetParameter(size);
-        void* basePtr = par->GetInstance();
+        parser->GetParameter(size);
+        void* basePtr = parser->GetInstance();
 
         if (!IsObjectsTableAllocated(basePtr))
         {
             DEBUG_MSG("StExt_BuildEnchntedItemsSellForm: Invalid pointer!");
-            par->SetReturn(FALSE);
+            parser->SetReturn(FALSE);
             return False;
         }
 
@@ -2175,11 +2172,11 @@ namespace Gothic_II_Addon
             Array<const oCItem*> foundItems = Array<const oCItem*>();
             FindPlayerItems(itemClasses, foundItems);
 
-            static const int callBackFunc = par->GetIndex("StExt_BuildEnchntedItemsSellForm_BuildLoop");
+            static const int callBackFunc = parser->GetIndex("StExt_BuildEnchntedItemsSellForm_BuildLoop");
             const int itemsCount = static_cast<int>(foundItems.GetNum());
             if (foundItems.IsEmpty())
             {
-                par->SetReturn(FALSE);
+                parser->SetReturn(FALSE);
                 return False;
             }
 
@@ -2189,25 +2186,24 @@ namespace Gothic_II_Addon
                 CraftInfoData craftData = CraftInfoData();
                 craftData.Price = foundItems[i]->value;
                 craftData.ResultInstance = GetItemInstanceName(foundItems[i]);
-                par->SetInstance("STEXT_CRAFTINFO", &craftData);
-                par->CallFunc(callBackFunc);
+                parser->SetInstance("STEXT_CRAFTINFO", &craftData);
+                parser->CallFunc(callBackFunc);
             }
-            par->SetReturn(TRUE);
+            parser->SetReturn(TRUE);
             return true;
         }
 
-        par->SetReturn(FALSE);
+        parser->SetReturn(FALSE);
         return False;
     }
 
     //GetUndefinedItems()
     int __cdecl StExt_GetUndefinedItemsCount()
     {
-        zCParser* par = zCParser::GetParser();
         Array<const oCItem*> itms;
         FindPlayerUndefinedItems(itms);
         const int size = static_cast<int>(itms.GetNum());
-        par->SetReturn(size);
+        parser->SetReturn(size);
         return true;
     }
 
@@ -2228,9 +2224,8 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_RegisterItemAbility()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING itemAbility;
-        par->GetParameter(itemAbility);
+        parser->GetParameter(itemAbility);
         // ToDo: finalize this shit... when time come
         //InitializeItemAbility(itemAbility);
         return true;
@@ -2239,7 +2234,6 @@ namespace Gothic_II_Addon
     // foreach invoke of onActive for specific abilities
     int __cdecl StExt_ProcessItemsAbilities()
     {
-        zCParser* par = zCParser::GetParser();
         int abilityType;
         int includeFlags = 0;
         int excludeFlags = 0;
@@ -2284,14 +2278,13 @@ namespace Gothic_II_Addon
 
     int __cdecl StExt_Player_ItemBatchUse()
     {
-        zCParser* par = zCParser::GetParser();
         zSTRING itemInstanceName;
         int maxItems;
 
-        par->GetParameter(maxItems);
-        par->GetParameter(itemInstanceName);
+        parser->GetParameter(maxItems);
+        parser->GetParameter(itemInstanceName);
 
-        const int itemInstanceId = par->GetIndex(itemInstanceName);
+        const int itemInstanceId = parser->GetIndex(itemInstanceName);
         if (itemInstanceId == Invalid) 
         {
             DEBUG_MSG("StExt_Player_ItemBatchUse - item '" + itemInstanceName + "' not exist!");
@@ -2316,7 +2309,7 @@ namespace Gothic_II_Addon
         }
 
         const int useFunc = pItm->onState[0];
-        if(!par->GetSymbol(useFunc) || useFunc == 0)
+        if(!parser->GetSymbol(useFunc) || useFunc == 0)
         {
             DEBUG_MSG("StExt_Player_ItemBatchUse - item '" + itemInstanceName + "' use func not exist!");
             return False;
@@ -2329,21 +2322,362 @@ namespace Gothic_II_Addon
             return False;
         }
 
-        oCNpc* oldSelf = dynamic_cast<oCNpc*>((zCVob*)par->GetSymbol(StExt_Self_SymId)->GetInstanceAdr());
-        oCItem* oldItem = dynamic_cast<oCItem*>((zCVob*)par->GetSymbol("ITEM")->GetInstanceAdr());
-        par->SetInstance(StExt_Self_SymId, player);
-        par->SetInstance("ITEM", pItm);
+        parser->SetInstance(StExt_Self_SymId, player);
+        parser->SetInstance("ITEM", pItm);
 
         int usedItems = 0;
         do
         {
-            par->CallFunc(useFunc);
+            parser->CallFunc(useFunc);
             ++usedItems;
         } 
         while (usedItems < consumeItemsCount);
         player->RemoveFromInv(itemInstanceId, usedItems);
-        par->SetInstance(StExt_Self_SymId, oldSelf);
-        par->SetInstance("ITEM", oldItem);
+        return True;
+    }
+
+
+    // NEW
+
+    int __cdecl StExt_CallActorFunc()
+    {
+        zSTRING funcName;
+        oCNpc* self;
+
+        self = (oCNpc*)parser->GetInstance();
+        parser->GetParameter(funcName);
+
+        const int funcIndex = GetFuncIndex(funcName);
+        if (funcIndex != Invalid)
+        {
+            parser->SetInstance(StExt_ModSelf_SymId, self);
+            parser->CallFunc(funcIndex);
+            return True;
+        }
+        DEBUG_MSG("StExt_CallActorFunc: Func '" + funcName + "' not found!");
+        return False;
+    }
+
+    int __cdecl StExt_CallActorsFunc()
+    {
+        zSTRING funcName;
+        oCNpc* self;
+        oCNpc* other;
+
+        other = (oCNpc*)parser->GetInstance();
+        self = (oCNpc*)parser->GetInstance();
+        parser->GetParameter(funcName);
+
+        const int funcIndex = GetFuncIndex(funcName);
+        if (funcIndex != Invalid)
+        {
+            parser->SetInstance(StExt_ModSelf_SymId, self);
+            parser->SetInstance(StExt_ModOther_SymId, other);
+            parser->CallFunc(funcIndex);
+            return True;
+        }
+        DEBUG_MSG("StExt_CallActorsFunc: Func '" + funcName + "' not found!");
+        return False;
+    }
+
+
+    // Npc abilities
+
+    int __cdecl StExt_Npc_HasAbility()
+    {
+        int abilityId; parser->GetParameter(abilityId);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+
+        parser->SetInstance(StExt_CurrentNpcAbilitySymId, Null);
+        if (!npc || !npcEx) {
+            parser->SetReturn(False);
+            return False;
+        }
+
+        const NpcAbility* npcAbility = GetNpcAbilityById(abilityId);
+        if(!npcAbility) {
+            parser->SetReturn(False);
+            return False;
+        }
+
+        int* npcStats = Null;
+        if (!GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats)) {
+            parser->SetReturn(False);
+            return False;
+        }
+
+        const int startIndex = StExt_Npc_FirstAbilityIdIndex;
+        const int lastIndex = StExt_Npc_FirstAbilityIdIndex + StExt_Npc_MaxAbilities;
+        for (int i = startIndex; i < lastIndex; ++i) 
+        {
+            if(npcStats[i] == abilityId)
+            {
+                parser->SetInstance(StExt_CurrentNpcAbilitySymId, const_cast<NpcAbility*>(npcAbility));
+                parser->SetReturn(True);
+                return True;
+            }
+        }
+
+        parser->SetReturn(False);
+        return False;
+    }
+
+    int __cdecl StExt_Npc_SearchAbility()
+    {
+        int abilityFlags; parser->GetParameter(abilityFlags);
+        int abilityType; parser->GetParameter(abilityType);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+
+        parser->SetInstance(StExt_CurrentNpcAbilitySymId, Null);
+        if (!npc || !npcEx) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        int* npcStats = Null;
+        if (!GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats)) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+        
+        for (int slotOffset = 0; slotOffset < StExt_Npc_MaxAbilities; ++slotOffset)
+        {
+            int abilityId = npcStats[slotOffset + StExt_Npc_FirstAbilityIdIndex];
+            int abilityCooldown = npcStats[slotOffset + StExt_Npc_FirstAbilityTimerIndex];
+            if ((abilityId == 0) || (abilityId == Invalid)) continue;
+
+            const NpcAbility* npcAbility = GetNpcAbilityById(abilityId);
+            if (npcAbility)
+            {
+                if ((abilityType > 0) && !HasAllFlags(npcAbility->Type, abilityType)) continue;
+                if ((abilityFlags > 0) && !HasAllFlags(npcAbility->Flags, abilityFlags)) continue;
+
+                parser->SetInstance(StExt_CurrentNpcAbilitySymId, const_cast<NpcAbility*>(npcAbility));
+                parser->SetReturn(slotOffset);
+                return True;
+            }
+        }
+
+        parser->SetReturn(Invalid);
+        return False;
+    }
+
+    int __cdecl StExt_Npc_SelectAbility()
+    {
+        int distance; parser->GetParameter(distance);
+        int abilityFlags; parser->GetParameter(abilityFlags);
+        int abilityType; parser->GetParameter(abilityType);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+
+        parser->SetInstance(StExt_CurrentNpcAbilitySymId, Null);
+        if (!npc || !npcEx) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        int* npcStats = Null;
+        if (!GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats)) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        Map<int, const NpcAbility*> matchMap;
+        for (int slotOffset = 0; slotOffset < StExt_Npc_MaxAbilities; ++slotOffset)
+        {
+            int abilityId = npcStats[slotOffset + StExt_Npc_FirstAbilityIdIndex];
+            int abilityCooldown = npcStats[slotOffset + StExt_Npc_FirstAbilityTimerIndex];
+            if ((abilityId == 0) || (abilityId == Invalid)) continue;
+
+            const NpcAbility* npcAbility = GetNpcAbilityById(abilityId);
+            if (npcAbility)
+            {
+                if ((abilityType > 0) && !HasFlag(npcAbility->Type, abilityType)) continue;
+                if ((abilityFlags > 0) && !HasFlag(npcAbility->Flags, abilityFlags)) continue;
+
+                if (HasFlag(npcAbility->Flags, StExt_NpcAbility_Flag_UseCooldown) && (abilityCooldown > 0)) continue;
+                if (HasFlag(npcAbility->Flags, StExt_NpcAbility_Flag_UseDistance) && !ValueInRange(distance, npcAbility->RangeMin, npcAbility->RangeMax)) continue;
+
+                matchMap.Insert(slotOffset, npcAbility);
+            }
+        }
+
+        auto& matchPairs = matchMap.GetArray();
+        if (!matchPairs.IsEmpty())
+        {
+            auto& matchPair = matchPairs[StExt_Rand::Index(matchPairs.GetNum())];
+            const int slotOffset = matchPair.GetKey();
+            const NpcAbility* npcAbility = matchPair.GetValue();
+
+            parser->SetInstance(StExt_CurrentNpcAbilitySymId, const_cast<NpcAbility*>(npcAbility));
+            parser->SetReturn(slotOffset);
+            return True;
+        }
+
+        parser->SetReturn(Invalid);
+        return False;
+    }
+
+    int __cdecl StExt_Npc_ForEachAbility()
+    {
+        int funcIndex; parser->GetParameter(funcIndex);
+        int abilityFlags; parser->GetParameter(abilityFlags);
+        int abilityType; parser->GetParameter(abilityType);
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+
+        parser->SetInstance(StExt_CurrentNpcAbilitySymId, Null);
+        if (!npc || !npcEx) return False;
+        if (funcIndex == Invalid) return False;
+        
+        int* npcStats = Null;
+        if (!GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats)) { return False; }
+
+        for (int slotOffset = 0; slotOffset < StExt_Npc_MaxAbilities; ++slotOffset)
+        {
+            int abilityId = npcStats[slotOffset + StExt_Npc_FirstAbilityIdIndex];
+            if ((abilityId == 0) || (abilityId == Invalid)) continue;
+
+            const NpcAbility* npcAbility = GetNpcAbilityById(abilityId);
+            if (npcAbility)
+            {
+                if ((abilityType > 0) && !HasAllFlags(npcAbility->Type, abilityType)) continue;
+                if ((abilityFlags > 0) && !HasAllFlags(npcAbility->Flags, abilityFlags)) continue;
+
+                parser->SetInstance(StExt_ModSelf_SymId, npc);
+                parser->SetInstance(StExt_CurrentNpcAbilitySymId, const_cast<NpcAbility*>(npcAbility));
+                parser->CallFunc(funcIndex, slotOffset);
+            }
+        }
+        return False;
+    }
+
+    int __cdecl StExt_Npc_ResetAllAbilityCooldowns()
+    {
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+
+        if (!npc || !npcEx) return False;
+        
+        int* npcStats = Null;
+        if (GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats))
+        {
+            const int startIndex = StExt_Npc_FirstAbilityTimerIndex;
+            const int lastIndex = StExt_Npc_FirstAbilityTimerIndex + StExt_Npc_MaxAbilities;
+            for (int i = startIndex; i < lastIndex; ++i) npcStats[i] = 0;
+        }
+        return True;
+    }
+
+    int __cdecl StExt_Npc_ProcessAbilityCooldowns()
+    {
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+        if (!npc || !npcEx) return False;
+
+        int* npcStats = Null;
+        if (GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats))
+        {
+            const int startIndex = StExt_Npc_FirstAbilityTimerIndex;
+            const int lastIndex = StExt_Npc_FirstAbilityTimerIndex + StExt_Npc_MaxAbilities;
+            for (int i = startIndex; i < lastIndex; ++i)
+                 if (npcStats[i] > 0) npcStats[i] -= 1;
+        }
+        return True;
+    }
+
+    int __cdecl StExt_GetRandomAbility()
+    {
+        oCNpc* npc = (oCNpc*)parser->GetInstance();
+        oCNpcEx* npcEx = dynamic_cast<oCNpcEx*>(npc);
+
+        if (!npc || !npcEx) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        int* npcStats = Null;
+        if (!GetNpcExtensionArr(npcEx->m_pVARS[StExt_AiVar_Uid], npcStats)) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        Array<int> ownedAbilities;
+        for (int slotOffset = 0; slotOffset < StExt_Npc_MaxAbilities; ++slotOffset)
+        {
+            int abilityId = npcStats[slotOffset + StExt_Npc_FirstAbilityIdIndex];
+            if (abilityId > 0 && abilityId != Invalid)
+                ownedAbilities.Insert(abilityId);
+        }
+
+        const int totalAbilities = NpcAbilitiesData.GetArray().GetNum();
+        if (ownedAbilities.GetNum() >= StExt_Npc_MaxAbilities) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        int selectedAbilityId = Invalid;
+        int validCount = 0;
+        auto& allAbilities = NpcAbilitiesData.GetArray();
+        for (int i = 0; i < allAbilities.GetNum(); ++i)
+        {
+            int abilityId = allAbilities[i].GetKey();
+            if (ownedAbilities.HasEqual(abilityId))
+                continue;
+            ++validCount;
+
+            if (!StExt_Rand::Index(validCount))
+                selectedAbilityId = abilityId;
+        }
+
+        if (selectedAbilityId == Invalid) {
+            parser->SetReturn(Invalid);
+            return False;
+        }
+
+        parser->SetReturn(selectedAbilityId);
+        return True;
+    }
+
+    
+    int __cdecl StExt_InitializeCallback()
+    {
+        int delay; parser->GetParameter(delay);
+        zSTRING funcName; parser->GetParameter(funcName);
+        oCNpc* oth = (oCNpc*)parser->GetInstance();
+        oCNpc* slf = (oCNpc*)parser->GetInstance();
+
+        const int funcId = GetFuncIndex(funcName);
+        if (funcId == Invalid)
+        {
+            parser->SetReturn(Null);
+            return False;
+        }
+        if (delay < 1) delay = 1;
+
+        ScriptCallback& callback = RegisteredCallbacks.Create();
+        callback.Self = slf;
+        callback.Other = oth;
+        callback.FuncIndex = funcId;
+        callback.Delay = delay;
+        parser->SetReturn(&callback.ScriptCallbackParams);
+        return True;
+    }
+
+    int __cdecl StExt_GetTimedEffectData()
+    {
+        int index;
+        parser->GetParameter(index);
+
+        const TimedEffectData* effect = GetTimedEffectById(index);
+        if (!effect)
+        {
+            parser->SetReturn(Null);
+            return False;
+        }
+        parser->SetReturn(const_cast<TimedEffectData*>(effect));
         return True;
     }
 
@@ -2390,7 +2724,10 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_ApplyExtraDamage", StExt_ApplyExtraDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_ApplyDotDamage", StExt_ApplyDotDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_ApplyReflectDamage", StExt_ApplyReflectDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);        
-        parser->DefineExternal("StExt_ApplyDamage", StExt_ApplyDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_ApplyScriptDamage", StExt_ApplyScriptDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_FUNC, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_ApplyScriptPendingDamage", StExt_ApplyScriptPendingDamage, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_FUNC, zPAR_TYPE_VOID);
+
+        parser->DefineExternal("StExt_CastScriptSpell", StExt_CastScriptSpell, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
 
         parser->DefineExternal("StExt_TryCallFunc", StExt_TryCallFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_OverrideFunc", StExt_OverrideFunc, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
@@ -2409,7 +2746,7 @@ namespace Gothic_II_Addon
         
         parser->DefineExternal("StExt_GetTimedEffectsCount", GetTimedEffectsCount, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetTimedEffectByIndex", GetTimedEffectByIndex, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);
-        parser->DefineExternal("StExt_GetTimedEffectByNpc", GetTimedEffectByNpc, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_GetTimedEffectByNpc", GetTimedEffectByNpc, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_CreateTimedEffect", CreateTimedEffect, zPAR_TYPE_INSTANCE, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         
         parser->DefineExternal("StExt_GetNpcByUid", StExt_GetNpcByUid, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);
@@ -2429,8 +2766,7 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_DeleteTempItem", StExt_DeleteTempItem, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_GetItemNameById", StExt_GetItemNameById, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_VOID);        
 
-        parser->DefineExternal("StExt_ThrowItem", StExt_ThrowItem, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
-        parser->DefineExternal("StExt_ThrowItemEx", StExt_ThrowItemEx, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_ThrowItem", StExt_ThrowItem, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_TeleportToNpc", StExt_TeleportToNpc, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_ValidateNpcPosition", StExt_ValidateNpcPosition, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_PrintMessageToTray", StExt_PrintMessageToTray, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_STRING, zPAR_TYPE_VOID);
@@ -2460,6 +2796,20 @@ namespace Gothic_II_Addon
         parser->DefineExternal("StExt_GetRandomEmptyChest", StExt_GetRandomEmptyChest, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_LockChest", StExt_LockChest, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_VOID);
         parser->DefineExternal("StExt_Player_ItemBatchUse", StExt_Player_ItemBatchUse, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+
+        parser->DefineExternal("StExt_CallActorFunc", StExt_CallActorFunc, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_CallActorsFunc", StExt_CallActorsFunc, zPAR_TYPE_VOID, zPAR_TYPE_STRING, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
+
+        parser->DefineExternal("StExt_InitializeCallback", StExt_InitializeCallback, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_INSTANCE, zPAR_TYPE_STRING, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_GetTimedEffectData", StExt_GetTimedEffectData, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);        
+
+        parser->DefineExternal("StExt_GetRandomAbility", StExt_GetRandomAbility, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Npc_ProcessAbilityCooldowns", StExt_Npc_ProcessAbilityCooldowns, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Npc_ResetAllAbilityCooldowns", StExt_Npc_ResetAllAbilityCooldowns, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Npc_ForEachAbility", StExt_Npc_ForEachAbility, zPAR_TYPE_VOID, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_FUNC, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Npc_SelectAbility", StExt_Npc_SelectAbility, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Npc_SearchAbility", StExt_Npc_SearchAbility, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_INT, zPAR_TYPE_VOID);
+        parser->DefineExternal("StExt_Npc_HasAbility", StExt_Npc_HasAbility, zPAR_TYPE_INT, zPAR_TYPE_INSTANCE, zPAR_TYPE_INT, zPAR_TYPE_VOID);
     }
 
     //-----------------------------------------------------------------
@@ -2518,4 +2868,11 @@ namespace Gothic_II_Addon
         return THISCALL(Hook_oCSpell_Invest)();
     }
 
+    /*
+    HOOK Hook_oCVisualFX_ProcessCollision PATCH(&oCVisualFX::ProcessCollision, &oCVisualFX::StExt_ProcessCollision);
+    int oCVisualFX::StExt_ProcessCollision(zSVisualFXColl& collFX)
+    {
+        if (this) DEBUG_MSG("StExt_ProcessCollision - " + this->fxName);            
+        return THISCALL(Hook_oCVisualFX_ProcessCollision)(collFX);
+    }*/
 }

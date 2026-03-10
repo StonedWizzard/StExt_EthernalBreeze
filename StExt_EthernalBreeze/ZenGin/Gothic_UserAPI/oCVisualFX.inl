@@ -3,3 +3,4 @@
 // User API for oCVisualFX
 // Add your methods here
 
+//int oCVisualFX::StExt_ProcessCollision(zSVisualFXColl& collFX);

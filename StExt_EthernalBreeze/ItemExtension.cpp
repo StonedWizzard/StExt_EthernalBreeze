@@ -147,6 +147,8 @@ namespace Gothic_II_Addon
 	void ItemExtension::UpdatePrice()
 	{
 		float priceMult = 0.5f + (Level * ItemClassData->PriceLevelBonus) + (Rank * ItemClassData->PriceRankBonus) + (Quality * ItemClassData->PriceQualityBonus);
+		priceMult = ValidateValue(priceMult, 0.0001f, 10.00f);
+
 		int itemExtraCost = Properties[(int)ItemProperty::AdditionalCost];
 		int statsCost = 0;
 		int abilitiesCost = 0;
@@ -156,9 +158,7 @@ namespace Gothic_II_Addon
 			if (StatId[i] == Invalid) continue;
 			const ExtraStatData* stat = GetExtraStatDataById(StatId[i]);
 			if (!stat) continue;
-
-			const int statCost = static_cast<int>(StatValue[i] * stat->CostPerStat);
-			statsCost += statCost <= 0 ? 1 : statCost;
+			statsCost += ValidateValue(static_cast<int>(StatValue[i] * stat->CostPerStat), 1, 2500);
 		}
 
 		for (int i = 0; i < ItemExtension_OwnStats_Max; ++i)
@@ -166,18 +166,14 @@ namespace Gothic_II_Addon
 			if (OwnStatId[i] == Invalid) continue;
 			const ExtraStatData* stat = GetExtraStatDataById(StatId[i]);
 			if (!stat) continue;
-
-			const int statCost = static_cast<int>(OwnStatValue[i] * stat->CostPerStat);
-			statsCost += statCost <= 0 ? 1 : statCost;
+			statsCost += ValidateValue(static_cast<int>(OwnStatValue[i] * stat->CostPerStat), 1, 5000);
 		}
-
-		// TODO - count abilities
 
 		statsCost = static_cast<int>(statsCost * ItemsGeneratorConfigs.ItemStatPriceMult);
 		abilitiesCost = static_cast<int>(statsCost * ItemsGeneratorConfigs.ItemStatPriceMult); // TODO - Fix it later
 
-		totalCost = static_cast<int>(((statsCost + abilitiesCost) * priceMult) * ItemClassData->PriceMult);
-		totalCost += Properties[(int)ItemProperty::InitialCost] + itemExtraCost;
+		totalCost = static_cast<int>((statsCost + abilitiesCost) * ItemClassData->PriceMult);
+		totalCost += static_cast<int>((Properties[(int)ItemProperty::InitialCost] + itemExtraCost) * priceMult);
 		totalCost = static_cast<int>(totalCost * ItemsGeneratorConfigs.ItemPriceMult);
 
 		Cost = ValidateValue(totalCost, 1, ItemExtension_MaxPrice);

@@ -106,10 +106,10 @@ namespace Gothic_II_Addon
             TNpcSlot* slot = invSlot[i];
             if (!slot) continue;
             const zSTRING slotName = slot->name;
-            DEBUG_MSG("EquipAdditionalArmorItem: slot - " + slotName);
 
             if (slotName.StartWith(SlotPrefix)) 
             {
+                DEBUG_MSG_IF(this->IsSelfPlayer(), "UnequipAdditionalArmorItem: slot - " + slotName + " Npc: " + this->name[0] + "!");
                 oCItem* item = slot->vob->CastTo<oCItem>();
                 if (!item) continue;
 
@@ -164,20 +164,20 @@ namespace Gothic_II_Addon
     void oCNpc::EquipArmor_StExt(oCItem* item) 
     {
         if (!item) return;
-        if (item->HasFlag(ITM_FLAG_ACTIVE)) { UnequipItem(item); return; }
-        if (!CanEquipAdditionalArmor(item)) return;
-
         if (this->IsSelfPlayer())
         {
             if (!CanUse(item)) { DisplayCannotUse(); return; }
-            UnequipAdditionalArmorItem(item->wear);
-            parser->SetInstance("STEXT_ITEM", item);
-            parser->CallFunc(OnArmorEquipFunc);
+            if (item->HasFlag(ITM_FLAG_ACTIVE)) { UnequipItem(item); return; }
+            if (!CanEquipAdditionalArmor(item)) return;
         }
 
         THISCALL(Hook_oCNpc_EquipArmor)(item);
         if (this->IsSelfPlayer())
         {
+            UnequipAdditionalArmorItem(item->wear);
+            parser->SetInstance("STEXT_ITEM", item);
+            parser->CallFunc(OnArmorEquipFunc);
+
             if ((item->wear == wear_head) && parser->GetSymbol("StExt_Config_HideHelm")->single_intdata)
             {
                 zCModel* pModel = this->GetModel();
@@ -209,5 +209,4 @@ namespace Gothic_II_Addon
             }
         }
     }
-
 }

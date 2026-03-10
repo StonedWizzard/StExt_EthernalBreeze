@@ -119,8 +119,7 @@ namespace Gothic_II_Addon
 
     void InitItemAbilitiesData()
     {
-        zCParser* par = zCParser::GetParser();
-        zCPar_Symbol* indxArray = par->GetSymbol("StExt_ItemAbilitiesIndexArray");
+        zCPar_Symbol* indxArray = parser->GetSymbol("StExt_ItemAbilitiesIndexArray");
         if (!indxArray)
         {
             DEBUG_MSG("'StExt_ItemAbilitiesIndexArray' not found!");

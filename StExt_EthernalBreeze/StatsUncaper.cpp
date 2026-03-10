@@ -18,6 +18,7 @@ namespace Gothic_II_Addon
 	int UncaperSetFunc = Invalid;
 	int UncaperGetFunc = Invalid;
 	int UncaperUpdateFunc = Invalid;
+	int StExt_UncaperStatsIndexArray_SymIndex = Invalid;
 
 	zCPar_Symbol* UncaperStatNowArray = Null;
 	zCPar_Symbol* UncaperStatWasArray = Null;
@@ -26,8 +27,9 @@ namespace Gothic_II_Addon
 
 	void InitStatsUncaper()
 	{
-		zCParser* par = zCParser::GetParser();
-		zCPar_Symbol* uncaperIndxArray = par->GetSymbol("StExt_UncaperStatsIndexArray");
+		static int uncaperArraySymIndex = parser->GetIndex("StExt_UncaperStatsIndexArray");
+
+		zCPar_Symbol* uncaperIndxArray = parser->GetSymbol(uncaperArraySymIndex);
 		if (!uncaperIndxArray)
 		{
 			DEBUG_MSG("'StExt_UncaperStatsIndexArray' not found!");
@@ -38,20 +40,20 @@ namespace Gothic_II_Addon
 		DEBUG_MSG("Initialize " + Z(int)uncaperIndxArray->ele + "/" + Z StExt_UncaperStatIndex_Max + " uncapers...");
 		for (unsigned int i = 0; i < uncaperIndxArray->ele; i++)
 		{
-			int index = par->GetIndex(uncaperIndxArray->stringdata[i]);
+			int index = parser->GetIndex(uncaperIndxArray->stringdata[i]);
 			UncapedStatData* statData = new UncapedStatData();
 			parser->CreateInstance(index, statData);
 			UnacapedStatsData.InsertEnd(statData);
 		}
 
-		UncaperSetFunc = par->GetIndex("StExt_StatUncaper_SetValue");
-		UncaperGetFunc = par->GetIndex("StExt_StatUncaper_GetValue");
-		UncaperUpdateFunc = par->GetIndex("");
+		UncaperSetFunc = parser->GetIndex("StExt_StatUncaper_SetValue");
+		UncaperGetFunc = parser->GetIndex("StExt_StatUncaper_GetValue");
+		UncaperUpdateFunc = parser->GetIndex("");
 
-		UncaperStatNowArray = par->GetSymbol("StExt_PcStatsUncaper_Now");
-		UncaperStatWasArray = par->GetSymbol("StExt_PcStatsUncaper_Was");
-		UncaperStatBonusNowArray = par->GetSymbol("StExt_PcStatsUncaper_BonusNow");
-		UncaperStatBonusWasArray = par->GetSymbol("StExt_PcStatsUncaper_BonusWas");
+		UncaperStatNowArray = parser->GetSymbol("StExt_PcStatsUncaper_Now");
+		UncaperStatWasArray = parser->GetSymbol("StExt_PcStatsUncaper_Was");
+		UncaperStatBonusNowArray = parser->GetSymbol("StExt_PcStatsUncaper_BonusNow");
+		UncaperStatBonusWasArray = parser->GetSymbol("StExt_PcStatsUncaper_BonusWas");
 
 		DEBUG_MSG("StatsUncaper initialized!");
 	}
